@@ -90,6 +90,15 @@ export type { PeopleAction } from "./authz/people-permissions";
 export { personDisplayName, inverseRelationshipType } from "./people/helpers";
 export { parseCsv, mapImportRows, IMPORT_HEADERS, MAX_IMPORT_ROWS, MAX_IMPORT_BYTES } from "./people/import";
 export type { ImportPersonRow, ImportRowError } from "./people/import";
+export {
+  buildColumnProfiles,
+  maskImportValue,
+  validateMappingPlan,
+  applyMappingPlan,
+  MAPPING_TARGETS,
+  PROFILE_SAMPLE_LIMIT,
+} from "./people/import-mapping";
+export type { ColumnProfile, MappingPlan, MappingColumn, MappingTarget } from "./people/import-mapping";
 
 export * as groupPermissions from "./authz/group-permissions";
 export type { GroupAction } from "./authz/group-permissions";

@@ -31,3 +31,4 @@ The foundational decisions from [BLUEPRINT §59](../BLUEPRINT.md#59-architecture
 | [ADR-008](./008-object-storage-metadata-db.md) | S3-compatible object storage + metadata DB | Accepted |
 | [ADR-009](./009-api-webhook-versioning.md) | API/webhook versioning strategy | Accepted |
 | [ADR-010](./010-multi-tenant-isolation.md) | Multi-tenant isolation strategy | Accepted |
+| [ADR-011](./011-ai-assisted-import-mapping.md) | AI-assisted import mapping (Claude API) | Accepted |

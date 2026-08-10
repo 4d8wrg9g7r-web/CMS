@@ -38,6 +38,28 @@ the standard on-ramp from spreadsheets and other ChMS exports.
 - Caps: 2,000 rows / 1 MB per import (one pastoral database at a time, not a data
   warehouse); larger files get a clear error telling the user to split them.
 
+## AI-assisted mapping (ADR-011)
+For files whose columns don't match the canonical headers, "Analyze with AI" asks
+Claude (`claude-opus-5`, structured outputs) for a **MappingPlan**: column → field
+assignments (including a `fullName` split), membershipStatus value translations
+("Regular attender" → ATTENDER), and a tag delimiter. Hard boundaries:
+
+- **AI proposes, deterministic code disposes.** The model sees only per-column
+  profiles — headers plus ≤8 distinct sample values with emails/phones masked
+  (`maskImportValue`) — never full rows or the raw file. Its plan is validated
+  (`validateMappingPlan`) against the file's real headers and applied
+  (`applyMappingPlan`) by pure, unit-tested code feeding the same `mapImportRows` +
+  `importPeople` pipeline as the exact-header path. The model cannot write anything.
+- **Human review before any write (§66).** The plan, summary, status translations,
+  mapped-row preview, and dry-run counts are shown for review; a separate confirm
+  submit performs the import, re-validating the round-tripped plan server-side.
+- Unmatched status values pass through and surface as per-line row errors — the
+  system never guesses silently.
+- Audit metadata on AI-assisted runs records `aiAssisted: true`, the model id, and
+  the plan summary (ADR-007 provenance).
+- Feature-gated on `ANTHROPIC_API_KEY`; without it the page shows only the
+  exact-header flow.
+
 ## Data model
 `PersonImport` — `organizationId`, `fileName?`, `totalRows`, `createdCount`,
 `skippedCount`, `errorCount`, `errors Json` (array of `{line, message}`, capped at 100

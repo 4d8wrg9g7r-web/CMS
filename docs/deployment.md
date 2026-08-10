@@ -30,6 +30,7 @@ Target stack: **Vercel** (Next.js app + cron) + **Neon** (Postgres) + **Resend**
    | `CRON_SECRET` | `openssl rand -base64 32` |
    | `RESEND_API_KEY` | from Resend (optional — see §3) |
    | `RESEND_EMAIL_DOMAIN` | your verified Resend domain (optional) |
+   | `ANTHROPIC_API_KEY` | from console.anthropic.com (optional — enables "Analyze with AI" on People import, ADR-011) |
 
 4. Deploy. First build takes a few minutes (install + prisma generate + migrate + build).
 

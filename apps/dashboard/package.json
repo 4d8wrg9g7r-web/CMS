@@ -11,6 +11,7 @@
     "test": "echo 'apps/dashboard has no unit tests of its own'"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.116.0",
     "@cms/database": "workspace:*",
     "@cms/email": "workspace:*",
     "@cms/storage": "workspace:*",

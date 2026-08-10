@@ -7,7 +7,8 @@ import { EmptyState } from "../../../../components/ui/EmptyState";
 import { canPeople } from "../../../../lib/people-access";
 import { getCurrentOrganization } from "../../../../lib/session";
 import { timeAgo } from "../../../../lib/format";
-import { importPeopleAction } from "./actions";
+import { aiImportAvailable } from "../../../../lib/ai/import-mapper";
+import { analyzeImportAction, importPeopleAction, importWithPlanAction } from "./actions";
 
 export default async function PeopleImportPage() {
   const organization = await getCurrentOrganization();
@@ -53,9 +54,15 @@ export default async function PeopleImportPage() {
         <p className="mb-4 text-xs text-ink-muted">
           Only firstName and lastName are required. membershipStatus: VISITOR, ATTENDER, MEMBER, or INACTIVE (blank
           = VISITOR). tags are ;-separated. campus must match an existing campus name (create them in Settings).
-          Max {MAX_IMPORT_ROWS.toLocaleString()} rows / 1 MB per run. Imports never trigger workflows.
+          Max {MAX_IMPORT_ROWS.toLocaleString()} rows / 1 MB per run. Imports never trigger workflows. Columns from
+          another system don&apos;t need to match — use Analyze with AI below.
         </p>
-        <PeopleImportForm action={importPeopleAction} />
+        <PeopleImportForm
+          action={importPeopleAction}
+          analyzeAction={analyzeImportAction}
+          confirmAction={importWithPlanAction}
+          aiAvailable={aiImportAvailable()}
+        />
       </Card>
 
       {history.length > 0 && (
