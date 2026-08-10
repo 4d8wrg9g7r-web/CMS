@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import {
   buildColumnProfiles,
+  matchSuggestedField,
   validateMappingPlan,
   MAPPING_TARGETS,
   type MappingPlan,
@@ -94,6 +95,17 @@ export async function proposeMappingPlan({ records, campusNames }: AnalyzeInput)
   const headers = records[0] ?? [];
   const profiles = buildColumnProfiles(records);
 
+  // Backend suggested-field catalog matches, passed as hints so proposed custom
+  // fields converge on the platform's canonical labels/types.
+  const catalogHints = headers
+    .map((header) => ({ header, match: matchSuggestedField(header) }))
+    .filter((entry) => entry.match !== null)
+    .map((entry) => ({
+      header: entry.header,
+      suggestedLabel: entry.match!.label,
+      suggestedType: entry.match!.type,
+    }));
+
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const response = await client.messages.create({
     model: AI_IMPORT_MODEL,
@@ -107,7 +119,8 @@ export async function proposeMappingPlan({ records, campusNames }: AnalyzeInput)
         content: JSON.stringify({
           columns: profiles,
           organizationCampusNames: campusNames,
-          note: "samples are per-column distinct values; emails and phone numbers are masked",
+          knownFieldCatalogMatches: catalogHints,
+          note: "samples are per-column distinct values; emails and phone numbers are masked. knownFieldCatalogMatches are platform suggestions for some headers — prefer their label/type for custom columns unless the samples clearly contradict them.",
         }),
       },
     ],

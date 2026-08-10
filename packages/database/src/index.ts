@@ -122,6 +122,8 @@ export {
   PERSON_FIELD_TYPES,
 } from "./people/custom-fields";
 export type { PersonFieldValueJson } from "./people/custom-fields";
+export { SUGGESTED_PERSON_FIELDS, matchSuggestedField } from "./people/suggested-fields";
+export type { SuggestedPersonField } from "./people/suggested-fields";
 
 export * as groupPermissions from "./authz/group-permissions";
 export type { GroupAction } from "./authz/group-permissions";

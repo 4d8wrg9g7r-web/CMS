@@ -111,8 +111,18 @@ export function PeopleImportWizard() {
     const tagsIdx = d.guesses.findIndex((g) => g.target === "tags");
     setTagDelimiter(tagsIdx >= 0 ? (d.delimiters[tagsIdx] ?? ";") : ";");
     setStatusChoices({});
-    setCustomTypes({});
-    setCustomLabels({});
+    // Heuristic guesses may already propose typed custom fields (the backend
+    // suggested-field catalog) — seed the type/label answers from them.
+    const seedTypes: Record<number, PersonFieldType> = {};
+    const seedLabels: Record<number, string> = {};
+    d.guesses.forEach((g, i) => {
+      if (g.customField) {
+        seedTypes[i] = g.customField.type;
+        seedLabels[i] = g.customField.label;
+      }
+    });
+    setCustomTypes(seedTypes);
+    setCustomLabels(seedLabels);
     setUsedAi(false);
     setAiSummary("");
     setAiNote(null);

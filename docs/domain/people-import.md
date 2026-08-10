@@ -56,6 +56,19 @@ on the consent screen, from Claude. The client only assembles answers into a
 MappingPlan; the server re-validates it and runs the same deterministic pipeline in
 `dryRunImportAction` (no writes) and `runImportAction` (writes, after confirm).
 
+### Suggested-field catalog (backend-only)
+`people/suggested-fields.ts` holds a curated catalog of the 200 fields churches
+most commonly track (identity, contact/address, membership, milestones,
+safety/compliance, health & care, volunteering, communication preferences,
+family/household, life stage, ministries), each with a stable key, display label,
+storage type, and normalized header aliases. It is never rendered as a browsable
+list — it exists so the system anticipates incoming data: `guessMappingColumns`
+pre-proposes recognized headers ("DOB", "Baptism Date", "Background Check") as
+typed custom fields, and the AI mapper receives matches as hints so its proposals
+converge on canonical labels/types. Deliberately excluded: financial amounts
+(gifts, pledges, balances) — identity-like giving numbers only. Nothing is created
+from the catalog until the user confirms its column in the wizard.
+
 ## AI-assisted mapping (ADR-011)
 When the user opts in on the wizard's consent screen, Claude (`claude-opus-5`,
 structured outputs) proposes a **MappingPlan**: column → field assignments

@@ -1,6 +1,7 @@
 import { MembershipStatus, PersonFieldType } from "@prisma/client";
 import { IMPORT_HEADERS, type ImportRowError } from "./import";
 import { coerceFieldValue, MAX_SELECT_OPTIONS, slugifyFieldKey, type PersonFieldValueJson } from "./custom-fields";
+import { matchSuggestedField } from "./suggested-fields";
 
 /**
  * Pure half of AI-assisted import mapping (docs/domain/people-import.md, ADR-011).
@@ -162,7 +163,8 @@ const HEADER_ALIASES: Record<string, MappingTarget> = {
   cellphone: "phone",
   telephone: "phone",
   primaryphone: "phone",
-  homephone: "phone",
+  // "homephone" deliberately NOT here — files with both Mobile and Home Phone keep
+  // the home number as its own suggested custom field (suggested-fields.ts).
   membershipstatus: "membershipStatus",
   memberstatus: "membershipStatus",
   membership: "membershipStatus",
@@ -183,17 +185,33 @@ const HEADER_ALIASES: Record<string, MappingTarget> = {
 
 /**
  * Deterministic fallback proposal when no AI key is configured (or the AI call fails):
- * alias-matches headers to targets. First match wins a target; the rest default to
- * ignore. fullName defers to explicit first/last columns when both exist.
+ * alias-matches headers to built-in targets first, then against the backend-only
+ * suggested-field catalog (200 common church fields) so recognizable columns like
+ * "Baptism Date" or "Veteran" arrive pre-proposed as typed custom fields. First
+ * match wins a built-in target; anything unmatched defaults to ignore. fullName
+ * defers to explicit first/last columns when both exist.
  */
 export function guessMappingColumns(headers: string[]): MappingColumn[] {
   const normalized = headers.map((h) => h.trim().toLowerCase().replace(/[^a-z0-9]/g, ""));
   const taken = new Set<string>();
+  const suggestedKeys = new Set<string>();
   const guesses: MappingColumn[] = headers.map((header, i) => {
     const target = HEADER_ALIASES[normalized[i] ?? ""] ?? "ignore";
-    if (target === "ignore" || taken.has(target)) return { sourceHeader: header.trim(), target: "ignore", nameOrder: null };
-    taken.add(target);
-    return { sourceHeader: header.trim(), target, nameOrder: target === "fullName" ? "firstLast" : null };
+    if (target !== "ignore" && !taken.has(target)) {
+      taken.add(target);
+      return { sourceHeader: header.trim(), target, nameOrder: target === "fullName" ? "firstLast" : null };
+    }
+    const suggested = matchSuggestedField(header);
+    if (suggested && !suggestedKeys.has(suggested.key)) {
+      suggestedKeys.add(suggested.key);
+      return {
+        sourceHeader: header.trim(),
+        target: "custom",
+        nameOrder: null,
+        customField: { key: suggested.key, label: suggested.label, type: suggested.type },
+      };
+    }
+    return { sourceHeader: header.trim(), target: "ignore", nameOrder: null };
   });
   // "Name" next to explicit First/Last columns is usually a duplicate — don't fight them.
   if (taken.has("fullName") && taken.has("firstName") && taken.has("lastName")) {
