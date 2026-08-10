@@ -26,7 +26,17 @@ async function signupAction(formData: FormData) {
   await userService.createUser({ email, name: name || undefined, passwordHash });
 
   // Fresh account has no organization yet; "/" lands them on /onboarding to create one.
-  await signIn("credentials", { email, password, redirectTo: "/" });
+  // The account row above already committed, so if the auto sign-in fails for any
+  // environmental reason (e.g. a misconfigured NEXTAUTH_URL), send the user to the
+  // login page with a notice rather than a dead generic error screen. signIn signals
+  // SUCCESS by throwing Next's redirect control-flow error — rethrow that one.
+  try {
+    await signIn("credentials", { email, password, redirectTo: "/" });
+  } catch (err) {
+    const digest = err && typeof err === "object" && "digest" in err ? String((err as { digest: unknown }).digest) : "";
+    if (digest.startsWith("NEXT_REDIRECT")) throw err;
+    redirect("/login?created=1");
+  }
 }
 
 const ERRORS: Record<string, string> = {

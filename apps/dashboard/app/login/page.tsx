@@ -27,7 +27,7 @@ async function loginAction(formData: FormData) {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; reset?: string }>;
+  searchParams: Promise<{ error?: string; reset?: string; created?: string }>;
 }) {
   const params = await searchParams;
 
@@ -36,6 +36,11 @@ export default async function LoginPage({
       <h1 className="mb-6 text-2xl font-semibold text-ink">Sign in</h1>
       {params.error && (
         <p className="mb-4 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">Invalid email or password.</p>
+      )}
+      {params.created && (
+        <p className="mb-4 rounded-md bg-success-bg px-3 py-2 text-sm text-success">
+          Your account was created. Sign in to continue.
+        </p>
       )}
       {params.reset && (
         <p className="mb-4 rounded-md bg-success-bg px-3 py-2 text-sm text-success">
