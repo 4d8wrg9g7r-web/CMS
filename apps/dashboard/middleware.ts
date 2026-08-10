@@ -22,6 +22,7 @@ export const config = {
     "/groups/:path*",
     "/journeys/:path*",
     "/events/:path*",
+    "/attendance",
     "/serving/:path*",
     "/forms/:path*",
     "/workflows/:path*",

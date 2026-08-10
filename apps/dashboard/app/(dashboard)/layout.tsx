@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   CalendarDays,
   CheckSquare,
   ClipboardList,
@@ -72,6 +73,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <SidebarNavItem href="/groups" label="Groups" icon={<Users2 size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/journeys" label="Journeys" icon={<Map size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/events" label="Events" icon={<CalendarDays size={17} strokeWidth={1.75} />} />
+        <SidebarNavItem href="/attendance" label="Attendance" icon={<BarChart3 size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/serving" label="Serving" icon={<HeartHandshake size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/forms" label="Forms" icon={<ClipboardList size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/workflows" label="Workflows" icon={<Workflow size={17} strokeWidth={1.75} />} />

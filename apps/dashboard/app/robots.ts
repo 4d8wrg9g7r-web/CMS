@@ -19,6 +19,7 @@ export default function robots(): MetadataRoute.Robots {
         "/groups",
         "/journeys",
         "/events",
+        "/attendance",
         "/serving",
         "/forms",
         "/workflows",

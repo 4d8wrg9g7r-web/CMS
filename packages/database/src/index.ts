@@ -40,6 +40,8 @@ export type { MessageAction } from "./authz/message-permissions";
 export * as checkinService from "./services/checkin-service";
 export * as checkinPermissions from "./authz/checkin-permissions";
 export type { CheckinAction } from "./authz/checkin-permissions";
+export { weekStart, weeklyBuckets, summarizeByEvent, countUniquePeople } from "./checkins/helpers";
+export type { AttendanceRow, WeekBucket, EventAttendanceSummary } from "./checkins/helpers";
 
 export * as volunteerService from "./services/volunteer-service";
 export * as volunteerPermissions from "./authz/volunteer-permissions";

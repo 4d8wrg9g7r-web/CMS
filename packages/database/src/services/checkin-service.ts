@@ -69,3 +69,43 @@ export async function listCheckInsForPerson(organizationId: string, personId: st
     include: { event: { select: { id: true, title: true } } },
   });
 }
+
+// -- Attendance reporting (docs/domain/attendance.md) ---------------------------
+
+/** Range cap: reporting is bounded to about a year of data per query. */
+export const MAX_ATTENDANCE_RANGE_DAYS = 366;
+
+/**
+ * Slim rows for the reporting range — aggregation happens in the pure helpers
+ * (checkins/helpers.ts), keeping the statistics unit-testable. Aggregate-only
+ * consumers (attendance.view) must not widen this select to include person data.
+ */
+export async function listAttendanceRows(
+  organizationId: string,
+  opts: { from: Date; to: Date; campusId?: string },
+) {
+  const cappedFrom =
+    opts.to.getTime() - opts.from.getTime() > MAX_ATTENDANCE_RANGE_DAYS * 24 * 60 * 60 * 1000
+      ? new Date(opts.to.getTime() - MAX_ATTENDANCE_RANGE_DAYS * 24 * 60 * 60 * 1000)
+      : opts.from;
+  return tenantDb.checkIn.findMany({
+    where: {
+      organizationId,
+      occurrenceAt: { gte: cappedFrom, lte: opts.to },
+      ...(opts.campusId ? { event: { campusId: opts.campusId } } : {}),
+    },
+    select: { occurrenceAt: true, eventId: true, personId: true },
+  });
+}
+
+/** Recent occurrences of one event with head-counts — the event-page drill-down. */
+export async function attendanceByOccurrence(organizationId: string, eventId: string, take = 12) {
+  const grouped = await tenantDb.checkIn.groupBy({
+    by: ["occurrenceAt"],
+    where: { organizationId, eventId },
+    _count: { _all: true },
+    orderBy: { occurrenceAt: "desc" },
+    take,
+  });
+  return grouped.map((g) => ({ occurrenceAt: g.occurrenceAt, count: g._count._all }));
+}

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { ArrowLeft, CalendarClock, ExternalLink, Eye, EyeOff, Trash2, Undo2, UserCheck, X } from "lucide-react";
-import { eventService, expandOccurrences, personDisplayName } from "@cms/database";
+import { checkinService, eventService, expandOccurrences, personDisplayName } from "@cms/database";
 import { campusService } from "@cms/database";
 import { Badge } from "../../../../components/ui/Badge";
 import { buttonClasses } from "../../../../components/ui/Button";
@@ -10,6 +10,7 @@ import { Card } from "../../../../components/ui/Card";
 import { EventForm } from "../../../../components/EventForm";
 import { formatEventDate, recurrenceLabel } from "../../../../lib/events-format";
 import { canEvents, requireEvents } from "../../../../lib/events-access";
+import { canCheckin } from "../../../../lib/checkin-access";
 import { getCurrentOrganization } from "../../../../lib/session";
 import {
   archiveEventAction,
@@ -23,18 +24,20 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ev
   const organization = await getCurrentOrganization();
   if (!organization) return null;
   await requireEvents(organization.id, "event.view");
-  const [canManage, canViewRegistrations] = await Promise.all([
+  const [canManage, canViewRegistrations, canViewAttendance] = await Promise.all([
     canEvents(organization.id, "event.manage"),
     canEvents(organization.id, "event.registrations.view"),
+    canCheckin(organization.id, "attendance.view"),
   ]);
 
   const { eventId } = await params;
   const event = await eventService.getEvent(organization.id, eventId);
   if (!event) notFound();
 
-  const [campuses, registrations] = await Promise.all([
+  const [campuses, registrations, attendanceHistory] = await Promise.all([
     campusService.listCampuses(organization.id),
     canViewRegistrations ? eventService.listRegistrations(organization.id, eventId) : Promise.resolve([]),
+    canViewAttendance ? checkinService.attendanceByOccurrence(organization.id, eventId) : Promise.resolve([]),
   ]);
 
   const now = new Date();
@@ -127,6 +130,22 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ev
             <Link href={`/events/${event.id}/checkin`} className={buttonClasses("secondary", "md") + " w-full"}>
               <UserCheck size={16} /> Open check-in
             </Link>
+          )}
+
+          {canViewAttendance && attendanceHistory.length > 0 && (
+            <Card padding="md">
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+                <UserCheck size={15} /> Attendance history
+              </h2>
+              <ul className="space-y-1.5 text-sm">
+                {attendanceHistory.map((occurrence) => (
+                  <li key={occurrence.occurrenceAt.toISOString()} className="flex items-center justify-between gap-2">
+                    <span className="text-ink-secondary">{formatEventDate(occurrence.occurrenceAt, event.allDay)}</span>
+                    <span className="font-medium text-ink">{occurrence.count}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
           )}
 
           <Card padding="md">
