@@ -15,9 +15,11 @@ async function signupAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
   if (!email || !password) redirect("/signup?error=missing");
   if (password.length < 8) redirect("/signup?error=short");
+  if (password !== confirmPassword) redirect("/signup?error=mismatch");
 
   const existing = await userService.findUserByEmail(email);
   if (existing) redirect("/signup?error=exists");
@@ -42,6 +44,7 @@ async function signupAction(formData: FormData) {
 const ERRORS: Record<string, string> = {
   missing: "Email and password are required.",
   short: "Password must be at least 8 characters.",
+  mismatch: "The passwords don't match. Try again.",
   exists: "An account with that email already exists — sign in instead.",
 };
 
@@ -73,6 +76,10 @@ export default async function SignupPage({
           <label className="text-sm font-medium text-ink-secondary">
             Password
             <Input name="password" type="password" required minLength={8} className="mt-1 block w-full" />
+          </label>
+          <label className="text-sm font-medium text-ink-secondary">
+            Verify password
+            <Input name="confirmPassword" type="password" required minLength={8} className="mt-1 block w-full" />
           </label>
           <SubmitButton pendingLabel="Creating account...">Create account</SubmitButton>
         </form>
