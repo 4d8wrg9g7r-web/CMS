@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Contact, Lock, Search, UserPlus } from "lucide-react";
-import { peopleService, type MembershipStatus } from "@cms/database";
+import { Contact, FileSpreadsheet, Lock, Search, UserPlus } from "lucide-react";
+import { campusService, peopleService, type MembershipStatus } from "@cms/database";
 import { personDisplayName } from "@cms/database";
 import { Badge } from "../../../components/ui/Badge";
 import { buttonClasses } from "../../../components/ui/Button";
@@ -16,16 +16,17 @@ const PAGE_SIZE = 25;
 export default async function PeoplePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; campus?: string; page?: string }>;
 }) {
   const organization = await getCurrentOrganization();
   if (!organization) return null;
 
   // Server-side authorization: People data is Confidential; only roles the matrix
   // grants person.view get past here (BLUEPRINT §34 -- never authorization-by-UI).
-  const [canView, canManage] = await Promise.all([
+  const [canView, canManage, canImport] = await Promise.all([
     canPeople(organization.id, "person.view"),
     canPeople(organization.id, "person.manage"),
+    canPeople(organization.id, "person.import"),
   ]);
 
   if (!canView) {
@@ -46,14 +47,18 @@ export default async function PeoplePage({
   const params = await searchParams;
   const q = params.q?.trim() || undefined;
   const status = (params.status as MembershipStatus | undefined) || undefined;
+  const campusId = params.campus || undefined;
   const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
 
-  const opts = { search: q, status };
+  const campuses = await campusService.listCampuses(organization.id);
+
+  const opts = { search: q, status, campusId };
   const [people, total] = await Promise.all([
     peopleService.listPeople(organization.id, { ...opts, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     peopleService.countPeople(organization.id, opts),
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const hasFilters = Boolean(q || status || campusId);
 
   return (
     <div>
@@ -64,11 +69,18 @@ export default async function PeoplePage({
             The canonical record for everyone {organization.name} ministers to.
           </p>
         </div>
-        {canManage && (
-          <Link href="/people/new" className={buttonClasses("primary", "md")}>
-            <UserPlus size={16} /> Add person
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {canImport && (
+            <Link href="/people/import" className={buttonClasses("secondary", "md")}>
+              <FileSpreadsheet size={16} /> Import CSV
+            </Link>
+          )}
+          {canManage && (
+            <Link href="/people/new" className={buttonClasses("primary", "md")}>
+              <UserPlus size={16} /> Add person
+            </Link>
+          )}
+        </div>
       </div>
 
       <Card padding="sm" className="mb-4">
@@ -91,6 +103,19 @@ export default async function PeoplePage({
               ))}
             </Select>
           </label>
+          {campuses.length > 0 && (
+            <label className="text-sm text-ink-secondary">
+              Campus
+              <Select name="campus" defaultValue={campusId ?? ""} className="mt-1 w-44">
+                <option value="">All campuses</option>
+                {campuses.map((campus) => (
+                  <option key={campus.id} value={campus.id}>
+                    {campus.name}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          )}
           <button type="submit" className={buttonClasses("secondary", "md")}>
             Apply
           </button>
@@ -101,14 +126,14 @@ export default async function PeoplePage({
         <Card padding="none">
           <EmptyState
             icon={<Contact size={22} />}
-            title={q || status ? "No people match your filters" : "No people yet"}
+            title={hasFilters ? "No people match your filters" : "No people yet"}
             description={
-              q || status
-                ? "Try a different search or status filter."
+              hasFilters
+                ? "Try a different search or filter."
                 : "Add your first person to start building your church's relationship graph."
             }
             action={
-              canManage && !q && !status ? (
+              canManage && !hasFilters ? (
                 <Link href="/people/new" className={buttonClasses("primary", "sm")}>
                   <UserPlus size={15} /> Add person
                 </Link>
@@ -159,11 +184,11 @@ export default async function PeoplePage({
         </span>
         {totalPages > 1 && (
           <div className="flex items-center gap-2">
-            <PageLink q={q} status={status} page={page - 1} disabled={page <= 1} label="Previous" />
+            <PageLink q={q} status={status} campus={campusId} page={page - 1} disabled={page <= 1} label="Previous" />
             <span className="text-ink-muted">
               Page {page} of {totalPages}
             </span>
-            <PageLink q={q} status={status} page={page + 1} disabled={page >= totalPages} label="Next" />
+            <PageLink q={q} status={status} campus={campusId} page={page + 1} disabled={page >= totalPages} label="Next" />
           </div>
         )}
       </div>
@@ -174,12 +199,14 @@ export default async function PeoplePage({
 function PageLink({
   q,
   status,
+  campus,
   page,
   disabled,
   label,
 }: {
   q?: string;
   status?: string;
+  campus?: string;
   page: number;
   disabled: boolean;
   label: string;
@@ -190,6 +217,7 @@ function PageLink({
   const sp = new URLSearchParams();
   if (q) sp.set("q", q);
   if (status) sp.set("status", status);
+  if (campus) sp.set("campus", campus);
   sp.set("page", String(page));
   return (
     <Link href={`/people?${sp.toString()}`} className={buttonClasses("secondary", "sm")}>

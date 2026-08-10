@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { ExternalLink, Lock, Plus, Users2 } from "lucide-react";
-import { groupService, type GroupType } from "@cms/database";
+import { campusService, groupService, type GroupType } from "@cms/database";
 import { Badge } from "../../../components/ui/Badge";
 import { buttonClasses } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -16,7 +16,7 @@ const PAGE_SIZE = 25;
 export default async function GroupsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; type?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; type?: string; campus?: string; page?: string }>;
 }) {
   const organization = await getCurrentOrganization();
   if (!organization) return null;
@@ -44,9 +44,11 @@ export default async function GroupsPage({
   const params = await searchParams;
   const q = params.q?.trim() || undefined;
   const type = (params.type as GroupType | undefined) || undefined;
+  const campusId = params.campus || undefined;
   const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
 
-  const opts = { search: q, type };
+  const campuses = await campusService.listCampuses(organization.id);
+  const opts = { search: q, type, campusId };
   const [groups, total] = await Promise.all([
     groupService.listGroups(organization.id, { ...opts, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     groupService.countGroups(organization.id, opts),
@@ -86,6 +88,19 @@ export default async function GroupsPage({
               ))}
             </Select>
           </label>
+          {campuses.length > 0 && (
+            <label className="text-sm text-ink-secondary">
+              Campus
+              <Select name="campus" defaultValue={campusId ?? ""} className="mt-1 w-44">
+                <option value="">All campuses</option>
+                {campuses.map((campus) => (
+                  <option key={campus.id} value={campus.id}>
+                    {campus.name}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          )}
           <button type="submit" className={buttonClasses("secondary", "md")}>
             Apply
           </button>
@@ -96,12 +111,12 @@ export default async function GroupsPage({
         <Card padding="none">
           <EmptyState
             icon={<Users2 size={22} />}
-            title={q || type ? "No groups match your filters" : "No groups yet"}
+            title={q || type || campusId ? "No groups match your filters" : "No groups yet"}
             description={
-              q || type ? "Try a different search or type." : "Create your first group to organize people into community."
+              q || type || campusId ? "Try a different search or filter." : "Create your first group to organize people into community."
             }
             action={
-              canManage && !q && !type ? (
+              canManage && !q && !type && !campusId ? (
                 <Link href="/groups/new" className={buttonClasses("primary", "sm")}>
                   <Plus size={15} /> New group
                 </Link>
@@ -153,11 +168,11 @@ export default async function GroupsPage({
         </span>
         {totalPages > 1 && (
           <div className="flex items-center gap-2">
-            <PageLink q={q} type={type} page={page - 1} disabled={page <= 1} label="Previous" />
+            <PageLink q={q} type={type} campus={campusId} page={page - 1} disabled={page <= 1} label="Previous" />
             <span className="text-ink-muted">
               Page {page} of {totalPages}
             </span>
-            <PageLink q={q} type={type} page={page + 1} disabled={page >= totalPages} label="Next" />
+            <PageLink q={q} type={type} campus={campusId} page={page + 1} disabled={page >= totalPages} label="Next" />
           </div>
         )}
       </div>
@@ -186,12 +201,14 @@ async function GroupFinderLink({ publicSiteId }: { publicSiteId: string }) {
 function PageLink({
   q,
   type,
+  campus,
   page,
   disabled,
   label,
 }: {
   q?: string;
   type?: string;
+  campus?: string;
   page: number;
   disabled: boolean;
   label: string;
@@ -202,6 +219,7 @@ function PageLink({
   const sp = new URLSearchParams();
   if (q) sp.set("q", q);
   if (type) sp.set("type", type);
+  if (campus) sp.set("campus", campus);
   sp.set("page", String(page));
   return (
     <Link href={`/groups?${sp.toString()}`} className={buttonClasses("secondary", "sm")}>

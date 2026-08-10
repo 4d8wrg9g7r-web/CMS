@@ -12,11 +12,16 @@ import { OrganizationRole } from "@prisma/client";
  * and ANALYTICS_VIEWER get no access. Kept deliberately small and
  * declarative so the negative cases are obvious and testable.
  */
-export type PeopleAction = "person.view" | "person.manage" | "household.view" | "household.manage";
+export type PeopleAction =
+  | "person.view"
+  | "person.manage"
+  | "person.import"
+  | "household.view"
+  | "household.manage";
 
 const PEOPLE_PERMISSIONS: Record<OrganizationRole, ReadonlySet<PeopleAction>> = {
-  OWNER: new Set(["person.view", "person.manage", "household.view", "household.manage"]),
-  ADMIN: new Set(["person.view", "person.manage", "household.view", "household.manage"]),
+  OWNER: new Set(["person.view", "person.manage", "person.import", "household.view", "household.manage"]),
+  ADMIN: new Set(["person.view", "person.manage", "person.import", "household.view", "household.manage"]),
   CONTENT_MANAGER: new Set(),
   ANALYTICS_VIEWER: new Set(),
 };

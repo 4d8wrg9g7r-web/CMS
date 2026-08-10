@@ -2,7 +2,13 @@ import { OrganizationRole } from "@prisma/client";
 import { describe, expect, it } from "vitest";
 import { can, type PeopleAction } from "../authz/people-permissions";
 
-const ALL_ACTIONS: PeopleAction[] = ["person.view", "person.manage", "household.view", "household.manage"];
+const ALL_ACTIONS: PeopleAction[] = [
+  "person.view",
+  "person.manage",
+  "person.import",
+  "household.view",
+  "household.manage",
+];
 const ALLOWED_ROLES: OrganizationRole[] = ["OWNER", "ADMIN"];
 const DENIED_ROLES: OrganizationRole[] = ["CONTENT_MANAGER", "ANALYTICS_VIEWER"];
 
@@ -18,7 +24,7 @@ describe("people-permissions can()", () => {
   // Negative authorization matrix (BLUEPRINT §52 / Definition of Done): every other
   // role must be denied every action -- People data is Confidential and a distinct
   // security domain from content/analytics/prayer.
-  it("denies Content Manager, Analytics Viewer, and Prayer Moderator every action", () => {
+  it("denies Content Manager and Analytics Viewer every action", () => {
     for (const role of DENIED_ROLES) {
       for (const action of ALL_ACTIONS) {
         expect(can(role, action), `${role} should be denied ${action}`).toBe(false);

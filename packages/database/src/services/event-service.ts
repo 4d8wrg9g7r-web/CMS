@@ -29,13 +29,14 @@ export interface EventInput {
 
 export async function listEvents(
   organizationId: string,
-  opts: { includeArchived?: boolean; publishedOnly?: boolean } = {},
+  opts: { includeArchived?: boolean; publishedOnly?: boolean; campusId?: string } = {},
 ) {
   return tenantDb.event.findMany({
     where: {
       organizationId,
       ...(opts.includeArchived ? {} : { archivedAt: null }),
       ...(opts.publishedOnly ? { isPublished: true } : {}),
+      ...(opts.campusId ? { campusId: opts.campusId } : {}),
     },
     orderBy: { startAt: "asc" },
     include: {

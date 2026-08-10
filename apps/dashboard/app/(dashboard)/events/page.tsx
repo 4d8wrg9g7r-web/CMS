@@ -1,16 +1,21 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { CalendarDays, ExternalLink, Lock, Plus } from "lucide-react";
-import { eventService, nextOccurrence } from "@cms/database";
+import { campusService, eventService, nextOccurrence } from "@cms/database";
 import { Badge } from "../../../components/ui/Badge";
 import { buttonClasses } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { Select } from "../../../components/ui/Input";
 import { formatEventDate, recurrenceLabel } from "../../../lib/events-format";
 import { canEvents } from "../../../lib/events-access";
 import { getCurrentOrganization } from "../../../lib/session";
 
-export default async function EventsPage() {
+export default async function EventsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ campus?: string }>;
+}) {
   const organization = await getCurrentOrganization();
   if (!organization) return null;
 
@@ -34,7 +39,10 @@ export default async function EventsPage() {
     );
   }
 
-  const events = await eventService.listEvents(organization.id);
+  const params = await searchParams;
+  const campusId = params.campus || undefined;
+  const campuses = await campusService.listCampuses(organization.id);
+  const events = await eventService.listEvents(organization.id, { campusId });
   const h = await headers();
   const host = h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
@@ -76,14 +84,35 @@ export default async function EventsPage() {
         </p>
       </Card>
 
+      {campuses.length > 0 && (
+        <Card padding="sm" className="mb-4">
+          <form method="get" className="flex flex-wrap items-end gap-3">
+            <label className="text-sm text-ink-secondary">
+              Campus
+              <Select name="campus" defaultValue={campusId ?? ""} className="mt-1 w-44">
+                <option value="">All campuses</option>
+                {campuses.map((campus) => (
+                  <option key={campus.id} value={campus.id}>
+                    {campus.name}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <button type="submit" className={buttonClasses("secondary", "md")}>
+              Apply
+            </button>
+          </form>
+        </Card>
+      )}
+
       {rows.length === 0 ? (
         <Card padding="none">
           <EmptyState
             icon={<CalendarDays size={22} />}
-            title="No events yet"
-            description="Create your first event, publish it, and share its public link."
+            title={campusId ? "No events match this campus" : "No events yet"}
+            description={campusId ? "Try a different campus filter." : "Create your first event, publish it, and share its public link."}
             action={
-              canManage ? (
+              canManage && !campusId ? (
                 <Link href="/events/new" className={buttonClasses("primary", "sm")}>
                   <Plus size={15} /> New event
                 </Link>

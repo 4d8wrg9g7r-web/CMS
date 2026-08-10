@@ -24,6 +24,7 @@ export interface GroupInput {
 export interface ListGroupsOptions {
   search?: string;
   type?: GroupType;
+  campusId?: string;
   publishedOnly?: boolean;
   includeArchived?: boolean;
   skip?: number;
@@ -34,6 +35,7 @@ function groupsWhere(organizationId: string, opts: ListGroupsOptions): Prisma.Gr
   const where: Prisma.GroupWhereInput = { organizationId };
   if (!opts.includeArchived) where.archivedAt = null;
   if (opts.type) where.type = opts.type;
+  if (opts.campusId) where.campusId = opts.campusId;
   if (opts.publishedOnly) where.isPublished = true;
   const search = opts.search?.trim();
   if (search) {

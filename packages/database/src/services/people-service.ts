@@ -33,6 +33,7 @@ export interface ListPeopleOptions {
   search?: string;
   status?: MembershipStatus;
   householdId?: string;
+  campusId?: string;
   includeArchived?: boolean;
   skip?: number;
   take?: number;
@@ -43,6 +44,7 @@ function peopleWhere(organizationId: string, opts: ListPeopleOptions): Prisma.Pe
   if (!opts.includeArchived) where.archivedAt = null;
   if (opts.status) where.membershipStatus = opts.status;
   if (opts.householdId) where.householdId = opts.householdId;
+  if (opts.campusId) where.campusId = opts.campusId;
   const search = opts.search?.trim();
   if (search) {
     where.OR = [
@@ -174,6 +176,91 @@ export async function restorePerson(organizationId: string, personId: string) {
     data: { archivedAt: null },
   });
   return result.count > 0;
+}
+
+// -- CSV import ----------------------------------------------------------------
+
+import type { ImportPersonRow, ImportRowError } from "../people/import";
+
+const MAX_STORED_IMPORT_ERRORS = 100;
+
+/**
+ * Bulk-creates validated import rows (docs/domain/people-import.md) and records a
+ * PersonImport summary. Rows whose email matches an existing non-archived Person
+ * (case-insensitive) are skipped, never merged — imports are safe to re-run.
+ *
+ * DELIBERATE: this path does NOT emit PersonCreated outbox events, unlike
+ * createPerson — a 500-row import must not enqueue 500 workflow runs (e.g. welcome
+ * emails to long-standing members). If "run automations on import" is ever wanted it
+ * becomes an explicit option, not a default.
+ */
+export async function importPeople(
+  organizationId: string,
+  input: {
+    rows: ImportPersonRow[];
+    parseErrors: ImportRowError[];
+    totalRows: number;
+    fileName?: string | null;
+    createdByUserId?: string | null;
+  },
+) {
+  const emails = input.rows.map((r) => r.email).filter((e): e is string => !!e);
+  const existing = emails.length
+    ? await tenantDb.person.findMany({
+        where: { organizationId, archivedAt: null, email: { in: emails, mode: "insensitive" } },
+        select: { email: true },
+      })
+    : [];
+  const existingEmails = new Set(existing.map((p) => p.email?.toLowerCase()).filter(Boolean));
+
+  const toCreate = input.rows.filter((r) => !(r.email && existingEmails.has(r.email.toLowerCase())));
+  const skippedCount = input.rows.length - toCreate.length;
+
+  if (toCreate.length > 0) {
+    await tenantDb.person.createMany({
+      data: toCreate.map((r) => ({
+        organizationId,
+        firstName: r.firstName,
+        lastName: r.lastName,
+        email: r.email,
+        phone: r.phone,
+        membershipStatus: r.membershipStatus,
+        tags: r.tags,
+        campusId: r.campusId,
+      })),
+    });
+  }
+
+  const errors = input.parseErrors.slice(0, MAX_STORED_IMPORT_ERRORS);
+  const record = await tenantDb.personImport.create({
+    data: {
+      organizationId,
+      fileName: input.fileName ?? null,
+      totalRows: input.totalRows,
+      createdCount: toCreate.length,
+      skippedCount,
+      errorCount: input.parseErrors.length,
+      errors: errors as unknown as Prisma.InputJsonValue,
+      createdByUserId: input.createdByUserId ?? null,
+    },
+  });
+
+  return {
+    importId: record.id,
+    createdCount: toCreate.length,
+    skippedCount,
+    errorCount: input.parseErrors.length,
+    errors,
+  };
+}
+
+export async function listImports(organizationId: string, limit = 10) {
+  return tenantDb.personImport.findMany({
+    where: { organizationId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    include: { createdBy: { select: { id: true, name: true, email: true } } },
+  });
 }
 
 // -- Households ----------------------------------------------------------------

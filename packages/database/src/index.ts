@@ -86,6 +86,8 @@ export type {
 export * as peoplePermissions from "./authz/people-permissions";
 export type { PeopleAction } from "./authz/people-permissions";
 export { personDisplayName, inverseRelationshipType } from "./people/helpers";
+export { parseCsv, mapImportRows, IMPORT_HEADERS, MAX_IMPORT_ROWS, MAX_IMPORT_BYTES } from "./people/import";
+export type { ImportPersonRow, ImportRowError } from "./people/import";
 
 export * as groupPermissions from "./authz/group-permissions";
 export type { GroupAction } from "./authz/group-permissions";

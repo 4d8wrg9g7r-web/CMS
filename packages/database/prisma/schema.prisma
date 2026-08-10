@@ -34,6 +34,7 @@ model User {
   createdTasks        Task[]               @relation("TaskCreatedBy")
   journeyEnrollments  JourneyEnrollment[]  @relation("EnrollmentEnrolledBy")
   milestoneCompletions JourneyMilestoneCompletion[] @relation("CompletionCompletedBy")
+  personImports       PersonImport[]       @relation("PersonImportCreatedBy")
 }
 
 /** Single-use, short-lived; a fresh request invalidates prior unused tokens. */
@@ -101,6 +102,7 @@ model Organization {
   apiKeys             ApiKey[]
   webhookSubscriptions WebhookSubscription[]
   webhookDeliveries   WebhookDelivery[]
+  personImports       PersonImport[]
 }
 
 /**
@@ -271,6 +273,31 @@ model PersonRelationship {
   @@index([organizationId])
   @@index([personId])
   @@index([relatedPersonId])
+}
+
+/**
+ * Summary record of one CSV people-import run (docs/domain/people-import.md). The raw
+ * file is parsed in-request and never stored (PII-preserving default); only counts and
+ * a capped per-line error list persist. Imports deliberately do NOT fire PersonCreated
+ * workflow triggers — see the service.
+ */
+model PersonImport {
+  id              String   @id @default(cuid())
+  organizationId  String
+  fileName        String?
+  totalRows       Int
+  createdCount    Int
+  skippedCount    Int
+  errorCount      Int
+  /** Array of {line, message}, capped at 100 entries. */
+  errors          Json     @default("[]")
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("PersonImportCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
 }
 
 // ---------------------------------------------------------------------------
