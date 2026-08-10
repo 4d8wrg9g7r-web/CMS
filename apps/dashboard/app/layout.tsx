@@ -8,10 +8,24 @@ const inter = Inter({
   display: "swap",
 });
 
-const SITE_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+// Tolerate a malformed NEXTAUTH_URL (e.g. missing protocol) instead of throwing at
+// module scope -- a bad env var here would fail the whole `next build` during page-data
+// collection, which is a far worse failure mode than a wrong metadataBase.
+function siteUrl(): URL {
+  const raw = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  try {
+    return new URL(raw);
+  } catch {
+    try {
+      return new URL(`https://${raw}`);
+    } catch {
+      return new URL("http://localhost:3000");
+    }
+  }
+}
 
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
+  metadataBase: siteUrl(),
   title: { default: "CMS", template: "%s" },
   description: "Church management: people, groups, events, forms, and workflows.",
   openGraph: {
