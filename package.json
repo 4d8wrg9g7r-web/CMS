@@ -1,0 +1,25 @@
+{
+  "name": "cms",
+  "private": true,
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@11.18.0",
+  "scripts": {
+    "dev": "pnpm --filter @cms/dashboard dev",
+    "build": "pnpm --filter @cms/dashboard build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "db:migrate": "pnpm --filter @cms/database prisma migrate dev",
+    "db:generate": "pnpm --filter @cms/database prisma generate",
+    "db:seed": "pnpm --filter @cms/database db:seed",
+    "db:studio": "pnpm --filter @cms/database prisma studio",
+    "tenant-check": "bash scripts/check-tenant-scoping.sh"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3"
+  }
+}

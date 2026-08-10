@@ -1,0 +1,38 @@
+{
+  "name": "@cms/dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "pnpm --filter @cms/database exec prisma generate && next build",
+    "start": "next start",
+    "lint": "echo 'lint: not configured for milestone 1'",
+    "typecheck": "tsc --noEmit",
+    "test": "echo 'apps/dashboard has no unit tests of its own'"
+  },
+  "dependencies": {
+    "@cms/database": "workspace:*",
+    "@cms/email": "workspace:*",
+    "@cms/storage": "workspace:*",
+    "@sentry/nextjs": "^10.69.0",
+    "bcryptjs": "2.4.3",
+    "framer-motion": "^12.43.0",
+    "lucide-react": "1.28.0",
+    "next": "15.5.22",
+    "next-auth": "5.0.0-beta.32",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zod": "3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "2.4.6",
+    "@types/node": "^20.16.10",
+    "@types/react": "18.3.11",
+    "@types/react-dom": "18.3.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "tailwindcss": "3.4.17",
+    "tsx": "^4.23.1",
+    "typescript": "5.6.3"
+  }
+}

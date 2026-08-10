@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# No live database is needed here -- packages/database's tests are pure unit tests
+# (no live queries), scripts/check-tenant-scoping.sh is static grep analysis, and the
+# dashboard build renders every dashboard/prayer/widget route dynamically (server-
+# rendered on demand) rather than statically at build time, so it never actually
+# connects to DATABASE_URL during `next build`. These placeholder values just need to
+# be syntactically present so Prisma client generation and module-level env reads
+# don't throw -- they're never used to reach a real database.
+env:
+  DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+  DIRECT_DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+  AUTH_SECRET: "ci-placeholder-secret"
+  NEXTAUTH_URL: "http://localhost:3000"
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.18.0
+
+      - uses: actions/setup-node@v4
+        with:
+          # pnpm 11 (pinned via package.json's packageManager field) requires
+          # Node >=22.13 -- the app's own engines field only floors at >=20, but
+          # that's not enough to satisfy pnpm itself.
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Unit tests
+        run: pnpm -r test
+
+      - name: Tenant-scoping check
+        run: bash scripts/check-tenant-scoping.sh
+
+      - name: Build dashboard
+        run: pnpm --filter @cms/dashboard build

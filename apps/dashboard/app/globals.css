@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Surface rule: --background is the page canvas only (never a card).
+     --surface is every bordered card/panel. --surface-muted is recessed
+     content inside a card (empty-state fills, hover rows, code snippets) or
+     a full-bleed background for shell-less pages (e.g. the public prayer
+     wall). --surface-warm is reserved for accent-tinted icon chips/badges. */
+  --background: #f7f6f3;
+  --surface: #ffffff;
+  --surface-muted: #f1efeb;
+  --surface-warm: #eee8df;
+  --sidebar: #090d11;
+  --sidebar-secondary: #0c1116;
+  --sidebar-border: rgba(255, 255, 255, 0.09);
+  --text-primary: #161616;
+  --text-secondary: #696661;
+  --text-muted: #98938c;
+  --border: #e6e2dc;
+  --border-strong: #d7d1c8;
+  --accent: #b87b38;
+  --accent-light: #e5bd83;
+  --accent-dark: #815122;
+  --success: #618167;
+  --success-background: #e8f0e8;
+  --warning: #a56d2d;
+  --warning-background: #f5ead7;
+  --danger: #a2574c;
+  --danger-background: #f5e4e1;
+
+  /* Space-separated RGB channels of the colors above -- Tailwind's `bg-accent/70`-style
+     opacity modifiers can only be computed from this form (rgb(var(...) / alpha)), not
+     from a hex string. Keep these in sync with the hex values above by hand; see
+     tailwind.config.ts's `colors` block for where they're consumed. */
+  --accent-rgb: 184 123 56;
+  --success-rgb: 97 129 103;
+  --warning-rgb: 165 109 45;
+  --danger-rgb: 162 87 76;
+}
+
+body {
+  background: var(--background);
+  color: var(--text-primary);
+}
+
+.shadow-panel {
+  box-shadow:
+    0 1px 2px rgba(20, 17, 13, 0.03),
+    0 8px 30px rgba(20, 17, 13, 0.04);
+}
+
+.bg-sidebar-gradient {
+  background: linear-gradient(180deg, var(--sidebar) 0%, var(--sidebar-secondary) 60%, var(--sidebar) 100%);
+}

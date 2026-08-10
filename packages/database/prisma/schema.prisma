@@ -1,0 +1,982 @@
+// CMS — church operating platform schema (see docs/architecture/BLUEPRINT.md).
+// Fresh baseline at the Ruach separation: every tenant-owned model carries
+// organizationId (tenant guard enforced), Campus is a first-class primitive (§4), and
+// the platform modules compose Person/Household/Group/Form/Event/Task/Message/Workflow/
+// File exactly as the Constitution requires.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identity & tenancy
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships         OrganizationMember[]
+  auditLogs           AuditLog[]
+  passwordResetTokens PasswordResetToken[]
+  assignedTasks       Task[]               @relation("TaskAssignee")
+  createdTasks        Task[]               @relation("TaskCreatedBy")
+  journeyEnrollments  JourneyEnrollment[]  @relation("EnrollmentEnrolledBy")
+  milestoneCompletions JourneyMilestoneCompletion[] @relation("CompletionCompletedBy")
+}
+
+/** Single-use, short-lived; a fresh request invalidates prior unused tokens. */
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  CONTENT_MANAGER
+  ANALYTICS_VIEWER
+}
+
+model Organization {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  // Public URL key for org-level public surfaces: /c/<id> (events calendar) and
+  // /g/<id> (group finder). Same bootstrapping boundary as forms/events publicIds.
+  publicSiteId String   @unique @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  members  OrganizationMember[]
+  campuses Campus[]
+
+  auditLogs AuditLog[]
+
+  people              Person[]
+  households          Household[]
+  personRelationships PersonRelationship[]
+  groups              Group[]
+  groupMemberships    GroupMembership[]
+  forms               FormDefinition[]
+  formVersions        FormVersion[]
+  formSubmissions     FormSubmission[]
+  outboxEvents        OutboxEvent[]
+  processedEvents     ProcessedEvent[]
+  workflows           WorkflowDefinition[]
+  workflowVersions    WorkflowVersion[]
+  workflowRuns        WorkflowRun[]
+  tasks               Task[]
+  journeys            JourneyDefinition[]
+  journeyMilestones   JourneyMilestone[]
+  journeyEnrollments  JourneyEnrollment[]
+  journeyMilestoneCompletions JourneyMilestoneCompletion[]
+  events              Event[]
+  eventRegistrations  EventRegistration[]
+  messages            Message[]
+  checkIns            CheckIn[]
+  servingTeams        ServingTeam[]
+  servingPositions    ServingPosition[]
+  servingAssignments  ServingAssignment[]
+  personQualifications PersonQualification[]
+  files               File[]
+  apiKeys             ApiKey[]
+  webhookSubscriptions WebhookSubscription[]
+  webhookDeliveries   WebhookDelivery[]
+}
+
+/**
+ * userId is @unique -- one organization per user account in v1 (no multi-org
+ * switching); see lib/session.ts's getCurrentOrganization.
+ */
+model OrganizationMember {
+  id             String           @id @default(cuid())
+  organizationId String
+  userId         String           @unique
+  role           OrganizationRole
+  createdAt      DateTime         @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+/**
+ * The Campus primitive (BLUEPRINT §4): a physical/digital ministry location. First-class
+ * here (unlike the pre-separation codebase, which reused a Website model) -- resolves the
+ * "Campus modeling" risk recorded in the original domain specs. People, Groups, Events,
+ * and Serving Teams optionally scope to one campus; null = org-wide.
+ */
+model Campus {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  address        String?
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  people       Person[]
+  groups       Group[]
+  events       Event[]
+  servingTeams ServingTeam[]
+
+  @@index([organizationId])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorUserId    String?
+  action         String
+  targetType     String
+  targetId       String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+}
+
+// ---------------------------------------------------------------------------
+// People & Households (BLUEPRINT §5 -- the canonical Person primitive)
+// ---------------------------------------------------------------------------
+
+enum MembershipStatus {
+  VISITOR
+  ATTENDER
+  MEMBER
+  INACTIVE
+}
+
+enum HouseholdRole {
+  ADULT
+  CHILD
+  OTHER
+}
+
+enum PersonRelationshipType {
+  SPOUSE
+  PARENT
+  CHILD
+  SIBLING
+  GUARDIAN
+  OTHER
+}
+
+model Household {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  addressLine1   String?
+  addressLine2   String?
+  city           String?
+  region         String?
+  postalCode     String?
+  country        String?
+  archivedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members      Person[]
+
+  @@index([organizationId])
+}
+
+model Person {
+  id             String  @id @default(cuid())
+  organizationId String
+  householdId    String?
+  householdRole  HouseholdRole?
+  // Home campus (null = org-wide).
+  campusId       String?
+
+  firstName     String
+  lastName      String
+  preferredName String?
+  email         String?
+  phone         String?
+
+  membershipStatus MembershipStatus @default(VISITOR)
+  birthdate        DateTime?
+  tags             String[]         @default([])
+  notes            String?
+  // Email consent (BLUEPRINT §19): set = person-linked sends are suppressed by
+  // message-service.queueMessage; changes audited.
+  emailOptedOutAt DateTime?
+
+  archivedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  organization      Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  household         Household?           @relation(fields: [householdId], references: [id], onDelete: SetNull)
+  campus            Campus?              @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  relationshipsFrom PersonRelationship[] @relation("PersonRelationshipFrom")
+  relationshipsTo   PersonRelationship[] @relation("PersonRelationshipTo")
+  groupMemberships  GroupMembership[]
+  formSubmissions   FormSubmission[]
+  workflowRuns      WorkflowRun[]
+  tasks             Task[]
+  journeyEnrollments JourneyEnrollment[]
+  eventRegistrations EventRegistration[]
+  messages          Message[]
+  checkIns          CheckIn[]
+  servingAssignments ServingAssignment[]
+  qualifications    PersonQualification[]
+  files             File[]
+
+  @@index([organizationId])
+  @@index([organizationId, lastName])
+  @@index([householdId])
+  @@index([campusId])
+}
+
+model PersonRelationship {
+  id              String                 @id @default(cuid())
+  organizationId  String
+  personId        String
+  relatedPersonId String
+  type            PersonRelationshipType
+  createdAt       DateTime               @default(now())
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  person        Person       @relation("PersonRelationshipFrom", fields: [personId], references: [id], onDelete: Cascade)
+  relatedPerson Person       @relation("PersonRelationshipTo", fields: [relatedPersonId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, relatedPersonId, type])
+  @@index([organizationId])
+  @@index([personId])
+  @@index([relatedPersonId])
+}
+
+// ---------------------------------------------------------------------------
+// Groups (BLUEPRINT §8)
+// ---------------------------------------------------------------------------
+
+enum GroupType {
+  SMALL_GROUP
+  CLASS
+  MINISTRY_TEAM
+  SERVING_TEAM
+  OTHER
+}
+
+enum GroupEnrollment {
+  OPEN
+  REQUEST
+  INVITE_ONLY
+  CLOSED
+}
+
+enum GroupMembershipRole {
+  LEADER
+  CO_LEADER
+  MEMBER
+}
+
+model Group {
+  id              String          @id @default(cuid())
+  organizationId  String
+  name            String
+  type            GroupType       @default(SMALL_GROUP)
+  description     String?
+  enrollment      GroupEnrollment @default(OPEN)
+  meetingSchedule String?
+  meetingLocation String?
+  capacity        Int?
+  isPublished     Boolean         @default(false)
+  campusId        String?
+  archivedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus       Campus?           @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  memberships  GroupMembership[]
+
+  @@index([organizationId])
+  @@index([organizationId, type])
+  @@index([campusId])
+}
+
+model GroupMembership {
+  id             String              @id @default(cuid())
+  organizationId String
+  groupId        String
+  personId       String
+  role           GroupMembershipRole @default(MEMBER)
+  joinedAt       DateTime            @default(now())
+  createdAt      DateTime            @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  group        Group        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, personId])
+  @@index([organizationId])
+  @@index([groupId])
+  @@index([personId])
+}
+
+// ---------------------------------------------------------------------------
+// Forms (BLUEPRINT §7 -- versioned schemas)
+// ---------------------------------------------------------------------------
+
+enum FormStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+model FormDefinition {
+  id             String     @id @default(cuid())
+  organizationId String
+  title          String
+  description    String?
+  publicId       String     @unique @default(cuid())
+  status         FormStatus @default(DRAFT)
+  draftSchema    Json       @default("[]")
+  publishedVersion Int?
+  confirmationMessage String @default("Thanks! Your response has been received.")
+  createPeople   Boolean    @default(true)
+  notificationEmails String[] @default([])
+  archivedAt     DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  versions     FormVersion[]
+  submissions  FormSubmission[]
+
+  @@index([organizationId])
+}
+
+model FormVersion {
+  id             String   @id @default(cuid())
+  organizationId String
+  formId         String
+  version        Int
+  schema         Json
+  createdAt      DateTime @default(now())
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  form         FormDefinition @relation(fields: [formId], references: [id], onDelete: Cascade)
+
+  @@unique([formId, version])
+  @@index([organizationId])
+}
+
+model FormSubmission {
+  id             String   @id @default(cuid())
+  organizationId String
+  formId         String
+  version        Int
+  data           Json
+  personId       String?
+  submitterEmail String?
+  submitterName  String?
+  createdAt      DateTime @default(now())
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  form         FormDefinition @relation(fields: [formId], references: [id], onDelete: Cascade)
+  person       Person?        @relation(fields: [personId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([formId])
+  @@index([personId])
+}
+
+// ---------------------------------------------------------------------------
+// Transactional outbox (BLUEPRINT §38)
+// ---------------------------------------------------------------------------
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model OutboxEvent {
+  id             String       @id @default(cuid())
+  organizationId String
+  type           String
+  payload        Json
+  status         OutboxStatus @default(PENDING)
+  attempts       Int          @default(0)
+  maxAttempts    Int          @default(5)
+  nextAttemptAt  DateTime     @default(now())
+  lastError      String?
+  dedupeKey      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  processedAt    DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, dedupeKey])
+  @@index([status, nextAttemptAt])
+  @@index([organizationId])
+}
+
+model ProcessedEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  eventId        String
+  handler        String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, handler])
+  @@index([organizationId])
+}
+
+// ---------------------------------------------------------------------------
+// Workflow engine (BLUEPRINT §39 -- versioned, runs pin their version)
+// ---------------------------------------------------------------------------
+
+enum WorkflowStatus {
+  DRAFT
+  PUBLISHED
+  PAUSED
+}
+
+enum WorkflowRunStatus {
+  PENDING
+  RUNNING
+  WAITING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model WorkflowDefinition {
+  id             String         @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  status         WorkflowStatus @default(DRAFT)
+  trigger        String
+  triggerFormId  String?
+  draftConfig    Json           @default("{}")
+  publishedVersion Int?
+  archivedAt     DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  versions     WorkflowVersion[]
+  runs         WorkflowRun[]
+
+  @@index([organizationId])
+  @@index([organizationId, status, trigger])
+}
+
+model WorkflowVersion {
+  id             String   @id @default(cuid())
+  organizationId String
+  workflowId     String
+  version        Int
+  config         Json
+  createdAt      DateTime @default(now())
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workflow     WorkflowDefinition @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, version])
+  @@index([organizationId])
+}
+
+model WorkflowRun {
+  id             String            @id @default(cuid())
+  organizationId String
+  workflowId     String
+  version        Int
+  status         WorkflowRunStatus @default(PENDING)
+  currentStep    Int               @default(0)
+  attempts       Int               @default(0)
+  nextStepAt     DateTime          @default(now())
+  context        Json
+  log            Json              @default("[]")
+  personId       String?
+  triggeredByEventId String?
+  lastError      String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  completedAt    DateTime?
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workflow     WorkflowDefinition @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  person       Person?            @relation(fields: [personId], references: [id], onDelete: SetNull)
+  createdTasks Task[]
+  journeyEnrollments JourneyEnrollment[]
+  messages     Message[]
+
+  @@index([organizationId])
+  @@index([workflowId])
+  @@index([status, nextStepAt])
+  @@index([personId])
+}
+
+// ---------------------------------------------------------------------------
+// Tasks (BLUEPRINT §26/§40 -- universal work primitive)
+// ---------------------------------------------------------------------------
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model Task {
+  id             String       @id @default(cuid())
+  organizationId String
+  title          String
+  description    String?
+  status         TaskStatus   @default(OPEN)
+  priority       TaskPriority @default(NORMAL)
+  dueAt          DateTime?
+  assigneeUserId String?
+  relatedPersonId String?
+  workflowRunId  String?
+  createdByUserId String?
+  completedAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignee      User?        @relation("TaskAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  createdBy     User?        @relation("TaskCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  relatedPerson Person?      @relation(fields: [relatedPersonId], references: [id], onDelete: SetNull)
+  workflowRun   WorkflowRun? @relation(fields: [workflowRunId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@index([organizationId, assigneeUserId])
+  @@index([relatedPersonId])
+  @@index([workflowRunId])
+}
+
+// ---------------------------------------------------------------------------
+// Journeys (BLUEPRINT §6 -- living pathways)
+// ---------------------------------------------------------------------------
+
+enum JourneyEnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  EXITED
+}
+
+model JourneyDefinition {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  isActive       Boolean   @default(true)
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  milestones   JourneyMilestone[]
+  enrollments  JourneyEnrollment[]
+
+  @@index([organizationId])
+}
+
+model JourneyMilestone {
+  id             String  @id @default(cuid())
+  organizationId String
+  journeyId      String
+  name           String
+  description    String?
+  order          Int
+  targetDays     Int?
+  createdAt      DateTime @default(now())
+
+  organization Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journey      JourneyDefinition            @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  completions  JourneyMilestoneCompletion[]
+
+  @@unique([journeyId, order])
+  @@index([organizationId])
+  @@index([journeyId])
+}
+
+model JourneyEnrollment {
+  id             String                  @id @default(cuid())
+  organizationId String
+  journeyId      String
+  personId       String
+  status         JourneyEnrollmentStatus @default(ACTIVE)
+  enrolledByUserId String?
+  workflowRunId  String?
+  startedAt      DateTime  @default(now())
+  completedAt    DateTime?
+  exitedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journey      JourneyDefinition @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  person       Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+  enrolledBy   User?             @relation("EnrollmentEnrolledBy", fields: [enrolledByUserId], references: [id], onDelete: SetNull)
+  workflowRun  WorkflowRun?      @relation(fields: [workflowRunId], references: [id], onDelete: SetNull)
+  completions  JourneyMilestoneCompletion[]
+
+  @@unique([journeyId, personId])
+  @@index([organizationId])
+  @@index([organizationId, status])
+  @@index([personId])
+}
+
+model JourneyMilestoneCompletion {
+  id                String   @id @default(cuid())
+  organizationId    String
+  enrollmentId      String
+  milestoneId       String
+  completedByUserId String?
+  completedAt       DateTime @default(now())
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  enrollment   JourneyEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  milestone    JourneyMilestone  @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  completedBy  User?             @relation("CompletionCompletedBy", fields: [completedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([enrollmentId, milestoneId])
+  @@index([organizationId])
+  @@index([enrollmentId])
+}
+
+// ---------------------------------------------------------------------------
+// Events & Registrations (BLUEPRINT §13 -- compute-on-read recurrence)
+// ---------------------------------------------------------------------------
+
+enum EventRecurrence {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum EventRegistrationStatus {
+  REGISTERED
+  CANCELLED
+}
+
+model Event {
+  id             String          @id @default(cuid())
+  organizationId String
+  title          String
+  description    String?
+  location       String?
+  startAt        DateTime
+  endAt          DateTime?
+  allDay         Boolean         @default(false)
+  recurrence     EventRecurrence @default(NONE)
+  recurrenceInterval Int         @default(1)
+  recurrenceUntil    DateTime?
+  capacity       Int?
+  isPublished    Boolean         @default(false)
+  publicId       String          @unique @default(cuid())
+  campusId       String?
+  archivedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization  Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus        Campus?             @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  registrations EventRegistration[]
+  checkIns      CheckIn[]
+
+  @@index([organizationId, startAt])
+  @@index([organizationId])
+  @@index([campusId])
+}
+
+model EventRegistration {
+  id             String                  @id @default(cuid())
+  organizationId String
+  eventId        String
+  personId       String?
+  name           String
+  email          String?
+  status         EventRegistrationStatus @default(REGISTERED)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  person       Person?      @relation(fields: [personId], references: [id], onDelete: SetNull)
+
+  @@unique([eventId, personId])
+  @@index([organizationId])
+  @@index([eventId])
+  @@index([personId])
+}
+
+// ---------------------------------------------------------------------------
+// Communications (BLUEPRINT §19 -- Message log)
+// ---------------------------------------------------------------------------
+
+enum MessageChannel {
+  EMAIL
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  FAILED
+}
+
+model Message {
+  id             String         @id @default(cuid())
+  organizationId String
+  channel        MessageChannel @default(EMAIL)
+  toEmail        String
+  toPersonId     String?
+  subject        String
+  body           String
+  status         MessageStatus  @default(QUEUED)
+  source         String
+  workflowRunId  String?
+  error          String?
+  sentAt         DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  toPerson     Person?      @relation(fields: [toPersonId], references: [id], onDelete: SetNull)
+  workflowRun  WorkflowRun? @relation(fields: [workflowRunId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@index([organizationId, createdAt])
+  @@index([toPersonId])
+}
+
+// ---------------------------------------------------------------------------
+// Check-In (BLUEPRINT §12 -- adult/general attendance foundations)
+// ---------------------------------------------------------------------------
+
+model CheckIn {
+  id             String   @id @default(cuid())
+  organizationId String
+  eventId        String
+  occurrenceAt   DateTime
+  personId       String
+  checkedInByUserId String?
+  checkedInAt    DateTime @default(now())
+  checkedOutAt   DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, occurrenceAt, personId])
+  @@index([organizationId])
+  @@index([eventId, occurrenceAt])
+  @@index([personId])
+}
+
+// ---------------------------------------------------------------------------
+// Volunteers & Serving (BLUEPRINT §10 -- flagged eligibility, preserved history)
+// ---------------------------------------------------------------------------
+
+enum ServingAssignmentStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model ServingTeam {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  campusId       String?
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campus       Campus?           @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  positions    ServingPosition[]
+
+  @@index([organizationId])
+}
+
+model ServingPosition {
+  id             String   @id @default(cuid())
+  organizationId String
+  teamId         String
+  name           String
+  requiredQualifications String[] @default([])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  team         ServingTeam         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  assignments  ServingAssignment[]
+
+  @@index([organizationId])
+  @@index([teamId])
+}
+
+model ServingAssignment {
+  id             String                  @id @default(cuid())
+  organizationId String
+  positionId     String
+  personId       String
+  status         ServingAssignmentStatus @default(ACTIVE)
+  startedAt      DateTime  @default(now())
+  endedAt        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  position     ServingPosition @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  person       Person          @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([positionId, personId])
+  @@index([organizationId])
+  @@index([personId])
+}
+
+model PersonQualification {
+  id             String    @id @default(cuid())
+  organizationId String
+  personId       String
+  name           String
+  grantedAt      DateTime  @default(now())
+  expiresAt      DateTime?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, name])
+  @@index([organizationId])
+  @@index([personId])
+}
+
+// ---------------------------------------------------------------------------
+// Files (BLUEPRINT §41 -- private storage, per-request authorized downloads)
+// ---------------------------------------------------------------------------
+
+model File {
+  id             String    @id @default(cuid())
+  organizationId String
+  fileName       String
+  contentType    String
+  sizeBytes      Int
+  storageKey     String    @unique
+  relatedPersonId String?
+  uploadedByUserId String?
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  relatedPerson Person?      @relation(fields: [relatedPersonId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([relatedPersonId])
+}
+
+// ---------------------------------------------------------------------------
+// Developer platform (BLUEPRINT §42/§43)
+// ---------------------------------------------------------------------------
+
+model ApiKey {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  keyHash        String    @unique
+  keyPrefix      String
+  createdByUserId String?
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model WebhookSubscription {
+  id             String   @id @default(cuid())
+  organizationId String
+  url            String
+  secret         String
+  events         String[] @default([])
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries   WebhookDelivery[]
+
+  @@index([organizationId])
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}
+
+model WebhookDelivery {
+  id             String                @id @default(cuid())
+  organizationId String
+  subscriptionId String
+  eventId        String
+  eventType      String
+  payload        Json
+  status         WebhookDeliveryStatus @default(PENDING)
+  attempts       Int                   @default(0)
+  responseStatus Int?
+  lastError      String?
+  deliveredAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription WebhookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([subscriptionId])
+  @@index([status, attempts])
+}
