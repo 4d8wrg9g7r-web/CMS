@@ -31,13 +31,15 @@ deterministic code disposes** import flow:
    rewrites the CSV into the canonical shape; the existing unit-tested row mapper and
    tenant-scoped import service do everything else. The model has no tool access and
    no database access.
-4. **Human review is mandatory (§66).** The plan, its summary, status translations,
-   a mapped-row preview, and the dry-run valid/error counts render for OWNER/ADMIN
-   review; only an explicit confirm submit imports, re-validating the round-tripped
-   plan server-side. Audit metadata records `aiAssisted`, model id, and plan summary
-   (ADR-007 provenance).
-5. **Graceful absence.** The feature is invisible without `ANTHROPIC_API_KEY`; the
-   exact-header path is unchanged and remains the default.
+4. **Human review is mandatory (§66).** The import wizard walks every mapping
+   through one question per screen, then a dry-run review shows the plan recap,
+   mapped-row preview, and valid/error counts; only an explicit confirm imports,
+   re-validating the round-tripped plan server-side. Audit metadata records
+   `aiAssisted`, model id, and plan summary (ADR-007 provenance).
+5. **Opt-in, with graceful absence.** The AI runs only after the user chooses
+   "Use AI suggestions" on the wizard's consent screen (which states what is
+   sent); declining, a missing `ANTHROPIC_API_KEY`, or any AI failure falls back
+   to local header-alias heuristics and the wizard behaves identically.
 
 ## Alternatives considered
 - **Interactive column-mapping UI only** — more build effort, no value translation,

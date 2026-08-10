@@ -4,8 +4,12 @@ import { mapImportRows } from "../people/import";
 import {
   applyMappingPlan,
   buildColumnProfiles,
+  buildWizardColumns,
+  detectTagDelimiter,
+  guessMappingColumns,
   maskImportValue,
   validateMappingPlan,
+  WIZARD_VALUE_LIMIT,
   type MappingPlan,
 } from "../people/import-mapping";
 
@@ -47,6 +51,56 @@ describe("buildColumnProfiles", () => {
 
   it("returns nothing for an empty file", () => {
     expect(buildColumnProfiles([])).toEqual([]);
+  });
+});
+
+describe("buildWizardColumns", () => {
+  it("keeps raw (unmasked) distinct values with first-seen casing, capped", () => {
+    const rows: string[][] = [["Status"]];
+    for (let i = 0; i < 20; i++) rows.push([`Value ${i}`]);
+    rows.push(["value 0"]); // dupe, different case
+    const cols = buildWizardColumns(rows);
+    expect(cols[0]!.values).toHaveLength(WIZARD_VALUE_LIMIT);
+    expect(cols[0]!.values[0]).toBe("Value 0");
+    expect(cols[0]!.distinctCount).toBe(20);
+  });
+
+  it("does not mask emails — this data stays with the importing user", () => {
+    const cols = buildWizardColumns([["Email"], ["dana@example.org"]]);
+    expect(cols[0]!.values).toEqual(["dana@example.org"]);
+  });
+});
+
+describe("guessMappingColumns", () => {
+  it("alias-matches common export headers", () => {
+    const guesses = guessMappingColumns(["First Name", "Surname", "E-mail", "Mobile Phone", "Member Type", "Site"]);
+    expect(guesses.map((g) => g.target)).toEqual([
+      "firstName",
+      "lastName",
+      "email",
+      "phone",
+      "membershipStatus",
+      "campus",
+    ]);
+  });
+
+  it("ignores unknown headers and duplicate targets", () => {
+    const guesses = guessMappingColumns(["Email", "Secondary Email Thing", "email", "Favorite Color"]);
+    expect(guesses.map((g) => g.target)).toEqual(["email", "ignore", "ignore", "ignore"]);
+  });
+
+  it("drops a fullName guess when explicit first/last columns exist", () => {
+    const guesses = guessMappingColumns(["Name", "First Name", "Last Name"]);
+    expect(guesses.map((g) => g.target)).toEqual(["ignore", "firstName", "lastName"]);
+  });
+});
+
+describe("detectTagDelimiter", () => {
+  it("prefers ';', then ',', then '|', defaulting to ';'", () => {
+    expect(detectTagDelimiter(["a;b", "c,d"])).toBe(";");
+    expect(detectTagDelimiter(["c,d"])).toBe(",");
+    expect(detectTagDelimiter(["c|d"])).toBe("|");
+    expect(detectTagDelimiter(["youth"])).toBe(";");
   });
 });
 
@@ -176,6 +230,11 @@ describe("applyMappingPlan", () => {
   it("splits 'Last, First' on the comma regardless of nameOrder", () => {
     const out = applyMappingPlan(records, validated());
     expect(out[2]!.slice(0, 2)).toEqual(["Sam", "Ortiz"]);
+  });
+
+  it("canonicalizes statuses that already match the enum, any casing", () => {
+    const out = applyMappingPlan(records, validated());
+    expect(out[2]![4]).toBe("MEMBER");
   });
 
   it("passes unmapped status values through for downstream row errors", () => {

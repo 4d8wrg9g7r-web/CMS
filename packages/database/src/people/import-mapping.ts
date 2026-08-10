@@ -88,6 +88,116 @@ export function buildColumnProfiles(records: string[][]): ColumnProfile[] {
   });
 }
 
+/** Max distinct raw values per column surfaced to the import wizard UI. */
+export const WIZARD_VALUE_LIMIT = 12;
+
+export interface WizardColumn {
+  header: string;
+  /** Distinct raw values (first-seen casing), capped at WIZARD_VALUE_LIMIT. Shown only
+   * to the importing user in their own browser — nothing here goes to the AI, which
+   * gets the masked profiles from buildColumnProfiles instead. */
+  values: string[];
+  distinctCount: number;
+  emptyCount: number;
+  rowCount: number;
+}
+
+/** Per-column raw data backing the wizard's one-question-per-screen flow. */
+export function buildWizardColumns(records: string[][]): WizardColumn[] {
+  if (records.length === 0) return [];
+  const header = records[0]!;
+  return header.map((name, col) => {
+    const distinct = new Set<string>();
+    const values: string[] = [];
+    let emptyCount = 0;
+    for (let r = 1; r < records.length; r++) {
+      const raw = (records[r]![col] ?? "").trim();
+      if (!raw) {
+        emptyCount++;
+        continue;
+      }
+      const key = raw.toLowerCase();
+      if (distinct.has(key)) continue;
+      distinct.add(key);
+      if (values.length < WIZARD_VALUE_LIMIT) values.push(raw);
+    }
+    return { header: name.trim(), values, distinctCount: distinct.size, emptyCount, rowCount: records.length - 1 };
+  });
+}
+
+const HEADER_ALIASES: Record<string, MappingTarget> = {
+  firstname: "firstName",
+  first: "firstName",
+  fname: "firstName",
+  givenname: "firstName",
+  forename: "firstName",
+  lastname: "lastName",
+  last: "lastName",
+  lname: "lastName",
+  surname: "lastName",
+  familyname: "lastName",
+  name: "fullName",
+  fullname: "fullName",
+  personname: "fullName",
+  displayname: "fullName",
+  email: "email",
+  emailaddress: "email",
+  mail: "email",
+  primaryemail: "email",
+  phone: "phone",
+  phonenumber: "phone",
+  mobile: "phone",
+  mobilephone: "phone",
+  cell: "phone",
+  cellphone: "phone",
+  telephone: "phone",
+  primaryphone: "phone",
+  homephone: "phone",
+  membershipstatus: "membershipStatus",
+  memberstatus: "membershipStatus",
+  membership: "membershipStatus",
+  membertype: "membershipStatus",
+  status: "membershipStatus",
+  tags: "tags",
+  tag: "tags",
+  labels: "tags",
+  keywords: "tags",
+  campus: "campus",
+  site: "campus",
+  location: "campus",
+  branch: "campus",
+  congregation: "campus",
+};
+
+/**
+ * Deterministic fallback proposal when no AI key is configured (or the AI call fails):
+ * alias-matches headers to targets. First match wins a target; the rest default to
+ * ignore. fullName defers to explicit first/last columns when both exist.
+ */
+export function guessMappingColumns(headers: string[]): MappingColumn[] {
+  const normalized = headers.map((h) => h.trim().toLowerCase().replace(/[^a-z0-9]/g, ""));
+  const taken = new Set<string>();
+  const guesses: MappingColumn[] = headers.map((header, i) => {
+    const target = HEADER_ALIASES[normalized[i] ?? ""] ?? "ignore";
+    if (target === "ignore" || taken.has(target)) return { sourceHeader: header.trim(), target: "ignore", nameOrder: null };
+    taken.add(target);
+    return { sourceHeader: header.trim(), target, nameOrder: target === "fullName" ? "firstLast" : null };
+  });
+  // "Name" next to explicit First/Last columns is usually a duplicate — don't fight them.
+  if (taken.has("fullName") && taken.has("firstName") && taken.has("lastName")) {
+    for (const g of guesses) if (g.target === "fullName") g.target = "ignore";
+  }
+  return guesses;
+}
+
+/** Picks the likeliest multi-tag separator from real column values. */
+export function detectTagDelimiter(values: string[]): ";" | "," | "|" {
+  for (const d of [";", ",", "|"] as const) {
+    if (values.some((v) => v.includes(d))) return d;
+  }
+  return ";";
+}
+
 const VALID_STATUSES = new Set<string>(Object.values(MembershipStatus));
 const VALID_TARGETS = new Set<string>(MAPPING_TARGETS);
 const VALID_DELIMITERS = new Set([";", ",", "|"]);
@@ -205,6 +315,7 @@ export function applyMappingPlan(records: string[][], plan: MappingPlan): string
   }
   const fullNameCol = plan.columns.find((c) => c.target === "fullName");
   const statusByValue = new Map(plan.statusRules.map((r) => [r.sourceValue.toLowerCase(), r.status]));
+  const canonicalStatus = new Map(Object.values(MembershipStatus).map((s) => [s.toLowerCase(), s]));
   const get = (record: string[], target: MappingTarget) => {
     const idx = colIndex.get(target);
     return idx === undefined || idx === -1 ? "" : (record[idx] ?? "").trim();
@@ -221,7 +332,11 @@ export function applyMappingPlan(records: string[][], plan: MappingPlan): string
       lastName = split.lastName;
     }
     const rawStatus = get(record, "membershipStatus");
-    const status = rawStatus ? (statusByValue.get(rawStatus.toLowerCase()) ?? rawStatus) : "";
+    // Rule match first, then canonical uppercase for values that already are the enum
+    // (so previews read consistently); anything else passes through to a row error.
+    const status = rawStatus
+      ? (statusByValue.get(rawStatus.toLowerCase()) ?? canonicalStatus.get(rawStatus.toLowerCase()) ?? rawStatus)
+      : "";
     const tags = get(record, "tags")
       .split(plan.tagDelimiter)
       .map((t) => t.trim())

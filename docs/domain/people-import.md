@@ -38,11 +38,24 @@ the standard on-ramp from spreadsheets and other ChMS exports.
 - Caps: 2,000 rows / 1 MB per import (one pastoral database at a time, not a data
   warehouse); larger files get a clear error telling the user to split them.
 
+## Import wizard
+The import UI is a one-question-per-screen wizard (Apple-setup style: single bold
+question, fade transitions, progress bar): upload → optional AI consent → one
+question per column ("What's in 'Full Name'?") plus conditional questions (name
+order, tag delimiter, one per unrecognized status value) → dry-run review → confirm
+→ done. Pre-selected answers come from `guessMappingColumns` (local header-alias
+heuristics — no AI) or, only when the user explicitly chooses "Use AI suggestions"
+on the consent screen, from Claude. The client only assembles answers into a
+MappingPlan; the server re-validates it and runs the same deterministic pipeline in
+`dryRunImportAction` (no writes) and `runImportAction` (writes, after confirm).
+
 ## AI-assisted mapping (ADR-011)
-For files whose columns don't match the canonical headers, "Analyze with AI" asks
-Claude (`claude-opus-5`, structured outputs) for a **MappingPlan**: column → field
-assignments (including a `fullName` split), membershipStatus value translations
-("Regular attender" → ATTENDER), and a tag delimiter. Hard boundaries:
+When the user opts in on the wizard's consent screen, Claude (`claude-opus-5`,
+structured outputs) proposes a **MappingPlan**: column → field assignments
+(including a `fullName` split), membershipStatus value translations
+("Regular attender" → ATTENDER), and a tag delimiter. Declining (or a missing
+`ANTHROPIC_API_KEY`, or any AI failure) falls back to the local heuristics — the
+wizard works identically either way. Hard boundaries:
 
 - **AI proposes, deterministic code disposes.** The model sees only per-column
   profiles — headers plus ≤8 distinct sample values with emails/phones masked
@@ -50,9 +63,12 @@ assignments (including a `fullName` split), membershipStatus value translations
   (`validateMappingPlan`) against the file's real headers and applied
   (`applyMappingPlan`) by pure, unit-tested code feeding the same `mapImportRows` +
   `importPeople` pipeline as the exact-header path. The model cannot write anything.
-- **Human review before any write (§66).** The plan, summary, status translations,
-  mapped-row preview, and dry-run counts are shown for review; a separate confirm
-  submit performs the import, re-validating the round-tripped plan server-side.
+- **Human review before any write (§66).** Every AI suggestion is walked through
+  question-by-question in the wizard, then a dry-run review screen shows the plan
+  recap, mapped-row preview, and valid/error counts; a separate confirm performs
+  the import, re-validating the round-tripped plan server-side.
+- **Opt-in only.** The AI is called exclusively after the user picks "Use AI
+  suggestions" on the consent screen, which states exactly what is sent.
 - Unmatched status values pass through and surface as per-line row errors — the
   system never guesses silently.
 - Audit metadata on AI-assisted runs records `aiAssisted: true`, the model id, and

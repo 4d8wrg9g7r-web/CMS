@@ -92,13 +92,17 @@ export { parseCsv, mapImportRows, IMPORT_HEADERS, MAX_IMPORT_ROWS, MAX_IMPORT_BY
 export type { ImportPersonRow, ImportRowError } from "./people/import";
 export {
   buildColumnProfiles,
+  buildWizardColumns,
+  detectTagDelimiter,
+  guessMappingColumns,
   maskImportValue,
   validateMappingPlan,
   applyMappingPlan,
   MAPPING_TARGETS,
   PROFILE_SAMPLE_LIMIT,
+  WIZARD_VALUE_LIMIT,
 } from "./people/import-mapping";
-export type { ColumnProfile, MappingPlan, MappingColumn, MappingTarget } from "./people/import-mapping";
+export type { ColumnProfile, MappingPlan, MappingColumn, MappingTarget, WizardColumn } from "./people/import-mapping";
 
 export * as groupPermissions from "./authz/group-permissions";
 export type { GroupAction } from "./authz/group-permissions";
