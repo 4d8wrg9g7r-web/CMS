@@ -12,6 +12,7 @@ import {
   LifeBuoy,
   Mail,
   Map,
+  PieChart,
   ScrollText,
   Settings as SettingsIcon,
   Users,
@@ -75,6 +76,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <SidebarNavItem href="/journeys" label="Journeys" icon={<Map size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/events" label="Events" icon={<CalendarDays size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/attendance" label="Attendance" icon={<BarChart3 size={17} strokeWidth={1.75} />} />
+        <SidebarNavItem href="/reports" label="Reports" icon={<PieChart size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/giving" label="Giving" icon={<HandCoins size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/serving" label="Serving" icon={<HeartHandshake size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/forms" label="Forms" icon={<ClipboardList size={17} strokeWidth={1.75} />} />

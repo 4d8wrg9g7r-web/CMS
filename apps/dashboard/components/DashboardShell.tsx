@@ -16,7 +16,7 @@ export function DashboardShell({ sidebar, children }: { sidebar: React.ReactNode
 
   return (
     <div className="flex min-h-screen bg-background">
-      <div className="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-border bg-surface px-4 py-3 lg:hidden">
+      <div className="fixed inset-x-0 top-0 z-30 flex items-center justify-between border-b border-border bg-surface px-4 py-3 print:hidden lg:hidden">
         <div className="flex items-center gap-2">
           <Wind size={18} strokeWidth={1.75} className="text-accent" />
           <span className="text-sm font-semibold uppercase tracking-[0.18em] text-ink">CMS</span>
@@ -34,7 +34,7 @@ export function DashboardShell({ sidebar, children }: { sidebar: React.ReactNode
       {open && <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />}
 
       <aside
-        className={`bg-sidebar-gradient fixed inset-y-0 left-0 z-50 flex w-[240px] shrink-0 flex-col border-r border-sidebar-border transition-transform duration-200 ease-in-out lg:static lg:translate-x-0 ${
+        className={`bg-sidebar-gradient fixed inset-y-0 left-0 z-50 flex w-[240px] shrink-0 flex-col border-r border-sidebar-border transition-transform duration-200 ease-in-out print:hidden lg:static lg:translate-x-0 ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >

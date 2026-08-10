@@ -37,6 +37,7 @@ model User {
   personImports       PersonImport[]       @relation("PersonImportCreatedBy")
   contributionBatches ContributionBatch[]  @relation("ContributionBatchCreatedBy")
   contributions       Contribution[]       @relation("ContributionCreatedBy")
+  savedReports        SavedReport[]        @relation("SavedReportCreatedBy")
 }
 
 /** Single-use, short-lived; a fresh request invalidates prior unused tokens. */
@@ -82,6 +83,7 @@ model Organization {
   funds                  Fund[]
   contributionBatches    ContributionBatch[]
   contributions          Contribution[]
+  savedReports           SavedReport[]
   groups              Group[]
   groupMemberships    GroupMembership[]
   forms               FormDefinition[]
@@ -452,6 +454,26 @@ model Contribution {
   @@index([personId])
   @@index([fundId])
   @@index([batchId])
+}
+
+/**
+ * A saved report-builder configuration (docs/domain/reports.md). `config` is an
+ * untrusted ReportConfig JSON — re-validated by validateReportConfig on every run,
+ * never executed as stored.
+ */
+model SavedReport {
+  id              String   @id @default(cuid())
+  organizationId  String
+  name            String
+  config          Json
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("SavedReportCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
 }
 
 // ---------------------------------------------------------------------------

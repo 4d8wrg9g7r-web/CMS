@@ -45,6 +45,7 @@ export type { AttendanceRow, WeekBucket, EventAttendanceSummary } from "./checki
 
 export * as volunteerService from "./services/volunteer-service";
 export * as givingService from "./services/giving-service";
+export * as reportingService from "./services/reporting-service";
 export * as volunteerPermissions from "./authz/volunteer-permissions";
 export type { VolunteerAction } from "./authz/volunteer-permissions";
 export { isEligible } from "./volunteers/helpers";
@@ -136,6 +137,27 @@ export {
   mapContributionRows,
 } from "./giving/helpers";
 export type { AnnualStatement, BatchTotals, ContributionImportRow, StatementLine } from "./giving/helpers";
+
+export {
+  dimensionsForSource,
+  measuresForSource,
+  reportUsesPersonData,
+  validateReportConfig,
+  REPORT_SOURCES,
+  REPORT_CHARTS,
+  TIME_BUCKETS,
+} from "./reporting/config";
+export type {
+  ReportChart,
+  ReportConfig,
+  ReportFilters,
+  ReportGroupBy,
+  ReportMeasure,
+  ReportSource,
+  TimeBucket,
+} from "./reporting/config";
+export { aggregateReport, MAX_TIME_BUCKETS } from "./reporting/aggregate";
+export type { ReportGroup, ReportResult, ReportRow } from "./reporting/aggregate";
 
 export * as groupPermissions from "./authz/group-permissions";
 export type { GroupAction } from "./authz/group-permissions";
