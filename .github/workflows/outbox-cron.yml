@@ -1,0 +1,29 @@
+# Vendor-neutral scheduler for the outbox drain (docs/domain/outbox.md). Vercel Cron
+# on the Hobby plan only fires daily; this workflow pings /api/cron/outbox every
+# 5 minutes instead. No-ops (and stays green) until the CRON_URL and CRON_SECRET
+# repository secrets are configured — see docs/deployment.md.
+#
+# GitHub schedule timing is best-effort (can lag several minutes under load); the
+# outbox is designed for that — after() drains opportunistically in-request, and this
+# is only the durable backstop.
+name: Outbox cron
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Drain outbox
+        env:
+          CRON_URL: ${{ secrets.CRON_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "CRON_URL / CRON_SECRET secrets not configured — skipping."
+            exit 0
+          fi
+          curl --fail-with-body -sS -H "Authorization: Bearer $CRON_SECRET" "$CRON_URL"

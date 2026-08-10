@@ -50,3 +50,8 @@ pnpm db:seed          # idempotent dev seed
 
 Read [`docs/architecture/CONSTITUTION.md`](docs/architecture/CONSTITUTION.md) before
 changing anything architectural, and `CLAUDE.md` for contributor ground rules.
+
+## Deployment
+
+See [`docs/deployment.md`](docs/deployment.md) — Vercel + Neon + Resend, with the
+outbox cron wiring and production env checklist.
