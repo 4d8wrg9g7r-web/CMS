@@ -1,5 +1,6 @@
-import { MembershipStatus } from "@prisma/client";
-import { IMPORT_HEADERS } from "./import";
+import { MembershipStatus, PersonFieldType } from "@prisma/client";
+import { IMPORT_HEADERS, type ImportRowError } from "./import";
+import { coerceFieldValue, MAX_SELECT_OPTIONS, slugifyFieldKey, type PersonFieldValueJson } from "./custom-fields";
 
 /**
  * Pure half of AI-assisted import mapping (docs/domain/people-import.md, ADR-011).
@@ -20,14 +21,23 @@ export interface ColumnProfile {
   rowCount: number;
 }
 
-export const MAPPING_TARGETS = [...IMPORT_HEADERS, "fullName", "ignore"] as const;
+export const MAPPING_TARGETS = [...IMPORT_HEADERS, "fullName", "household", "custom", "ignore"] as const;
 export type MappingTarget = (typeof MAPPING_TARGETS)[number];
+
+/** Spec for a column imported as an org-defined custom field. */
+export interface MappingCustomField {
+  key: string;
+  label: string;
+  type: PersonFieldType;
+}
 
 export interface MappingColumn {
   sourceHeader: string;
   target: MappingTarget;
   /** Only meaningful when target is fullName: which name comes first in the value. */
   nameOrder?: "firstLast" | "lastFirst" | null;
+  /** Required when target is "custom": how to store the column. */
+  customField?: MappingCustomField | null;
 }
 
 export interface MappingPlan {
@@ -167,6 +177,8 @@ const HEADER_ALIASES: Record<string, MappingTarget> = {
   location: "campus",
   branch: "campus",
   congregation: "campus",
+  household: "household",
+  householdname: "household",
 };
 
 /**
@@ -219,6 +231,8 @@ export function validateMappingPlan(input: unknown, headers: string[]): PlanVali
   const headerSet = new Map(headers.map((h) => [h.trim().toLowerCase(), h.trim()]));
   const seenHeaders = new Set<string>();
   const seenTargets = new Set<string>();
+  const seenCustomKeys = new Set<string>();
+  const validFieldTypes = new Set<string>(Object.values(PersonFieldType));
   const columns: MappingColumn[] = [];
 
   for (const col of plan.columns) {
@@ -241,12 +255,33 @@ export function validateMappingPlan(input: unknown, headers: string[]): PlanVali
       errors.push(`Unknown mapping target "${col.target}".`);
       continue;
     }
-    if (col.target !== "ignore") {
+    // Any number of columns may become custom fields; every other target is single-use.
+    if (col.target !== "ignore" && col.target !== "custom") {
       if (seenTargets.has(col.target)) errors.push(`Two columns are both mapped to ${col.target}.`);
       seenTargets.add(col.target);
     }
+    let customField: MappingCustomField | null = null;
+    if (col.target === "custom") {
+      const cf = col.customField;
+      if (!cf || typeof cf !== "object" || !validFieldTypes.has(String(cf.type))) {
+        errors.push(`Column "${canonical}" is missing a valid custom-field type.`);
+        continue;
+      }
+      const label = typeof cf.label === "string" && cf.label.trim() ? cf.label.trim() : canonical;
+      const key = slugifyFieldKey(typeof cf.key === "string" && cf.key.trim() ? cf.key : label);
+      if (!key) {
+        errors.push(`Column "${canonical}" produces an empty custom-field key.`);
+        continue;
+      }
+      if (seenCustomKeys.has(key)) {
+        errors.push(`Two columns map to the same custom field "${key}".`);
+        continue;
+      }
+      seenCustomKeys.add(key);
+      customField = { key, label, type: cf.type as PersonFieldType };
+    }
     const nameOrder = col.nameOrder === "firstLast" || col.nameOrder === "lastFirst" ? col.nameOrder : null;
-    columns.push({ sourceHeader: canonical, target: col.target as MappingTarget, nameOrder });
+    columns.push({ sourceHeader: canonical, target: col.target as MappingTarget, nameOrder, customField });
   }
 
   if (seenTargets.has("fullName") && (seenTargets.has("firstName") || seenTargets.has("lastName"))) {
@@ -311,7 +346,9 @@ export function applyMappingPlan(records: string[][], plan: MappingPlan): string
   const header = records[0]!.map((h) => h.trim().toLowerCase());
   const colIndex = new Map<string, number>();
   for (const col of plan.columns) {
-    colIndex.set(col.target === "ignore" ? `ignore:${col.sourceHeader}` : col.target, header.indexOf(col.sourceHeader.trim().toLowerCase()));
+    // custom/household columns are handled by extractExtraColumns, not the canonical shape.
+    if (col.target === "ignore" || col.target === "custom" || col.target === "household") continue;
+    colIndex.set(col.target, header.indexOf(col.sourceHeader.trim().toLowerCase()));
   }
   const fullNameCol = plan.columns.find((c) => c.target === "fullName");
   const statusByValue = new Map(plan.statusRules.map((r) => [r.sourceValue.toLowerCase(), r.status]));
@@ -345,4 +382,106 @@ export function applyMappingPlan(records: string[][], plan: MappingPlan): string
     out.push([firstName, lastName, get(record, "email"), get(record, "phone"), status, tags, get(record, "campus")]);
   }
   return out;
+}
+
+/** A custom field an import run will write, resolved against the org's existing defs. */
+export interface ResolvedImportField {
+  key: string;
+  label: string;
+  type: PersonFieldType;
+  /** Full option set after this run (existing options ∪ new file values) for selects. */
+  options: string[];
+  existing: boolean;
+}
+
+export interface ExtraColumnValues {
+  householdName: string | null;
+  custom: Record<string, PersonFieldValueJson>;
+}
+
+/**
+ * Companion to applyMappingPlan for the non-canonical targets: pulls per-line
+ * household names and coerced custom-field values out of the original records.
+ * An existing org definition with the same key always wins over the plan's proposed
+ * type, so re-imports can't silently retype a field; SELECT options are derived
+ * from (or extended with) the file's own values, and a SELECT whose file exceeds
+ * MAX_SELECT_OPTIONS distinct values degrades to TEXT rather than exploding the
+ * dropdown. Coercion failures are per-line errors — those rows are excluded, same
+ * as an unknown campus.
+ */
+export function extractExtraColumns(
+  records: string[][],
+  plan: MappingPlan,
+  existingFields: { key: string; label: string; type: PersonFieldType; options: string[] }[],
+): { fields: ResolvedImportField[]; byLine: Map<number, ExtraColumnValues>; errors: ImportRowError[] } {
+  const byLine = new Map<number, ExtraColumnValues>();
+  const errors: ImportRowError[] = [];
+  if (records.length === 0) return { fields: [], byLine, errors };
+
+  const header = records[0]!.map((h) => h.trim().toLowerCase());
+  const existingByKey = new Map(existingFields.map((f) => [f.key, f]));
+  const householdCol = plan.columns.find((c) => c.target === "household");
+  const householdIdx = householdCol ? header.indexOf(householdCol.sourceHeader.trim().toLowerCase()) : -1;
+
+  const customCols: { idx: number; field: ResolvedImportField }[] = [];
+  const fields: ResolvedImportField[] = [];
+  for (const col of plan.columns) {
+    if (col.target !== "custom" || !col.customField) continue;
+    const idx = header.indexOf(col.sourceHeader.trim().toLowerCase());
+    if (idx === -1) continue;
+
+    const existing = existingByKey.get(col.customField.key);
+    let type = existing?.type ?? col.customField.type;
+    // Distinct raw values in this file's column, for select-option derivation.
+    const distinct = new Map<string, string>();
+    for (let r = 1; r < records.length; r++) {
+      const raw = (records[r]![idx] ?? "").trim();
+      if (raw) distinct.set(raw.toLowerCase(), raw);
+    }
+    let options = existing?.options ?? [];
+    if (type === PersonFieldType.SELECT || type === PersonFieldType.MULTI_SELECT) {
+      const known = new Set(options.map((o) => o.toLowerCase()));
+      const merged = [...options, ...[...distinct.values()].filter((v) => !known.has(v.toLowerCase()))];
+      if (!existing && merged.length > MAX_SELECT_OPTIONS) {
+        type = PersonFieldType.TEXT;
+        options = [];
+      } else {
+        options = merged;
+      }
+    } else {
+      options = existing?.options ?? [];
+    }
+
+    const field: ResolvedImportField = {
+      key: col.customField.key,
+      label: existing?.label ?? col.customField.label,
+      type,
+      options,
+      existing: Boolean(existing),
+    };
+    fields.push(field);
+    customCols.push({ idx, field });
+  }
+
+  for (let r = 1; r < records.length; r++) {
+    const record = records[r]!;
+    const line = r + 1;
+    const custom: Record<string, PersonFieldValueJson> = {};
+    let lineOk = true;
+    for (const { idx, field } of customCols) {
+      const raw = (record[idx] ?? "").trim();
+      const result = coerceFieldValue(field.type, raw, plan.tagDelimiter);
+      if (!result.ok) {
+        errors.push({ line, message: `${field.label}: ${result.message}` });
+        lineOk = false;
+        continue;
+      }
+      if (result.value !== null) custom[field.key] = result.value;
+    }
+    if (!lineOk) continue;
+    const householdName = householdIdx === -1 ? null : (record[householdIdx] ?? "").trim() || null;
+    byLine.set(line, { householdName, custom });
+  }
+
+  return { fields, byLine, errors };
 }

@@ -16,6 +16,8 @@ export const TENANT_SCOPED_MODELS = new Set([
   "Household",
   "PersonRelationship",
   "PersonImport",
+  "PersonFieldDefinition",
+  "PersonFieldValue",
   "Group",
   "GroupMembership",
   "FormDefinition",

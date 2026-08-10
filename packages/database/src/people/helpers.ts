@@ -27,9 +27,8 @@ export function personDisplayName(person: {
  * the tie (see people-service.addRelationship). A row "Bob is Alice's CHILD" implies
  * "Alice is Bob's PARENT".
  *
- * SPOUSE and SIBLING are symmetric. GUARDIAN has no distinct reciprocal in the v1 enum
- * (there is no DEPENDENT/WARD type), so it maps to CHILD as a documented approximation
- * -- see docs/domain/people.md "Unresolved risks".
+ * SPOUSE and SIBLING are symmetric; the directional pairs are PARENT/CHILD,
+ * GRANDPARENT/GRANDCHILD, FOSTER_PARENT/FOSTER_CHILD, and GUARDIAN/WARD.
  */
 export function inverseRelationshipType(type: PersonRelationshipType): PersonRelationshipType {
   switch (type) {
@@ -41,8 +40,18 @@ export function inverseRelationshipType(type: PersonRelationshipType): PersonRel
       return PersonRelationshipType.CHILD;
     case PersonRelationshipType.CHILD:
       return PersonRelationshipType.PARENT;
+    case PersonRelationshipType.GRANDPARENT:
+      return PersonRelationshipType.GRANDCHILD;
+    case PersonRelationshipType.GRANDCHILD:
+      return PersonRelationshipType.GRANDPARENT;
+    case PersonRelationshipType.FOSTER_PARENT:
+      return PersonRelationshipType.FOSTER_CHILD;
+    case PersonRelationshipType.FOSTER_CHILD:
+      return PersonRelationshipType.FOSTER_PARENT;
     case PersonRelationshipType.GUARDIAN:
-      return PersonRelationshipType.CHILD;
+      return PersonRelationshipType.WARD;
+    case PersonRelationshipType.WARD:
+      return PersonRelationshipType.GUARDIAN;
     case PersonRelationshipType.OTHER:
       return PersonRelationshipType.OTHER;
     default: {

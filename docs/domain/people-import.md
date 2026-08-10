@@ -42,8 +42,15 @@ the standard on-ramp from spreadsheets and other ChMS exports.
 The import UI is a one-question-per-screen wizard (Apple-setup style: single bold
 question, fade transitions, progress bar): upload → optional AI consent → one
 question per column ("What's in 'Full Name'?") plus conditional questions (name
-order, tag delimiter, one per unrecognized status value) → dry-run review → confirm
-→ done. Pre-selected answers come from `guessMappingColumns` (local header-alias
+order, tag delimiter, one per unrecognized status value, and a "How should
+'Veteran' be displayed in your database?" screen for every column kept as a custom
+field) → dry-run review → confirm → done. Columns can also map to **household**
+(rows sharing a value are grouped into find-or-create-by-name Households) and
+**custom** (any number of columns become PersonFieldDefinitions — reused by key on
+re-import, with the existing definition's type always winning; select options are
+derived from the file's own values, capped at MAX_SELECT_OPTIONS before degrading
+to text). Custom-value coercion failures are per-line errors, same as an unknown
+campus. Pre-selected answers come from `guessMappingColumns` (local header-alias
 heuristics — no AI) or, only when the user explicitly chooses "Use AI suggestions"
 on the consent screen, from Claude. The client only assembles answers into a
 MappingPlan; the server re-validates it and runs the same deterministic pipeline in

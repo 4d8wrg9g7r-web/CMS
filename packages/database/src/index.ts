@@ -94,6 +94,7 @@ export {
   buildColumnProfiles,
   buildWizardColumns,
   detectTagDelimiter,
+  extractExtraColumns,
   guessMappingColumns,
   maskImportValue,
   validateMappingPlan,
@@ -102,7 +103,25 @@ export {
   PROFILE_SAMPLE_LIMIT,
   WIZARD_VALUE_LIMIT,
 } from "./people/import-mapping";
-export type { ColumnProfile, MappingPlan, MappingColumn, MappingTarget, WizardColumn } from "./people/import-mapping";
+export type {
+  ColumnProfile,
+  ExtraColumnValues,
+  MappingPlan,
+  MappingColumn,
+  MappingCustomField,
+  MappingTarget,
+  ResolvedImportField,
+  WizardColumn,
+} from "./people/import-mapping";
+export {
+  coerceFieldValue,
+  formatFieldValue,
+  inferFieldType,
+  slugifyFieldKey,
+  MAX_SELECT_OPTIONS,
+  PERSON_FIELD_TYPES,
+} from "./people/custom-fields";
+export type { PersonFieldValueJson } from "./people/custom-fields";
 
 export * as groupPermissions from "./authz/group-permissions";
 export type { GroupAction } from "./authz/group-permissions";

@@ -46,8 +46,25 @@ New tenant-scoped models (all carry `organizationId`; registered in the tenant g
   `addressLine2?`, `city?`, `region?`, `postalCode?`, `country?`), `archivedAt?`,
   timestamps. Has many `members` (Person).
 - **PersonRelationship** — `organizationId`, `personId`, `relatedPersonId`, `type`
-  (`SPOUSE|PARENT|CHILD|SIBLING|GUARDIAN|OTHER`), timestamp. Unique on
-  `(personId, relatedPersonId, type)`.
+  (`SPOUSE|PARENT|CHILD|SIBLING|GRANDPARENT|GRANDCHILD|FOSTER_PARENT|FOSTER_CHILD|GUARDIAN|WARD|OTHER`),
+  timestamp. Unique on `(personId, relatedPersonId, type)`. Stored with its reciprocal
+  row (`inverseRelationshipType`, pure + unit-tested) so both people see the tie.
+- **PersonFieldDefinition** — `organizationId`, `key` (stable slug, unique per org),
+  `label`, `type` (`TEXT|NUMBER|DATE|BOOLEAN|SELECT|MULTI_SELECT`), `options[]` (for
+  selects), `archivedAt?`, timestamps. **No cap** on definitions per organization.
+- **PersonFieldValue** — `organizationId`, `personId`, `fieldId`, `value` (Json shaped
+  by the definition type: string | number | boolean | string[]). Unique on
+  `(personId, fieldId)`.
+
+### Custom fields
+Organizations define unlimited person fields (a "Veteran" checkbox, "Baptism Date",
+"Ministry Team" dropdown, …). Definitions are managed in Settings → Person fields and
+created automatically by the import wizard ("How should this be displayed in your
+database?"); they are keyed by a label slug so repeated imports reuse the same field.
+Values render and edit on the person profile's Details card. Pure helpers
+(`inferFieldType`, `coerceFieldValue`, `formatFieldValue`, `slugifyFieldKey` in
+`people/custom-fields.ts`) own inference/coercion/display; definitions archive, never
+delete.
 
 **Classification:** Confidential (person contacts, household data) per
 [BLUEPRINT §63](../architecture/BLUEPRINT.md#63-data-classification-rules). **Retention:**

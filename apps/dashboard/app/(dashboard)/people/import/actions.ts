@@ -7,18 +7,22 @@ import {
   buildWizardColumns,
   campusService,
   detectTagDelimiter,
+  extractExtraColumns,
   guessMappingColumns,
+  inferFieldType,
   mapImportRows,
   MAX_IMPORT_BYTES,
   MAX_IMPORT_ROWS,
   parseCsv,
   peopleService,
+  slugifyFieldKey,
   validateMappingPlan,
   type ImportRowError,
   type MappingColumn,
   type MappingPlan,
   type WizardColumn,
 } from "@cms/database";
+import type { PersonFieldType } from "@cms/database";
 import { getCurrentOrganization, getCurrentUser } from "../../../../lib/session";
 import { requirePeople } from "../../../../lib/people-access";
 import { AI_IMPORT_MODEL, aiImportAvailable, proposeMappingPlan } from "../../../../lib/ai/import-mapper";
@@ -42,6 +46,10 @@ export interface WizardStartData {
   guesses: MappingColumn[];
   /** Likeliest tag separator per column, aligned with `columns`. */
   delimiters: (";" | "," | "|")[];
+  /** Suggested storage type per column, for "How should this be stored?" screens. */
+  inferredTypes: PersonFieldType[];
+  /** Per column: the org's existing custom field this header would reuse, if any. */
+  existingFields: ({ label: string; type: PersonFieldType } | null)[];
   aiAvailable: boolean;
 }
 
@@ -88,6 +96,18 @@ export async function startImportWizardAction(_prev: WizardStartState, formData:
     const { csvText, fileName } = await readCsv(formData);
     const records = parseWithCaps(csvText);
     const columns = buildWizardColumns(records);
+    const fieldDefs = await peopleService.listFieldDefinitions(organization.id);
+    const defByKey = new Map(fieldDefs.map((d) => [d.key, d]));
+
+    // Type inference wants every value in the column, not the display-capped sample.
+    const inferredTypes = (records[0] ?? []).map((_, col) => {
+      const values: string[] = [];
+      for (let r = 1; r < records.length; r++) {
+        const raw = (records[r]![col] ?? "").trim();
+        if (raw) values.push(raw);
+      }
+      return inferFieldType(values, columns[col]?.distinctCount ?? 0);
+    });
 
     return {
       data: {
@@ -97,6 +117,11 @@ export async function startImportWizardAction(_prev: WizardStartState, formData:
         columns,
         guesses: guessMappingColumns(records[0] ?? []),
         delimiters: columns.map((c) => detectTagDelimiter(c.values)),
+        inferredTypes,
+        existingFields: columns.map((c) => {
+          const def = defByKey.get(slugifyFieldKey(c.header));
+          return def ? { label: def.label, type: def.type } : null;
+        }),
         aiAvailable: aiImportAvailable(),
       },
       error: null,
@@ -139,6 +164,43 @@ export interface DryRunResult {
   previewErrors?: ImportRowError[];
   validCount?: number;
   errorCount?: number;
+  /** Custom fields this run would write (existing = reused definition). */
+  newFields?: { label: string; type: PersonFieldType; existing: boolean }[];
+  /** Distinct households the file's household column groups people into. */
+  householdCount?: number;
+}
+
+/**
+ * Everything both the dry run and the real import need, computed identically: the
+ * validated plan, canonical rows merged with per-line extras (household + custom
+ * values), the combined error list, and the resolved custom fields.
+ */
+async function resolveImport(organizationId: string, csvText: string, planInput: unknown) {
+  const records = parseWithCaps(csvText);
+  const validated = validateMappingPlan(planInput, records[0] ?? []);
+  if (!validated.ok) throw new Error(validated.errors[0]);
+  const plan = validated.plan;
+
+  const campuses = await campusService.listCampuses(organizationId);
+  const fieldDefs = await peopleService.listFieldDefinitions(organizationId);
+  const mappedRecords = applyMappingPlan(records, plan);
+  const { rows, errors } = mapImportRows(mappedRecords, campuses);
+  const extras = extractExtraColumns(
+    records,
+    plan,
+    fieldDefs.map((d) => ({ key: d.key, label: d.label, type: d.type, options: d.options })),
+  );
+
+  const extraErrorLines = new Set(extras.errors.map((e) => e.line));
+  const mergedRows = rows
+    .filter((r) => !extraErrorLines.has(r.line))
+    .map((r) => ({ ...r, extras: extras.byLine.get(r.line) ?? { householdName: null, custom: {} } }));
+  const allErrors = [...errors, ...extras.errors].sort((a, b) => a.line - b.line);
+  const householdCount = new Set(
+    mergedRows.map((r) => r.extras.householdName?.toLowerCase()).filter(Boolean),
+  ).size;
+
+  return { records, plan, mappedRecords, rows: mergedRows, errors: allErrors, fields: extras.fields, householdCount };
 }
 
 /** Review screen: validate the assembled plan and dry-run it. No writes. */
@@ -148,19 +210,15 @@ export async function dryRunImportAction(input: { csvText: string; plan: unknown
     if (!organization) throw new Error("No organization");
     await requirePeople(organization.id, "person.import");
 
-    const records = parseWithCaps(input.csvText);
-    const validated = validateMappingPlan(input.plan, records[0] ?? []);
-    if (!validated.ok) return { ok: false, error: validated.errors[0] };
-
-    const campuses = await campusService.listCampuses(organization.id);
-    const mappedRecords = applyMappingPlan(records, validated.plan);
-    const { rows, errors } = mapImportRows(mappedRecords, campuses);
+    const resolved = await resolveImport(organization.id, input.csvText, input.plan);
     return {
       ok: true,
-      preview: mappedRecords.slice(0, 7),
-      previewErrors: errors.slice(0, 8),
-      validCount: rows.length,
-      errorCount: errors.length,
+      preview: resolved.mappedRecords.slice(0, 7),
+      previewErrors: resolved.errors.slice(0, 8),
+      validCount: resolved.rows.length,
+      errorCount: resolved.errors.length,
+      newFields: resolved.fields.map((f) => ({ label: f.label, type: f.type, existing: f.existing })),
+      householdCount: resolved.householdCount,
     };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not preview the import" };
@@ -194,20 +252,16 @@ export async function runImportAction(input: {
     if (!organization) throw new Error("No organization");
     await requirePeople(organization.id, "person.import");
 
-    const records = parseWithCaps(input.csvText);
-    const validated = validateMappingPlan(input.plan, records[0] ?? []);
-    if (!validated.ok) return { ok: false, error: `The mapping plan is no longer valid (${validated.errors[0]}).` };
-
-    const campuses = await campusService.listCampuses(organization.id);
-    const { rows, errors } = mapImportRows(applyMappingPlan(records, validated.plan), campuses);
+    const resolved = await resolveImport(organization.id, input.csvText, input.plan);
 
     const actor = await getCurrentUser();
     const result = await peopleService.importPeople(organization.id, {
-      rows,
-      parseErrors: errors,
-      totalRows: Math.max(0, records.length - 1),
+      rows: resolved.rows,
+      parseErrors: resolved.errors,
+      totalRows: Math.max(0, resolved.records.length - 1),
       fileName: input.fileName,
       createdByUserId: actor?.id ?? null,
+      fields: resolved.fields,
     });
 
     // ADR-007: record whether AI assisted and with which model, for provenance.
@@ -223,7 +277,7 @@ export async function runImportAction(input: {
         skippedCount: result.skippedCount,
         errorCount: result.errorCount,
         aiAssisted: input.usedAi,
-        ...(input.usedAi ? { aiModel: AI_IMPORT_MODEL, aiPlanSummary: validated.plan.summary } : {}),
+        ...(input.usedAi ? { aiModel: AI_IMPORT_MODEL, aiPlanSummary: resolved.plan.summary } : {}),
       },
     });
 

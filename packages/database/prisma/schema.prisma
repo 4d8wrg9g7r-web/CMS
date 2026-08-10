@@ -75,6 +75,8 @@ model Organization {
   people              Person[]
   households          Household[]
   personRelationships PersonRelationship[]
+  personFieldDefinitions PersonFieldDefinition[]
+  personFieldValues      PersonFieldValue[]
   groups              Group[]
   groupMemberships    GroupMembership[]
   forms               FormDefinition[]
@@ -184,8 +186,64 @@ enum PersonRelationshipType {
   PARENT
   CHILD
   SIBLING
+  GRANDPARENT
+  GRANDCHILD
+  FOSTER_PARENT
+  FOSTER_CHILD
   GUARDIAN
+  WARD
   OTHER
+}
+
+enum PersonFieldType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+  MULTI_SELECT
+}
+
+/**
+ * Org-defined custom person fields (docs/domain/people.md "Custom fields"): unlimited
+ * per organization, keyed by a stable slug so imports reuse them across runs.
+ * Definitions are archived, never deleted, so historical values stay interpretable.
+ */
+model PersonFieldDefinition {
+  id             String          @id @default(cuid())
+  organizationId String
+  key            String
+  label          String
+  type           PersonFieldType
+  // Valid choices for SELECT/MULTI_SELECT; empty for other types. Imports may append.
+  options        String[]        @default([])
+  archivedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  values       PersonFieldValue[]
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+}
+
+model PersonFieldValue {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  fieldId        String
+  // Shape depends on the definition's type: string | number | boolean | string[].
+  value          Json
+  updatedAt      DateTime @updatedAt
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  person       Person                @relation(fields: [personId], references: [id], onDelete: Cascade)
+  field        PersonFieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, fieldId])
+  @@index([organizationId])
+  @@index([fieldId])
 }
 
 model Household {
@@ -250,6 +308,7 @@ model Person {
   servingAssignments ServingAssignment[]
   qualifications    PersonQualification[]
   files             File[]
+  fieldValues       PersonFieldValue[]
 
   @@index([organizationId])
   @@index([organizationId, lastName])

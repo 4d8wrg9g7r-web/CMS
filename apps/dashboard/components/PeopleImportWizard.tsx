@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, Check, FileSpreadsheet, Sparkles, Upload } from "lucide-react";
 import { buttonClasses } from "./ui/Button";
 import type { MappingTarget, WizardColumn } from "@cms/database";
+import type { PersonFieldType } from "@cms/database";
 import {
   aiProposalAction,
   dryRunImportAction,
@@ -28,6 +29,7 @@ type Phase = "upload" | "aiChoice" | "questions" | "review" | "done";
 
 type Question =
   | { kind: "column"; col: number }
+  | { kind: "customType"; col: number }
   | { kind: "nameOrder"; col: number }
   | { kind: "tagDelimiter"; col: number }
   | { kind: "status"; value: string };
@@ -41,8 +43,19 @@ const TARGET_OPTIONS: { value: MappingTarget; label: string; hint?: string }[] =
   { value: "membershipStatus", label: "Membership status" },
   { value: "tags", label: "Tags" },
   { value: "campus", label: "Campus" },
+  { value: "household", label: "Household / family", hint: "Groups these people into households" },
+  { value: "custom", label: "Its own new field", hint: "Kept on the profile as a custom field" },
   { value: "ignore", label: "Don’t import this column" },
 ];
+
+const FIELD_TYPE_LABELS: Record<PersonFieldType, string> = {
+  TEXT: "Plain text",
+  NUMBER: "A number",
+  DATE: "A date",
+  BOOLEAN: "Yes / No",
+  SELECT: "A dropdown",
+  MULTI_SELECT: "Multiple choices",
+};
 
 const STATUSES = ["VISITOR", "ATTENDER", "MEMBER", "INACTIVE"] as const;
 type Status = (typeof STATUSES)[number];
@@ -76,6 +89,8 @@ export function PeopleImportWizard() {
   const [nameOrder, setNameOrder] = useState<"firstLast" | "lastFirst">("firstLast");
   const [tagDelimiter, setTagDelimiter] = useState<";" | "," | "|">(";");
   const [statusChoices, setStatusChoices] = useState<Record<string, Status | null>>({});
+  const [customTypes, setCustomTypes] = useState<Record<number, PersonFieldType>>({});
+  const [customLabels, setCustomLabels] = useState<Record<number, string>>({});
   const [usedAi, setUsedAi] = useState(false);
   const [aiSummary, setAiSummary] = useState("");
   const [aiNote, setAiNote] = useState<string | null>(null);
@@ -96,6 +111,8 @@ export function PeopleImportWizard() {
     const tagsIdx = d.guesses.findIndex((g) => g.target === "tags");
     setTagDelimiter(tagsIdx >= 0 ? (d.delimiters[tagsIdx] ?? ";") : ";");
     setStatusChoices({});
+    setCustomTypes({});
+    setCustomLabels({});
     setUsedAi(false);
     setAiSummary("");
     setAiNote(null);
@@ -111,7 +128,13 @@ export function PeopleImportWizard() {
   // membershipStatus column later in the flow appends its value questions.
   const questions: Question[] = [];
   if (data) {
-    columns.forEach((_, i) => questions.push({ kind: "column", col: i }));
+    columns.forEach((_, i) => {
+      questions.push({ kind: "column", col: i });
+      // A column becoming a custom field gets its "how should this be stored?"
+      // question right after — unless it reuses an existing definition, whose
+      // type is fixed.
+      if (targets[i] === "custom" && !data.existingFields[i]) questions.push({ kind: "customType", col: i });
+    });
     const fullNameCol = targets.indexOf("fullName");
     if (fullNameCol !== -1 && !columns[fullNameCol]!.values.some((v) => v.includes(","))) {
       questions.push({ kind: "nameOrder", col: fullNameCol });
@@ -136,6 +159,14 @@ export function PeopleImportWizard() {
         sourceHeader: c.header,
         target: targets[i] ?? "ignore",
         nameOrder: targets[i] === "fullName" ? nameOrder : null,
+        customField:
+          targets[i] === "custom"
+            ? {
+                key: "",
+                label: customLabels[i] ?? c.header,
+                type: data.existingFields[i]?.type ?? customTypes[i] ?? data.inferredTypes[i] ?? "TEXT",
+              }
+            : null,
       })),
       statusRules: Object.entries(statusChoices)
         .filter((entry): entry is [string, Status] => entry[1] !== null)
@@ -177,7 +208,14 @@ export function PeopleImportWizard() {
   }
 
   function chooseTarget(col: number, t: MappingTarget) {
-    setTargets((prev) => prev.map((cur, i) => (i === col ? t : t !== "ignore" && cur === t ? "ignore" : cur)));
+    // Single-use targets steal from a previously assigned column; any number of
+    // columns may be custom fields or ignored.
+    setTargets((prev) =>
+      prev.map((cur, i) => (i === col ? t : t !== "ignore" && t !== "custom" && cur === t ? "ignore" : cur)),
+    );
+    if (t === "custom") {
+      setCustomTypes((prev) => (prev[col] ? prev : { ...prev, [col]: data?.inferredTypes[col] ?? "TEXT" }));
+    }
     advance();
   }
 
@@ -193,6 +231,17 @@ export function PeopleImportWizard() {
     if (result.ok && result.plan) {
       const byHeader = new Map(result.plan.columns.map((c) => [c.sourceHeader.toLowerCase(), c]));
       setTargets(columns.map((c) => byHeader.get(c.header.toLowerCase())?.target ?? "ignore"));
+      const types: Record<number, PersonFieldType> = {};
+      const labels: Record<number, string> = {};
+      columns.forEach((c, i) => {
+        const cf = byHeader.get(c.header.toLowerCase())?.customField;
+        if (cf) {
+          types[i] = cf.type;
+          labels[i] = cf.label;
+        }
+      });
+      setCustomTypes(types);
+      setCustomLabels(labels);
       const full = result.plan.columns.find((c) => c.target === "fullName");
       if (full?.nameOrder) setNameOrder(full.nameOrder);
       setTagDelimiter(result.plan.tagDelimiter);
@@ -343,6 +392,47 @@ export function PeopleImportWizard() {
               />
             )}
 
+            {question.kind === "customType" && (
+              <>
+                <p className="mb-1 text-sm font-semibold text-accent">New field</p>
+                <h2 className="mb-2 text-3xl font-bold tracking-tight text-ink">
+                  How should “{truncate(customLabels[question.col] ?? columns[question.col]!.header, 26)}” be
+                  displayed in your database?
+                </h2>
+                {columns[question.col]!.values.length > 0 && (
+                  <div className="mx-auto mb-8 flex max-w-md flex-wrap justify-center gap-1.5">
+                    {columns[question.col]!.values.slice(0, 5).map((v) => (
+                      <span key={v} className="rounded-full bg-surface-muted px-2.5 py-1 text-xs text-ink-secondary">
+                        {truncate(v)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="mx-auto flex max-w-sm flex-col gap-3">
+                  {(["BOOLEAN", "SELECT", "DATE", "NUMBER", "TEXT"] as const)
+                    .filter((t) => t !== "SELECT" || columns[question.col]!.distinctCount <= 24)
+                    .map((t) => (
+                      <OptionButton
+                        key={t}
+                        selected={(customTypes[question.col] ?? data.inferredTypes[question.col]) === t}
+                        suggested={(customTypes[question.col] ?? data.inferredTypes[question.col]) === t}
+                        onClick={() => {
+                          setCustomTypes((prev) => ({ ...prev, [question.col]: t }));
+                          advance();
+                        }}
+                      >
+                        {FIELD_TYPE_LABELS[t]}
+                        {t === "SELECT" && (
+                          <span className="ml-2 text-xs font-normal text-ink-muted">
+                            {columns[question.col]!.distinctCount} choices
+                          </span>
+                        )}
+                      </OptionButton>
+                    ))}
+                </div>
+              </>
+            )}
+
             {question.kind === "nameOrder" && (
               <>
                 <h2 className="mb-2 text-3xl font-bold tracking-tight text-ink">Which name comes first?</h2>
@@ -446,12 +536,24 @@ export function PeopleImportWizard() {
                     <li key={c.header} className="flex items-center justify-between gap-3">
                       <span className="font-mono text-xs text-ink-secondary">{truncate(c.header, 30)}</span>
                       <span className="font-semibold text-ink">
-                        {TARGET_OPTIONS.find((t) => t.value === targets[i])?.label}
+                        {targets[i] === "custom"
+                          ? `${data.existingFields[i] ? "Existing" : "New"} field · ${
+                              FIELD_TYPE_LABELS[
+                                data.existingFields[i]?.type ?? customTypes[i] ?? data.inferredTypes[i] ?? "TEXT"
+                              ]
+                            }`
+                          : TARGET_OPTIONS.find((t) => t.value === targets[i])?.label}
                       </span>
                     </li>
                   ),
                 )}
               </ul>
+              {(dryRun?.ok && (dryRun.householdCount ?? 0) > 0) && (
+                <p className="mt-3 border-t border-border pt-2 text-xs text-ink-secondary">
+                  Grouping people into <span className="font-semibold text-ink">{dryRun.householdCount}</span>{" "}
+                  {dryRun.householdCount === 1 ? "household" : "households"}.
+                </p>
+              )}
               {columns.some((_, i) => targets[i] === "ignore") && (
                 <p className="mt-3 border-t border-border pt-2 text-xs text-ink-muted">
                   Not imported: {columns.filter((_, i) => targets[i] === "ignore").map((c) => c.header).join(", ")}

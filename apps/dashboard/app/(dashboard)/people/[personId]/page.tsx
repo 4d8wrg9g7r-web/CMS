@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CheckSquare, FileText, HeartHandshake, Home, Link2, Mail, MailX, Map, Paperclip, Trash2, Undo2, Users2, X, Zap } from "lucide-react";
-import { checkinService, fileService, groupService, isOverdue, journeyService, messageService, peopleService, personDisplayName, taskService, volunteerService } from "@cms/database";
+import { checkinService, fileService, formatFieldValue, groupService, isOverdue, journeyService, messageService, peopleService, personDisplayName, taskService, volunteerService } from "@cms/database";
 import { campusService } from "@cms/database";
+import { SubmitButton } from "../../../../components/SubmitButton";
 import { Badge } from "../../../../components/ui/Badge";
 import { buttonClasses } from "../../../../components/ui/Button";
 import { Card } from "../../../../components/ui/Card";
@@ -36,6 +37,7 @@ import {
   setEmailOptOutAction,
   setHouseholdAction,
   updatePersonAction,
+  updatePersonFieldsAction,
 } from "../actions";
 
 export default async function PersonDetailPage({ params }: { params: Promise<{ personId: string }> }) {
@@ -106,6 +108,15 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ p
   const boundAddRelationship = addRelationshipAction.bind(null, person.id);
   const boundArchive = archivePersonAction.bind(null, person.id);
   const boundRestore = restorePersonAction.bind(null, person.id);
+  const boundUpdateFields = updatePersonFieldsAction.bind(null, person.id);
+
+  // Custom fields (docs/domain/people.md "Custom fields"): every active definition
+  // renders, valued or not — unlimited per org.
+  const fieldDefinitions = await peopleService.listFieldDefinitions(organization.id);
+  // Plain object, not a Map — the lucide-react `Map` icon import shadows the global.
+  const valueByFieldId: Record<string, unknown> = Object.fromEntries(
+    person.fieldValues.map((v) => [v.fieldId, v.value]),
+  );
 
   return (
     <div>
@@ -143,6 +154,75 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ p
               </dl>
             )}
           </Card>
+
+          {fieldDefinitions.length > 0 && (
+            <Card padding="md" className="mt-6">
+              <h2 className="mb-4 text-sm font-semibold text-ink">Details</h2>
+              {canManage ? (
+                <form action={boundUpdateFields} className="grid gap-3 sm:grid-cols-2">
+                  {fieldDefinitions.map((def) => {
+                    const value = valueByFieldId[def.id];
+                    const name = `field:${def.key}`;
+                    return (
+                      <label key={def.id} className="text-sm font-medium text-ink-secondary">
+                        {def.label}
+                        {def.type === "BOOLEAN" && (
+                          <Select name={name} defaultValue={value === true ? "true" : value === false ? "false" : ""} className="mt-1 block w-full">
+                            <option value="">—</option>
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                          </Select>
+                        )}
+                        {def.type === "SELECT" && (
+                          <Select name={name} defaultValue={typeof value === "string" ? value : ""} className="mt-1 block w-full">
+                            <option value="">—</option>
+                            {def.options.map((o) => (
+                              <option key={o} value={o}>
+                                {o}
+                              </option>
+                            ))}
+                          </Select>
+                        )}
+                        {def.type === "MULTI_SELECT" && (
+                          <span className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                            {def.options.map((o) => (
+                              <label key={o} className="flex items-center gap-1.5 text-sm font-normal text-ink">
+                                <input
+                                  type="checkbox"
+                                  name={name}
+                                  value={o}
+                                  defaultChecked={Array.isArray(value) && (value as string[]).includes(o)}
+                                />
+                                {o}
+                              </label>
+                            ))}
+                          </span>
+                        )}
+                        {def.type === "DATE" && (
+                          <Input name={name} type="date" defaultValue={typeof value === "string" ? value : ""} className="mt-1 block w-full" />
+                        )}
+                        {def.type === "NUMBER" && (
+                          <Input name={name} type="number" step="any" defaultValue={typeof value === "number" ? String(value) : ""} className="mt-1 block w-full" />
+                        )}
+                        {def.type === "TEXT" && (
+                          <Input name={name} type="text" defaultValue={typeof value === "string" ? value : ""} className="mt-1 block w-full" />
+                        )}
+                      </label>
+                    );
+                  })}
+                  <div className="sm:col-span-2">
+                    <SubmitButton pendingLabel="Saving...">Save details</SubmitButton>
+                  </div>
+                </form>
+              ) : (
+                <dl className="grid gap-3 sm:grid-cols-2 text-sm">
+                  {fieldDefinitions.map((def) => (
+                    <ReadField key={def.id} label={def.label} value={formatFieldValue(def.type, valueByFieldId[def.id] ?? null)} />
+                  ))}
+                </dl>
+              )}
+            </Card>
+          )}
         </div>
 
         <div className="flex flex-col gap-6">

@@ -269,3 +269,55 @@ export async function removeRelationshipAction(
 
   revalidatePath(`/people/${personId}`);
 }
+
+/**
+ * Save a person's custom-field values from the Details card. Inputs are named
+ * field:<key>; coercion follows the definition type. BOOLEAN uses a three-way
+ * select ("", "true", "false") so "no value" stays distinct from "No".
+ */
+export async function updatePersonFieldsAction(personId: string, formData: FormData) {
+  const organization = await requireOrg();
+  await requirePeople(organization.id, "person.manage");
+
+  const defs = await peopleService.listFieldDefinitions(organization.id);
+  const values: Record<string, unknown | null> = {};
+  for (const def of defs) {
+    const raw = formData.get(`field:${def.key}`);
+    if (raw === null) continue;
+    const text = String(raw).trim();
+    if (!text) {
+      values[def.key] = null;
+      continue;
+    }
+    switch (def.type) {
+      case "BOOLEAN":
+        values[def.key] = text === "true";
+        break;
+      case "NUMBER": {
+        const n = Number(text.replace(/,/g, ""));
+        if (Number.isNaN(n)) throw new Error(`${def.label} must be a number.`);
+        values[def.key] = n;
+        break;
+      }
+      case "MULTI_SELECT":
+        values[def.key] = formData.getAll(`field:${def.key}`).map((v) => String(v)).filter(Boolean);
+        break;
+      default:
+        values[def.key] = text;
+    }
+  }
+
+  await peopleService.setPersonFieldValues(organization.id, personId, values);
+
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: "person.fields_updated",
+    targetType: "Person",
+    targetId: personId,
+    metadata: { keys: Object.keys(values) },
+  });
+
+  revalidatePath(`/people/${personId}`);
+}

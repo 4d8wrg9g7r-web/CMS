@@ -31,11 +31,20 @@ const PLAN_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["sourceHeader", "target", "nameOrder"],
+        required: ["sourceHeader", "target", "nameOrder", "customField"],
         properties: {
           sourceHeader: { type: "string" },
           target: { type: "string", enum: [...MAPPING_TARGETS] },
           nameOrder: { type: ["string", "null"], enum: ["firstLast", "lastFirst", null] },
+          customField: {
+            type: ["object", "null"],
+            additionalProperties: false,
+            required: ["label", "type"],
+            properties: {
+              label: { type: "string" },
+              type: { type: "string", enum: ["TEXT", "NUMBER", "DATE", "BOOLEAN", "SELECT"] },
+            },
+          },
         },
       },
     },
@@ -58,14 +67,15 @@ const PLAN_SCHEMA = {
 
 const SYSTEM_PROMPT = `You map spreadsheet columns for a church management system's people import.
 
-The import understands exactly these person fields: firstName, lastName, email, phone, membershipStatus, tags, campus. A single combined name column maps to "fullName" (set nameOrder to how names are written in the samples). Every column you cannot confidently place maps to "ignore".
+The import understands these built-in person fields: firstName, lastName, email, phone, membershipStatus, tags, campus. A single combined name column maps to "fullName" (set nameOrder to how names are written in the samples). A column that groups people into families/households (e.g. "Household", "Family Name") maps to "household". A column that is clearly person data but fits no built-in field (e.g. "Veteran", "Baptism Date", "Ministry Team", "T-Shirt Size") maps to "custom" with a customField: a clean human label and a storage type — BOOLEAN for yes/no shapes, DATE for dates, NUMBER for numbers, SELECT for a small repeated vocabulary, TEXT otherwise. Only columns that mean nothing for a person profile (row numbers, export timestamps, internal ids) map to "ignore".
 
 Rules:
-- Map a column only when the header or samples make its meaning clear. When unsure, use "ignore" — a wrong mapping corrupts real membership records; an ignored column is harmless.
-- Never map financial, giving, health, or child-safety columns to anything but "ignore".
+- Map a column to a built-in field only when the header or samples make its meaning clear. A plausible person attribute you cannot place goes to "custom", not "ignore" — the user confirms every column on its own review screen, so a suggested custom field is cheap and an ignored data column loses information.
+- Never map financial, giving, health, or child-safety columns to anything but "ignore" — not even to "custom".
+- customField must be null for every non-custom column.
 - membershipStatus values must be translated with statusRules to VISITOR, ATTENDER, MEMBER, or INACTIVE (e.g. "Regular attender" → ATTENDER, "Moved away" → INACTIVE). Only write a rule for values that appear in the samples and clearly indicate a membership status; leave genuinely ambiguous values without a rule so they surface as row errors for a human to resolve.
-- If a campus-like column's values do not resemble the organization's campus names, map it to "ignore" and say why in the summary.
-- The summary is shown to the person reviewing the plan: state in plain language what was mapped, what was ignored and why, and anything they should double-check.`;
+- If a campus-like column's values do not resemble the organization's campus names, prefer "custom" (SELECT) or "ignore" and say why in the summary.
+- The summary is shown to the person reviewing the plan: state in plain language what was mapped, which columns become new custom fields, what was ignored and why, and anything they should double-check.`;
 
 export interface AnalyzeInput {
   records: string[][];

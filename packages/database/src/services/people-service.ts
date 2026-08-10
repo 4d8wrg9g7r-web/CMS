@@ -86,6 +86,7 @@ export async function getPerson(organizationId: string, personId: string) {
       household: { include: { members: { where: { archivedAt: null }, orderBy: { firstName: "asc" } } } },
       campus: { select: { id: true, name: true } },
       relationshipsFrom: { include: { relatedPerson: true } },
+      fieldValues: { include: { field: true } },
     },
   });
 }
@@ -180,9 +181,18 @@ export async function restorePerson(organizationId: string, personId: string) {
 
 // -- CSV import ----------------------------------------------------------------
 
+import { randomUUID } from "crypto";
 import type { ImportPersonRow, ImportRowError } from "../people/import";
+import type { ResolvedImportField } from "../people/import-mapping";
+import type { PersonFieldValueJson } from "../people/custom-fields";
 
 const MAX_STORED_IMPORT_ERRORS = 100;
+
+/** Per-row wizard extras: household grouping + coerced custom-field values. */
+export interface ImportRowExtras {
+  householdName: string | null;
+  custom: Record<string, PersonFieldValueJson>;
+}
 
 /**
  * Bulk-creates validated import rows (docs/domain/people-import.md) and records a
@@ -197,11 +207,13 @@ const MAX_STORED_IMPORT_ERRORS = 100;
 export async function importPeople(
   organizationId: string,
   input: {
-    rows: ImportPersonRow[];
+    rows: (ImportPersonRow & { extras?: ImportRowExtras })[];
     parseErrors: ImportRowError[];
     totalRows: number;
     fileName?: string | null;
     createdByUserId?: string | null;
+    /** Custom fields this run writes (resolved by extractExtraColumns). */
+    fields?: ResolvedImportField[];
   },
 ) {
   const emails = input.rows.map((r) => r.email).filter((e): e is string => !!e);
@@ -216,9 +228,67 @@ export async function importPeople(
   const toCreate = input.rows.filter((r) => !(r.email && existingEmails.has(r.email.toLowerCase())));
   const skippedCount = input.rows.length - toCreate.length;
 
+  // Ensure custom-field definitions exist (reuse by key; extend select options).
+  const fieldIdByKey = new Map<string, string>();
+  for (const field of input.fields ?? []) {
+    const current = await tenantDb.personFieldDefinition.findFirst({
+      where: { organizationId, key: field.key },
+    });
+    if (!current) {
+      const created = await tenantDb.personFieldDefinition.create({
+        data: {
+          organizationId,
+          key: field.key,
+          label: field.label,
+          type: field.type,
+          options: field.options,
+        },
+      });
+      fieldIdByKey.set(field.key, created.id);
+    } else {
+      const newOptions = field.options.filter(
+        (o) => !current.options.some((c) => c.toLowerCase() === o.toLowerCase()),
+      );
+      if (newOptions.length > 0) {
+        await tenantDb.personFieldDefinition.update({
+          where: { id: current.id },
+          data: { options: [...current.options, ...newOptions] },
+        });
+      }
+      fieldIdByKey.set(field.key, current.id);
+    }
+  }
+
+  // Find-or-create households named in the file (case-insensitive, unarchived).
+  const householdNames = [
+    ...new Map(
+      toCreate
+        .map((r) => r.extras?.householdName)
+        .filter((n): n is string => !!n)
+        .map((n) => [n.toLowerCase(), n]),
+    ).values(),
+  ];
+  const householdIdByName = new Map<string, string>();
+  if (householdNames.length > 0) {
+    const existingHouseholds = await tenantDb.household.findMany({
+      where: { organizationId, archivedAt: null, name: { in: householdNames, mode: "insensitive" } },
+      select: { id: true, name: true },
+    });
+    for (const h of existingHouseholds) householdIdByName.set(h.name.toLowerCase(), h.id);
+    for (const name of householdNames) {
+      if (householdIdByName.has(name.toLowerCase())) continue;
+      const created = await tenantDb.household.create({ data: { organizationId, name } });
+      householdIdByName.set(name.toLowerCase(), created.id);
+    }
+  }
+
   if (toCreate.length > 0) {
+    // IDs are generated here (not by the DB default) so field values can reference
+    // the new people without a per-row round trip.
+    const withIds = toCreate.map((r) => ({ ...r, id: randomUUID() }));
     await tenantDb.person.createMany({
-      data: toCreate.map((r) => ({
+      data: withIds.map((r) => ({
+        id: r.id,
         organizationId,
         firstName: r.firstName,
         lastName: r.lastName,
@@ -227,8 +297,23 @@ export async function importPeople(
         membershipStatus: r.membershipStatus,
         tags: r.tags,
         campusId: r.campusId,
+        householdId: r.extras?.householdName
+          ? (householdIdByName.get(r.extras.householdName.toLowerCase()) ?? null)
+          : null,
       })),
     });
+
+    const valueRows = withIds.flatMap((r) =>
+      Object.entries(r.extras?.custom ?? {}).flatMap(([key, value]) => {
+        const fieldId = fieldIdByKey.get(key);
+        return fieldId
+          ? [{ organizationId, personId: r.id, fieldId, value: value as Prisma.InputJsonValue }]
+          : [];
+      }),
+    );
+    if (valueRows.length > 0) {
+      await tenantDb.personFieldValue.createMany({ data: valueRows });
+    }
   }
 
   const errors = input.parseErrors.slice(0, MAX_STORED_IMPORT_ERRORS);
@@ -410,4 +495,110 @@ export async function removeRelationship(
     },
   });
   return result.count > 0;
+}
+
+// -- Custom fields ---------------------------------------------------------------
+
+import { PersonFieldType } from "@prisma/client";
+import { slugifyFieldKey } from "../people/custom-fields";
+
+export async function listFieldDefinitions(organizationId: string, opts: { includeArchived?: boolean } = {}) {
+  return tenantDb.personFieldDefinition.findMany({
+    where: { organizationId, ...(opts.includeArchived ? {} : { archivedAt: null }) },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+/**
+ * Create a field definition, reusing any existing definition with the same key —
+ * imports and manual creation converge on one field per key per org. There is
+ * deliberately no cap on how many definitions an organization may have.
+ */
+export async function createFieldDefinition(
+  organizationId: string,
+  input: { label: string; type: PersonFieldType; options?: string[] },
+) {
+  const key = slugifyFieldKey(input.label);
+  if (!key) throw new Error("The field needs a name.");
+  const existing = await tenantDb.personFieldDefinition.findFirst({ where: { organizationId, key } });
+  if (existing) {
+    if (existing.archivedAt) {
+      return tenantDb.personFieldDefinition.update({ where: { id: existing.id }, data: { archivedAt: null } });
+    }
+    return existing;
+  }
+  return tenantDb.personFieldDefinition.create({
+    data: {
+      organizationId,
+      key,
+      label: input.label.trim(),
+      type: input.type,
+      options: (input.options ?? []).map((o) => o.trim()).filter(Boolean),
+    },
+  });
+}
+
+/** Rename / adjust options. The key and type stay fixed so stored values remain valid. */
+export async function updateFieldDefinition(
+  organizationId: string,
+  fieldId: string,
+  input: { label?: string; options?: string[] },
+) {
+  const data: Prisma.PersonFieldDefinitionUpdateManyMutationInput = {};
+  if (input.label !== undefined && input.label.trim()) data.label = input.label.trim();
+  if (input.options !== undefined) data.options = input.options.map((o) => o.trim()).filter(Boolean);
+  const result = await tenantDb.personFieldDefinition.updateMany({
+    where: { id: fieldId, organizationId },
+    data,
+  });
+  return result.count > 0;
+}
+
+/** Archive (never delete) so historical values stay interpretable. */
+export async function archiveFieldDefinition(organizationId: string, fieldId: string) {
+  const result = await tenantDb.personFieldDefinition.updateMany({
+    where: { id: fieldId, organizationId },
+    data: { archivedAt: new Date() },
+  });
+  return result.count > 0;
+}
+
+/**
+ * Upsert a person's custom-field values. `null` clears a value (the row is removed);
+ * values are expected pre-coerced to the definition's JSON shape (custom-fields.ts).
+ */
+export async function setPersonFieldValues(
+  organizationId: string,
+  personId: string,
+  values: Record<string, unknown | null>,
+) {
+  const person = await tenantDb.person.findFirst({ where: { id: personId, organizationId }, select: { id: true } });
+  if (!person) throw new Error("Person not found.");
+  const defs = await tenantDb.personFieldDefinition.findMany({
+    where: { organizationId, key: { in: Object.keys(values) } },
+  });
+  const defByKey = new Map(defs.map((d) => [d.key, d]));
+  for (const [key, value] of Object.entries(values)) {
+    const def = defByKey.get(key);
+    if (!def) continue;
+    if (value === null || value === undefined || value === "") {
+      await tenantDb.personFieldValue.deleteMany({
+        where: { organizationId, personId, fieldId: def.id },
+      });
+      continue;
+    }
+    await tenantDb.personFieldValue.upsert({
+      where: { personId_fieldId: { personId, fieldId: def.id } },
+      update: { value: value as Prisma.InputJsonValue },
+      create: { organizationId, personId, fieldId: def.id, value: value as Prisma.InputJsonValue },
+    });
+  }
+  return listPersonFieldValues(organizationId, personId);
+}
+
+export async function listPersonFieldValues(organizationId: string, personId: string) {
+  return tenantDb.personFieldValue.findMany({
+    where: { organizationId, personId },
+    include: { field: true },
+  });
 }

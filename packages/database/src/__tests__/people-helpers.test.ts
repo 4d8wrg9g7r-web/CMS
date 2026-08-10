@@ -31,8 +31,8 @@ describe("inverseRelationshipType", () => {
     expect(inverseRelationshipType(PersonRelationshipType.CHILD)).toBe(PersonRelationshipType.PARENT);
   });
 
-  it("maps GUARDIAN to CHILD (documented v1 approximation)", () => {
-    expect(inverseRelationshipType(PersonRelationshipType.GUARDIAN)).toBe(PersonRelationshipType.CHILD);
+  it("maps GUARDIAN to WARD (the v1 CHILD approximation was replaced by a real type)", () => {
+    expect(inverseRelationshipType(PersonRelationshipType.GUARDIAN)).toBe(PersonRelationshipType.WARD);
   });
 
   it("is defined for every relationship type in the enum", () => {

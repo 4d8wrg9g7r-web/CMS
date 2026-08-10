@@ -32,7 +32,12 @@ export const RELATIONSHIP_TYPE_OPTIONS: { value: PersonRelationshipType; label: 
   { value: "PARENT", label: "Parent" },
   { value: "CHILD", label: "Child" },
   { value: "SIBLING", label: "Sibling" },
+  { value: "GRANDPARENT", label: "Grandparent" },
+  { value: "GRANDCHILD", label: "Grandchild" },
+  { value: "FOSTER_PARENT", label: "Foster parent" },
+  { value: "FOSTER_CHILD", label: "Foster child" },
   { value: "GUARDIAN", label: "Guardian" },
+  { value: "WARD", label: "Ward" },
   { value: "OTHER", label: "Other" },
 ];
 
