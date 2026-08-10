@@ -36,40 +36,65 @@ export function ReportBarChart({ groups, format }: { groups: ReportGroup[]; form
   );
 }
 
+/** Rounds a scale ceiling up to a "nice" number (1/2/2.5/5 × 10^n). */
+function niceMax(raw: number): number {
+  if (raw <= 0) return 1;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  for (const m of [1, 2, 2.5, 5, 10]) {
+    if (raw <= m * mag) return m * mag;
+  }
+  return 10 * mag;
+}
+
 export function ReportLineChart({ groups, format }: { groups: ReportGroup[]; format: (n: number) => string }) {
   const W = 720;
-  const H = 220;
-  const PAD = { top: 16, right: 16, bottom: 26, left: 44 };
+  const H = 240;
+  const PAD = { top: 20, right: 52, bottom: 26, left: 56 };
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;
-  const max = Math.max(...groups.map((g) => g.value), 1);
+  const max = niceMax(Math.max(...groups.map((g) => g.value), 1));
   const x = (i: number) => PAD.left + (groups.length === 1 ? innerW / 2 : (i / (groups.length - 1)) * innerW);
   const y = (v: number) => PAD.top + innerH - (v / max) * innerH;
   const points = groups.map((g, i) => `${x(i)},${y(g.value)}`).join(" ");
-  // Sparse x labels: first, last, and up to 3 between.
-  const labelEvery = Math.max(1, Math.ceil(groups.length / 5));
-  const gridLines = [0.5, 1];
+  const area = `${PAD.left},${y(0)} ${points} ${x(groups.length - 1)},${y(0)}`;
+  // Sparse x labels: first, last, and a few between.
+  const labelEvery = Math.max(1, Math.ceil(groups.length / 6));
+  const last = groups.length - 1;
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Line chart">
-      {gridLines.map((f) => (
+      {[0.25, 0.5, 0.75, 1].map((f) => (
         <g key={f}>
-          <line x1={PAD.left} x2={W - PAD.right} y1={y(max * f)} y2={y(max * f)} stroke="#e8e7e3" strokeWidth={1} />
-          <text x={PAD.left - 6} y={y(max * f) + 3} textAnchor="end" fontSize={10} fill="#52514e">
+          <line x1={PAD.left} x2={W - PAD.right} y1={y(max * f)} y2={y(max * f)} stroke="#eeede9" strokeWidth={1} />
+          <text x={PAD.left - 8} y={y(max * f) + 3} textAnchor="end" fontSize={10} fill="#52514e">
             {format(max * f)}
           </text>
         </g>
       ))}
       <line x1={PAD.left} x2={W - PAD.right} y1={y(0)} y2={y(0)} stroke="#c9c8c3" strokeWidth={1} />
-      <polyline points={points} fill="none" stroke={SERIES_1} strokeWidth={2} strokeLinejoin="round" />
+      {groups.length > 1 && <polygon points={area} fill={SERIES_1} opacity={0.08} />}
+      <polyline points={points} fill="none" stroke={SERIES_1} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
       {groups.map((g, i) => (
         <g key={g.label}>
           {/* Visible dot is small; the hit target is generous per the hover spec. */}
           <circle cx={x(i)} cy={y(g.value)} r={3} fill={SERIES_1} />
-          <circle cx={x(i)} cy={y(g.value)} r={10} fill="transparent">
+          <circle cx={x(i)} cy={y(g.value)} r={11} fill="transparent">
             <title>{`${g.label}: ${format(g.value)}`}</title>
           </circle>
-          {i % labelEvery === 0 || i === groups.length - 1 ? (
+          {/* Selective direct labels: endpoints only, in text ink. */}
+          {(i === 0 || i === last) && groups.length > 1 && g.value > 0 && (
+            <text
+              x={x(i)}
+              y={y(g.value) - 8}
+              textAnchor={i === 0 ? "start" : "end"}
+              fontSize={11}
+              fontWeight={600}
+              fill="#0b0b0b"
+            >
+              {format(g.value)}
+            </text>
+          )}
+          {i % labelEvery === 0 || i === last ? (
             <text x={x(i)} y={H - 8} textAnchor="middle" fontSize={10} fill="#52514e">
               {g.label}
             </text>

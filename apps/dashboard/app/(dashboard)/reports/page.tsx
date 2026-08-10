@@ -6,6 +6,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { canPeople } from "../../../lib/people-access";
 import { canCheckin } from "../../../lib/checkin-access";
 import { canGiving } from "../../../lib/giving-access";
+import { aiReportsAvailable } from "../../../lib/ai/report-assistant";
 import { getCurrentOrganization } from "../../../lib/session";
 import type { ReportSource } from "@cms/database";
 
@@ -65,6 +66,7 @@ export default async function ReportsPage() {
         events={events.map((e) => ({ id: e.id, name: e.title }))}
         customFields={fieldDefs.map((f) => ({ key: f.key, label: f.label, type: f.type, options: f.options }))}
         savedReports={saved.map((s): SavedReportItem => ({ id: s.id, name: s.name, config: s.config }))}
+        aiAvailable={aiReportsAvailable()}
       />
     </div>
   );

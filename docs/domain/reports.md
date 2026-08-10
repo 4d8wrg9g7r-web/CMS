@@ -50,6 +50,18 @@ Browser print over a print-clean layout — shell chrome and controls carry
 print:hidden, so "Download PDF" (window.print) captures the title, headline
 number, chart, and table exactly as rendered. No PDF library dependency.
 
+## Closed AI reporting
+"Ask for a report" translates a natural-language question into a ReportConfig via
+Claude (`claude-opus-5`, structured output). **The model never sees data**: the
+prompt contains only the question, today's date, the schema vocabulary
+(sources/dimensions/measures), org configuration names+ids (campuses, funds,
+events, custom-field labels), and the current config for follow-ups — no records,
+no amounts, no aggregates, and results are never sent back to the API. The
+returned config is untrusted input: it passes validateReportConfig and the same
+per-source + person.view permission checks as a hand-built report, then runs
+locally. Same propose/dispose boundary as ADR-011. Gated on `ANTHROPIC_API_KEY`;
+the UI states exactly what is sent.
+
 ## Audit
 `report.saved`, `report.deleted` with actor.
 

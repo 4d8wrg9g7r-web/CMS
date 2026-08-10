@@ -16,6 +16,8 @@ import { getCurrentOrganization, getCurrentUser } from "../../../lib/session";
 import { canPeople } from "../../../lib/people-access";
 import { canCheckin } from "../../../lib/checkin-access";
 import { canGiving } from "../../../lib/giving-access";
+import { askReportAssistant } from "../../../lib/ai/report-assistant";
+import { campusService, eventService, givingService } from "@cms/database";
 
 /**
  * Report actions (docs/domain/reports.md). Configs arrive from the client (or from
@@ -108,6 +110,71 @@ export async function saveReportAction(input: { name: string; config: unknown })
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not save the report" };
+  }
+}
+
+export interface AskAiResult {
+  ok: boolean;
+  error?: string;
+  config?: ReportConfig;
+  explanation?: string;
+}
+
+/**
+ * Closed AI reporting: only the QUESTION plus schema vocabulary (source/dimension
+ * lists, fund/campus/event names, custom-field labels) is sent to Claude — never
+ * records, amounts, or aggregates. The returned config is validated and permission-
+ * checked exactly like a hand-built one, and the query itself runs locally.
+ */
+export async function askReportAiAction(input: { question: string; currentConfig?: unknown }): Promise<AskAiResult> {
+  try {
+    const organization = await requireOrg();
+    const question = input.question.trim();
+    if (!question) return { ok: false, error: "Ask a question first." };
+    if (question.length > 500) return { ok: false, error: "Keep the question under 500 characters." };
+
+    const [peopleOk, attendanceOk, givingOk] = await Promise.all([
+      canPeople(organization.id, "person.view"),
+      canCheckin(organization.id, "attendance.view"),
+      canGiving(organization.id, "giving.view"),
+    ]);
+    const allowedSources = [
+      ...(peopleOk ? ["people"] : []),
+      ...(attendanceOk ? ["attendance"] : []),
+      ...(givingOk ? ["giving"] : []),
+    ];
+    if (allowedSources.length === 0) return { ok: false, error: "You don't have access to any report sources." };
+
+    const [campuses, funds, events, fieldDefs] = await Promise.all([
+      campusService.listCampuses(organization.id),
+      givingOk ? givingService.listFunds(organization.id, { includeArchived: true }) : Promise.resolve([]),
+      attendanceOk ? eventService.listEvents(organization.id) : Promise.resolve([]),
+      peopleOk ? peopleService.listFieldDefinitions(organization.id) : Promise.resolve([]),
+    ]);
+
+    const answer = await askReportAssistant({
+      question,
+      currentConfig: input.currentConfig,
+      metadata: {
+        allowedSources,
+        campuses: campuses.map((c) => ({ id: c.id, name: c.name })),
+        funds: funds.map((f) => ({ id: f.id, name: f.name, taxDeductible: f.taxDeductible })),
+        events: events.map((e) => ({ id: e.id, name: e.title })),
+        customFields: fieldDefs.map((f) => ({ key: f.key, label: f.label, type: f.type, options: f.options })),
+      },
+    });
+
+    // Same gate as every other config — the model's output is untrusted input.
+    const validated = validateReportConfig(answer.config, fieldDefs.map((d) => d.key));
+    if (!validated.ok) {
+      return { ok: false, error: `The assistant proposed an invalid report (${validated.errors[0]}). Try rephrasing.` };
+    }
+    const denied = await checkReportPermissions(organization.id, validated.config);
+    if (denied) return { ok: false, error: denied };
+
+    return { ok: true, config: validated.config, explanation: answer.explanation };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "The assistant is unavailable right now" };
   }
 }
 

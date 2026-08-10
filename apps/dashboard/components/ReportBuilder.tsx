@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { BookmarkPlus, FileDown, Loader2, Trash2 } from "lucide-react";
+import { BookmarkPlus, FileDown, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { buttonClasses } from "./ui/Button";
 import { Input, Select } from "./ui/Input";
 import { ReportBarChart, ReportDonutChart, ReportLineChart, ReportTable } from "./report-charts";
 import type { ReportChart, ReportMeasure, ReportSource } from "@cms/database";
 import {
+  askReportAiAction,
   deleteSavedReportAction,
   runReportAction,
   saveReportAction,
@@ -98,6 +99,7 @@ export function ReportBuilder({
   events,
   customFields,
   savedReports,
+  aiAvailable,
 }: {
   allowedSources: ReportSource[];
   campuses: OptionItem[];
@@ -105,6 +107,7 @@ export function ReportBuilder({
   events: OptionItem[];
   customFields: CustomFieldOption[];
   savedReports: SavedReportItem[];
+  aiAvailable: boolean;
 }) {
   const router = useRouter();
   const [source, setSource] = useState<ReportSource>(allowedSources[0] ?? "people");
@@ -113,7 +116,12 @@ export function ReportBuilder({
   const [to, setTo] = useState<string>("");
   const [group, setGroup] = useState<string>("time:month");
   const [measure, setMeasure] = useState<ReportMeasure>("count");
-  const [chart, setChart] = useState<ReportChart>("bar");
+  // Over-time reports read best as lines, so that's the default.
+  const [chart, setChart] = useState<ReportChart>("line");
+  const [question, setQuestion] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [aiAnswer, setAiAnswer] = useState<{ question: string; explanation: string } | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [status, setStatus] = useState("");
   const [campusId, setCampusId] = useState("");
   const [fundId, setFundId] = useState("");
@@ -170,14 +178,21 @@ export function ReportBuilder({
   function changeSource(next: ReportSource) {
     setSource(next);
     setGroup("time:month");
+    setChart("line");
     setMeasure(next === "giving" ? "sumAmount" : "count");
     setFundId("");
     setMethod("");
     setEventId("");
   }
 
-  function applySaved(item: SavedReportItem) {
-    const c = item.config as ReturnType<typeof buildConfig>;
+  // Time series read as lines; category comparisons as bars. Donut/table choices stick.
+  function changeGroup(next: string) {
+    setGroup(next);
+    if (chart === "line" || chart === "bar") setChart(next.startsWith("time:") ? "line" : "bar");
+  }
+
+  function applyConfig(config: unknown) {
+    const c = config as ReturnType<typeof buildConfig>;
     if (!c || typeof c !== "object") return;
     if (!allowedSources.includes(c.source)) return;
     setSource(c.source);
@@ -194,6 +209,22 @@ export function ReportBuilder({
     setEventId(c.filters?.eventId ?? "");
     setCustomKey(c.filters?.customFieldKey ?? "");
     setCustomValue(c.filters?.customFieldValue ?? "");
+  }
+
+  async function ask() {
+    const q = question.trim();
+    if (!q || asking) return;
+    setAsking(true);
+    setAiError(null);
+    const res = await askReportAiAction({ question: q, currentConfig: buildConfig() });
+    setAsking(false);
+    if (!res.ok || !res.config) {
+      setAiError(res.error ?? "The assistant is unavailable right now");
+      return;
+    }
+    applyConfig(res.config);
+    setAiAnswer({ question: q, explanation: res.explanation ?? "" });
+    setQuestion("");
   }
 
   async function save() {
@@ -218,7 +249,7 @@ export function ReportBuilder({
           <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Saved</span>
           {savedReports.map((item) => (
             <span key={item.id} className="flex items-center overflow-hidden rounded-full border border-border bg-surface text-sm">
-              <button onClick={() => applySaved(item)} className="px-3 py-1 font-medium text-ink hover:bg-surface-muted">
+              <button onClick={() => applyConfig(item.config)} className="px-3 py-1 font-medium text-ink hover:bg-surface-muted">
                 {item.name}
               </button>
               <button
@@ -233,6 +264,40 @@ export function ReportBuilder({
               </button>
             </span>
           ))}
+        </div>
+      )}
+
+      {aiAvailable && (
+        <div className="mb-4 rounded-lg border border-border bg-surface p-4 shadow-panel print:hidden">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void ask();
+            }}
+            className="flex flex-wrap items-center gap-2"
+          >
+            <Sparkles size={16} className="shrink-0 text-accent" />
+            <Input
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder='Ask for a report — "giving by fund last quarter", "how many veterans attended this year?"'
+              className="min-w-64 flex-1"
+            />
+            <button type="submit" disabled={asking || !question.trim()} className={buttonClasses("primary", "sm")}>
+              {asking ? <Loader2 size={14} className="animate-spin" /> : "Ask"}
+            </button>
+          </form>
+          <p className="mt-2 text-xs text-ink-muted">
+            Closed AI: only your question and your field/fund/campus names go to Claude — it builds the report
+            settings, and the numbers are computed entirely inside your database. No records ever leave your system.
+          </p>
+          {aiError && <p className="mt-2 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{aiError}</p>}
+          {aiAnswer && (
+            <div className="mt-2 rounded-md border border-border bg-surface-muted px-3 py-2 text-sm">
+              <p className="text-xs font-medium text-ink-muted">“{aiAnswer.question}”</p>
+              <p className="mt-0.5 text-ink-secondary">{aiAnswer.explanation}</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -273,7 +338,7 @@ export function ReportBuilder({
           )}
           <label className="text-sm text-ink-secondary">
             Group by
-            <Select value={group} onChange={(e) => setGroup(e.target.value)} className="mt-1 block w-52">
+            <Select value={group} onChange={(e) => changeGroup(e.target.value)} className="mt-1 block w-52">
               <option value="time:week">Over time — weekly</option>
               <option value="time:month">Over time — monthly</option>
               <option value="time:year">Over time — yearly</option>
