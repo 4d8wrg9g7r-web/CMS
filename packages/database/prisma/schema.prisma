@@ -35,6 +35,8 @@ model User {
   journeyEnrollments  JourneyEnrollment[]  @relation("EnrollmentEnrolledBy")
   milestoneCompletions JourneyMilestoneCompletion[] @relation("CompletionCompletedBy")
   personImports       PersonImport[]       @relation("PersonImportCreatedBy")
+  contributionBatches ContributionBatch[]  @relation("ContributionBatchCreatedBy")
+  contributions       Contribution[]       @relation("ContributionCreatedBy")
 }
 
 /** Single-use, short-lived; a fresh request invalidates prior unused tokens. */
@@ -77,6 +79,9 @@ model Organization {
   personRelationships PersonRelationship[]
   personFieldDefinitions PersonFieldDefinition[]
   personFieldValues      PersonFieldValue[]
+  funds                  Fund[]
+  contributionBatches    ContributionBatch[]
+  contributions          Contribution[]
   groups              Group[]
   groupMemberships    GroupMembership[]
   forms               FormDefinition[]
@@ -309,6 +314,7 @@ model Person {
   qualifications    PersonQualification[]
   files             File[]
   fieldValues       PersonFieldValue[]
+  contributions     Contribution[]
 
   @@index([organizationId])
   @@index([organizationId, lastName])
@@ -357,6 +363,95 @@ model PersonImport {
   createdBy    User?        @relation("PersonImportCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Giving — contribution RECORDING only (docs/domain/giving.md). Online card/ACH
+// processing is deliberately absent pending the tokenized-processor integration
+// (ADR-006): no card numbers, bank accounts, or processor tokens live here.
+// Amounts are integer cents — never floats.
+// ---------------------------------------------------------------------------
+
+enum ContributionMethod {
+  CASH
+  CHECK
+  CARD
+  ACH
+  OTHER
+}
+
+enum BatchStatus {
+  OPEN
+  CLOSED
+}
+
+model Fund {
+  id             String    @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  // False for payments for goods/services (books, trip fees, event payments) —
+  // recorded identically but excluded from tax statements.
+  taxDeductible  Boolean   @default(true)
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contributions Contribution[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+/** A counting session (Sunday offering, scanner run) reconciled before closing. */
+model ContributionBatch {
+  id              String      @id @default(cuid())
+  organizationId  String
+  name            String
+  batchDate       DateTime
+  status          BatchStatus @default(OPEN)
+  // The counted total, in cents, to reconcile the entered rows against.
+  expectedCents   Int?
+  closedAt        DateTime?
+  createdByUserId String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy     User?          @relation("ContributionBatchCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  contributions Contribution[]
+
+  @@index([organizationId, batchDate])
+}
+
+model Contribution {
+  id              String             @id @default(cuid())
+  organizationId  String
+  // Null = donor not linked to a Person (anonymous cash, unmatched scanner row).
+  personId        String?
+  // Donor name captured when no Person matched, so the record stays attributable.
+  donorName       String?
+  fundId          String
+  batchId         String?
+  amountCents     Int
+  method          ContributionMethod
+  checkNumber     String?
+  receivedAt      DateTime
+  note            String?
+  createdByUserId String?
+  createdAt       DateTime           @default(now())
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  person       Person?            @relation(fields: [personId], references: [id], onDelete: SetNull)
+  fund         Fund               @relation(fields: [fundId], references: [id])
+  batch        ContributionBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  createdBy    User?              @relation("ContributionCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, receivedAt])
+  @@index([personId])
+  @@index([fundId])
+  @@index([batchId])
 }
 
 // ---------------------------------------------------------------------------

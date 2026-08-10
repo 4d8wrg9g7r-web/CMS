@@ -44,6 +44,7 @@ export { weekStart, weeklyBuckets, summarizeByEvent, countUniquePeople } from ".
 export type { AttendanceRow, WeekBucket, EventAttendanceSummary } from "./checkins/helpers";
 
 export * as volunteerService from "./services/volunteer-service";
+export * as givingService from "./services/giving-service";
 export * as volunteerPermissions from "./authz/volunteer-permissions";
 export type { VolunteerAction } from "./authz/volunteer-permissions";
 export { isEligible } from "./volunteers/helpers";
@@ -124,6 +125,17 @@ export {
 export type { PersonFieldValueJson } from "./people/custom-fields";
 export { SUGGESTED_PERSON_FIELDS, matchSuggestedField } from "./people/suggested-fields";
 export type { SuggestedPersonField } from "./people/suggested-fields";
+
+export * as givingPermissions from "./authz/giving-permissions";
+export type { GivingAction } from "./authz/giving-permissions";
+export {
+  parseMoney,
+  formatCents,
+  batchTotals,
+  buildAnnualStatement,
+  mapContributionRows,
+} from "./giving/helpers";
+export type { AnnualStatement, BatchTotals, ContributionImportRow, StatementLine } from "./giving/helpers";
 
 export * as groupPermissions from "./authz/group-permissions";
 export type { GroupAction } from "./authz/group-permissions";
