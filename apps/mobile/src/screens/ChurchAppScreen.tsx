@@ -3,19 +3,23 @@ import {
   ActivityIndicator,
   Image,
   Linking,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { WebView } from "react-native-webview";
-import { fetchApp, resolveUrl } from "../api";
+import { addComment, createPost, fetchApp, resolveUrl, setReaction } from "../api";
+import { clearToken, getToken, signOut } from "../auth";
 import type { AppPayload, AppTab } from "../contract";
-import { Feed } from "../components/Feed";
+import { Feed, type FeedActions } from "../components/Feed";
 import { PageBlocks } from "../components/PageBlocks";
+import { SignInScreen } from "./SignInScreen";
 
 /**
  * One church's app (docs/domain/app.md), rendered natively from the same
@@ -110,10 +114,25 @@ export function ChurchAppScreen({ publicAppId, onSwitchChurch }: { publicAppId: 
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [draftGroupId, setDraftGroupId] = useState<string | null>(null);
+  const [posting, setPosting] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
+  const [token, setToken] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      setPayload(await fetchApp(publicAppId));
+      const stored = await getToken(publicAppId);
+      const data = await fetchApp(publicAppId, stored);
+      // A token that no longer resolves to a member is expired/revoked.
+      if (stored && !data.member) {
+        await clearToken(publicAppId);
+        setToken(null);
+      } else {
+        setToken(stored);
+      }
+      setPayload(data);
       setError(null);
     } catch {
       setError("Could not load the app. Pull to retry.");
@@ -138,9 +157,38 @@ export function ChurchAppScreen({ publicAppId, onSwitchChurch }: { publicAppId: 
     );
   }
 
-  const { manifest, content, feed, organization_name: churchName } = payload;
+  const { manifest, content, feed, member, my_groups: myGroups, organization_name: churchName } = payload;
   const accent = manifest.themeColor;
   const tab = manifest.tabs[Math.min(active, manifest.tabs.length - 1)] ?? manifest.tabs[0]!;
+
+  const feedActions: FeedActions | null =
+    member && token
+      ? {
+          onReact: async (postId, emoji) => {
+            await setReaction(publicAppId, token, postId, emoji);
+            await load();
+          },
+          onComment: async (postId, commentBody, parentCommentId) => {
+            await addComment(publicAppId, token, postId, commentBody, parentCommentId);
+            await load();
+          },
+        }
+      : null;
+
+  const submitPost = async () => {
+    if (!token || !draft.trim()) return;
+    setPosting(true);
+    setPostError(null);
+    try {
+      await createPost(publicAppId, token, { body: draft.trim(), groupId: draftGroupId });
+      setDraft("");
+      setDraftGroupId(null);
+      await load();
+    } catch (err) {
+      setPostError(err instanceof Error ? err.message : "Could not post");
+    }
+    setPosting(false);
+  };
 
   const body = (() => {
     switch (tab.kind) {
@@ -155,7 +203,70 @@ export function ChurchAppScreen({ publicAppId, onSwitchChurch }: { publicAppId: 
                 </Pressable>
               )}
             </View>
-            <Feed posts={feed} accent={accent} churchName={churchName} />
+
+            {member ? (
+              <View style={styles.memberBar}>
+                <Text style={styles.memberBarText}>
+                  Signed in as <Text style={styles.memberBarName}>{member.display_name}</Text>
+                </Text>
+                <Pressable
+                  onPress={async () => {
+                    await signOut(publicAppId);
+                    setToken(null);
+                    await load();
+                  }}
+                  hitSlop={8}
+                >
+                  <Text style={styles.memberBarAction}>Sign out</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable style={styles.signInBanner} onPress={() => setSigningIn(true)}>
+                <Text style={[styles.signInBannerText, { color: accent }]}>
+                  Sign in to post and see your church family&apos;s updates →
+                </Text>
+              </Pressable>
+            )}
+
+            {member && manifest.allowMemberPosts && (
+              <View style={styles.composer}>
+                <TextInput
+                  value={draft}
+                  onChangeText={setDraft}
+                  placeholder="Share something with your church family…"
+                  placeholderTextColor="#a3a3a3"
+                  multiline
+                  maxLength={1000}
+                  style={styles.composerInput}
+                />
+                <View style={styles.composerRow}>
+                  {(myGroups ?? []).length > 0 ? (
+                    <View style={styles.audienceRow}>
+                      <Pressable onPress={() => setDraftGroupId(null)} style={[styles.audienceChip, draftGroupId === null && { borderColor: accent }]}>
+                        <Text style={styles.audienceChipText}>Everyone</Text>
+                      </Pressable>
+                      {(myGroups ?? []).map((g) => (
+                        <Pressable key={g.id} onPress={() => setDraftGroupId(g.id)} style={[styles.audienceChip, draftGroupId === g.id && { borderColor: accent }]}>
+                          <Text style={styles.audienceChipText}>{g.name}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : (
+                    <View />
+                  )}
+                  <Pressable
+                    onPress={() => void submitPost()}
+                    disabled={posting || !draft.trim()}
+                    style={[styles.postButton, { backgroundColor: accent, opacity: posting || !draft.trim() ? 0.5 : 1 }]}
+                  >
+                    <Text style={styles.postButtonText}>Post</Text>
+                  </Pressable>
+                </View>
+                {postError && <Text style={styles.postError}>{postError}</Text>}
+              </View>
+            )}
+
+            <Feed posts={feed} accent={accent} churchName={churchName} actions={feedActions} />
           </View>
         );
       case "events":
@@ -279,6 +390,18 @@ export function ChurchAppScreen({ publicAppId, onSwitchChurch }: { publicAppId: 
 
   return (
     <View style={styles.screen}>
+      <Modal visible={signingIn} animationType="slide" onRequestClose={() => setSigningIn(false)}>
+        <SignInScreen
+          publicAppId={publicAppId}
+          appName={manifest.appName || churchName}
+          accent={accent}
+          onSignedIn={() => {
+            setSigningIn(false);
+            void load();
+          }}
+          onCancel={() => setSigningIn(false)}
+        />
+      </Modal>
       <View style={[styles.header, { backgroundColor: accent }]}>
         {manifest.logoUrl && <Image source={{ uri: manifest.logoUrl }} style={styles.headerLogo} />}
         <Text style={styles.headerTitle} numberOfLines={1}>
@@ -347,6 +470,29 @@ const styles = StyleSheet.create({
   welcomeText: { color: "#ffffff", fontSize: 17, fontWeight: "700", lineHeight: 24 },
   welcomeGive: { alignSelf: "flex-start", backgroundColor: "#ffffff", borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, marginTop: 12 },
   welcomeGiveText: { fontSize: 14, fontWeight: "700" },
+  memberBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 4 },
+  memberBarText: { fontSize: 12, color: "#737373" },
+  memberBarName: { fontWeight: "700", color: "#404040" },
+  memberBarAction: { fontSize: 12, color: "#a3a3a3" },
+  signInBanner: {
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "#d4d4d4",
+    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    padding: 14,
+    alignItems: "center",
+  },
+  signInBannerText: { fontSize: 14, fontWeight: "600" },
+  composer: { backgroundColor: "#ffffff", borderRadius: 12, borderWidth: 1, borderColor: "#e5e5e5", padding: 12, gap: 10 },
+  composerInput: { fontSize: 14, color: "#171717", minHeight: 44, textAlignVertical: "top" },
+  composerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  audienceRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, flex: 1 },
+  audienceChip: { borderWidth: 1, borderColor: "#e5e5e5", borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4 },
+  audienceChipText: { fontSize: 12, color: "#404040" },
+  postButton: { borderRadius: 18, paddingHorizontal: 20, paddingVertical: 9 },
+  postButtonText: { color: "#ffffff", fontSize: 13, fontWeight: "700" },
+  postError: { color: "#b91c1c", fontSize: 12 },
   card: { backgroundColor: "#ffffff", borderRadius: 12, borderWidth: 1, borderColor: "#e5e5e5", padding: 14, gap: 2 },
   itemTitle: { fontSize: 15, fontWeight: "600", color: "#171717" },
   itemMeta: { fontSize: 13, color: "#737373" },

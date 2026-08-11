@@ -150,3 +150,21 @@ name/slug/bundle id — submitted under the church's own developer account).
 Verified in CI as typecheck + Metro export; device builds go through EAS.
 Deferred: member auth (token flow mirroring the email-code sign-in), native
 push registration, store branding assets.
+
+## Member auth API (native)
+The native shells sign members in over JSON instead of cookies — same
+credential (AppSession, hashed, 90-day), same email-code flow, same
+no-enumeration posture. Under /api/app/v1/apps/&lt;id&gt;:
+`POST auth/request-code {email}` (200 + identical body always; code through
+the message pipeline, opt-out-proof), `POST auth/verify {email, code}` →
+`{token, member}` (401 on bad/expired codes), `POST auth/signout` (revokes),
+`GET me` → member + groups (401 without a live token). With
+`Authorization: Bearer <token>`, `GET apps/<id>` personalizes: feed gains
+member posts + the viewer's group posts, and `member`/`my_groups` appear
+(response flips to no-store; anonymous responses stay cacheable with
+`Vary: Authorization`). Member writes: `POST posts` (text; photos come with
+the native image-picker pass), `POST posts/<id>/reaction` (whitelist),
+`POST posts/<id>/comments` (+`parent_comment_id`). The Expo app stores the
+token per church in AsyncStorage (src/auth.ts), clears it when the server
+stops recognizing it, and drives SignInScreen + the interactive native feed
+(composer with group audience, reaction picker, comments/replies).

@@ -49,6 +49,7 @@ export * as reportingService from "./services/reporting-service";
 export * as dashboardService from "./services/dashboard-service";
 export * as sermonService from "./services/sermon-service";
 export * as appService from "./services/app-service";
+export type { PublicApp, DirectoryEntry } from "./services/app-service";
 export * as appMemberService from "./services/app-member-service";
 export * as appFeedService from "./services/app-feed-service";
 export * as appPushService from "./services/app-push-service";

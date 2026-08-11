@@ -111,11 +111,21 @@ export interface FeedPost {
   mine: boolean;
 }
 
+export interface ApiMember {
+  person_id: string;
+  first_name: string;
+  display_name: string;
+  photo_url: string | null;
+}
+
 export interface AppPayload {
   public_app_id: string;
   organization_name: string;
   manifest: AppManifest;
   content: AppContent;
-  /** Signed-out feed view (church announcements); member auth arrives later. */
+  /** Personalized when the request carries a Bearer member token; signed-out view otherwise. */
   feed: FeedPost[];
+  /** Present only on authenticated requests. */
+  member?: ApiMember;
+  my_groups?: { id: string; name: string }[];
 }
