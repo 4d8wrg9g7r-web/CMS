@@ -19,6 +19,8 @@ export interface AppManifest {
   welcome: string;
   /** External giving page; the Give button shows only when set. */
   givingUrl: string | null;
+  /** Community feed: whether signed-in members may post (default true). */
+  allowMemberPosts: boolean;
   tabs: AppTab[];
 }
 
@@ -30,6 +32,7 @@ export const DEFAULT_APP_MANIFEST: AppManifest = {
   logoUrl: null,
   welcome: "Welcome! We're glad you're here.",
   givingUrl: null,
+  allowMemberPosts: true,
   tabs: [{ kind: "home" }, { kind: "events" }, { kind: "sermons" }, { kind: "groups" }],
 };
 
@@ -83,7 +86,13 @@ export function validateAppManifest(input: unknown): ManifestValidation {
   }
   if (!seen.has("home")) return { ok: false, error: "The app needs a Home tab." };
 
-  return { ok: true, manifest: { appName, themeColor: themeColor.toLowerCase(), logoUrl, welcome, givingUrl, tabs } };
+  // Backward compatible: manifests saved before the community feed default to true.
+  const allowMemberPosts = raw.allowMemberPosts !== false;
+
+  return {
+    ok: true,
+    manifest: { appName, themeColor: themeColor.toLowerCase(), logoUrl, welcome, givingUrl, allowMemberPosts, tabs },
+  };
 }
 
 /** Display label for a tab (bottom bar + editor). */

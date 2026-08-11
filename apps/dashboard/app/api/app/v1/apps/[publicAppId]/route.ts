@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { appService } from "@cms/database";
+import { appFeedService, appService } from "@cms/database";
 import { buildAppContent } from "../../../../../../lib/church-app-content";
 
 export const runtime = "nodejs";
@@ -16,7 +16,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ publicA
   const app = await appService.resolvePublicApp(publicAppId);
   if (!app) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-  const content = await buildAppContent(app.organizationId);
+  const [content, feed] = await Promise.all([
+    buildAppContent(app.organizationId),
+    // Signed-out feed view (church announcements). Member posts require an
+    // app-member session, which this keyless API deliberately does not carry.
+    appFeedService.listFeed(app.organizationId, null),
+  ]);
   return NextResponse.json(
     {
       data: {
@@ -24,6 +29,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ publicA
         organization_name: app.organizationName,
         manifest: app.manifest,
         content,
+        feed,
       },
     },
     { headers: { "cache-control": "public, s-maxage=60, stale-while-revalidate=300" } },

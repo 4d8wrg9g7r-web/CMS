@@ -103,6 +103,7 @@ export function AppScreen({
   activeIndex,
   onSelectTab,
   tabHref,
+  homeFeed,
 }: {
   manifest: AppManifest;
   organizationName: string;
@@ -112,6 +113,8 @@ export function AppScreen({
   onSelectTab?: (index: number) => void;
   /** Public mode: real links per tab index. */
   tabHref?: (index: number) => string;
+  /** Community feed for the Home tab; when set it replaces the static highlights. */
+  homeFeed?: React.ReactNode;
 }) {
   const accent = manifest.themeColor;
   const active = manifest.tabs[activeIndex] ?? manifest.tabs[0]!;
@@ -135,7 +138,8 @@ export function AppScreen({
                 </a>
               )}
             </div>
-            {content.events.length > 0 && (
+            {homeFeed}
+            {!homeFeed && content.events.length > 0 && (
               <div>
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-500">Coming up</p>
                 <div className="flex flex-col gap-2">
@@ -148,7 +152,7 @@ export function AppScreen({
                 </div>
               </div>
             )}
-            {content.sermons[0] && (
+            {!homeFeed && content.sermons[0] && (
               <div>
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-500">Latest message</p>
                 <SermonCard sermon={content.sermons[0]} accent={accent} />

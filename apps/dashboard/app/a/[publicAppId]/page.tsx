@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
-import { appService } from "@cms/database";
+import { appFeedService, appMemberService, appService, groupService } from "@cms/database";
+import { AppFeed } from "../../../components/church-app/AppFeed";
 import { AppScreen } from "../../../components/church-app/AppScreen";
 import { buildAppContent } from "../../../lib/church-app-content";
 
@@ -44,7 +46,16 @@ export default async function PublicAppPage({ params, searchParams }: Props) {
   const app = await appService.resolvePublicApp(publicAppId);
   if (!app) notFound();
 
-  const content = await buildAppContent(app.organizationId);
+  // Member session (optional): drives the community feed's visibility and composer.
+  const token = (await cookies()).get(`app_session_${publicAppId}`)?.value ?? "";
+  const member = token ? await appMemberService.getSessionMember(app.organizationId, token) : null;
+
+  const [content, posts, myGroups] = await Promise.all([
+    buildAppContent(app.organizationId),
+    appFeedService.listFeed(app.organizationId, member?.personId ?? null),
+    member ? groupService.listGroupsForPerson(app.organizationId, member.personId) : Promise.resolve([]),
+  ]);
+
   const requested = Number.parseInt(tab ?? "0", 10);
   const activeIndex = Number.isFinite(requested) ? Math.min(Math.max(requested, 0), app.manifest.tabs.length - 1) : 0;
 
@@ -56,6 +67,17 @@ export default async function PublicAppPage({ params, searchParams }: Props) {
         content={content}
         activeIndex={activeIndex}
         tabHref={(i) => `/a/${publicAppId}?tab=${i}`}
+        homeFeed={
+          <AppFeed
+            publicAppId={publicAppId}
+            churchName={app.organizationName}
+            accent={app.manifest.themeColor}
+            posts={posts}
+            member={member ? { displayName: member.displayName } : null}
+            allowMemberPosts={app.manifest.allowMemberPosts}
+            myGroups={myGroups.map((m) => ({ id: m.group.id, name: m.group.name }))}
+          />
+        }
       />
     </div>
   );

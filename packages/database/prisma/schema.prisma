@@ -93,6 +93,11 @@ model Organization {
   dashboardPreferences   DashboardPreference[]
   sermons                Sermon[]
   churchApp              ChurchApp?
+  appPosts               AppPost[]
+  appPostLikes           AppPostLike[]
+  appPostComments        AppPostComment[]
+  appSessions            AppSession[]
+  appLoginCodes          AppLoginCode[]
   groups              Group[]
   groupMemberships    GroupMembership[]
   forms               FormDefinition[]
@@ -326,6 +331,11 @@ model Person {
   files             File[]
   fieldValues       PersonFieldValue[]
   contributions     Contribution[]
+  appPosts          AppPost[]
+  appPostLikes      AppPostLike[]
+  appPostComments   AppPostComment[]
+  appSessions       AppSession[]
+  appLoginCodes     AppLoginCode[]
 
   @@index([organizationId])
   @@index([organizationId, lastName])
@@ -559,6 +569,108 @@ model ChurchApp {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
+// ---------------------------------------------------------------------------
+// Church app community feed (docs/domain/app.md)
+// ---------------------------------------------------------------------------
+
+enum AppPostKind {
+  CHURCH
+  MEMBER
+}
+
+/**
+ * A post on the app's home feed. CHURCH posts are staff announcements (no
+ * author Person required); MEMBER posts are authored by a signed-in member.
+ * groupId scopes visibility to that group's members; null = church-wide.
+ * hiddenAt is staff moderation — hidden posts vanish from the feed but are
+ * kept for accountability.
+ */
+model AppPost {
+  id             String      @id @default(cuid())
+  organizationId String
+  kind           AppPostKind
+  personId       String?
+  groupId        String?
+  body           String
+  hiddenAt       DateTime?
+  createdAt      DateTime    @default(now())
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  person       Person?          @relation(fields: [personId], references: [id], onDelete: Cascade)
+  group        Group?           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  likes        AppPostLike[]
+  comments     AppPostComment[]
+
+  @@index([organizationId, createdAt])
+  @@index([groupId])
+}
+
+model AppPostLike {
+  id             String   @id @default(cuid())
+  organizationId String
+  postId         String
+  personId       String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  post         AppPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, personId])
+  @@index([organizationId])
+}
+
+model AppPostComment {
+  id             String   @id @default(cuid())
+  organizationId String
+  postId         String
+  personId       String
+  body           String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  post         AppPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@index([organizationId])
+}
+
+/**
+ * Member sign-in for the church app: a 6-digit code emailed to a Person's
+ * address (hashed at rest, short-lived, attempt-capped) exchanges for a
+ * long-lived AppSession whose random token (hashed at rest) lives in an
+ * httpOnly cookie. Members are People — no separate account system.
+ */
+model AppLoginCode {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  codeHash       String
+  attempts       Int      @default(0)
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, personId])
+}
+
+model AppSession {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  tokenHash      String   @unique
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, personId])
+}
+
 model DashboardPreference {
   id             String   @id @default(cuid())
   organizationId String
@@ -617,6 +729,7 @@ model Group {
   organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   campus       Campus?           @relation(fields: [campusId], references: [id], onDelete: SetNull)
   memberships  GroupMembership[]
+  appPosts     AppPost[]
 
   @@index([organizationId])
   @@index([organizationId, type])

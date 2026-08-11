@@ -49,6 +49,10 @@ export * as reportingService from "./services/reporting-service";
 export * as dashboardService from "./services/dashboard-service";
 export * as sermonService from "./services/sermon-service";
 export * as appService from "./services/app-service";
+export * as appMemberService from "./services/app-member-service";
+export * as appFeedService from "./services/app-feed-service";
+export type { AppMember } from "./services/app-member-service";
+export type { FeedPost, FeedComment } from "./services/app-feed-service";
 export * as appPermissions from "./authz/app-permissions";
 export type { AppAction } from "./authz/app-permissions";
 export {

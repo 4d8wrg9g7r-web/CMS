@@ -64,3 +64,28 @@ data as JSON — unauthenticated (public content only), cacheable, and the
 contract the native container and white-label shells will consume as thin
 renderers; changes must stay additive once native clients ship. Unlike
 /api/v1/* this namespace is deliberately keyless.
+
+## Community feed (dynamic home)
+The Home tab is a live feed (Facebook shape): **CHURCH** posts are staff
+announcements composed on /community (audited, CONTENT_MANAGER+); **MEMBER**
+posts come from signed-in members. Visibility: signed-out → church-wide CHURCH
+posts only; signed-in → plus church-wide MEMBER posts and posts scoped to
+groups the viewer belongs to (composer offers Everyone / my groups; group
+membership verified server-side). Likes and comments per post; bodies are
+plain text (1000/300 chars), whitespace-collapsed, always rendered as text.
+Moderation = `hiddenAt` (hide/restore on /community, audited; hidden posts
+leave the feed but are kept). `manifest.allowMemberPosts` (default true)
+switches the composer off without touching announcements.
+
+**Member identity:** members ARE People — no separate accounts. Sign-in at
+/a/&lt;id&gt;/signin: email → 6-digit code (hashed, 10-min TTL, 5 attempts, sent
+through the message pipeline WITHOUT a person link so the marketing opt-out
+never locks members out) → 90-day session (random token, hashed at rest,
+httpOnly cookie scoped to /a/&lt;id&gt;). Responses never reveal whether an email
+matched (no enumeration). App Studio previews the feed signed-out via the same
+AppFeed component in previewMode; the keyless content API exposes only the
+signed-out feed view.
+
+**Deferred:** photo posts, reactions beyond ❤, threaded replies, member
+profiles, push notifications on new posts (Phase 2), rate limiting beyond
+attempt caps, blocked-words filters.

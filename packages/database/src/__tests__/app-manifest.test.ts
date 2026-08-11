@@ -49,6 +49,13 @@ describe("validateAppManifest", () => {
     expect(localLogo.ok).toBe(true);
   });
 
+  it("defaults allowMemberPosts to true for pre-feed manifests, honors explicit false", () => {
+    const legacy = validateAppManifest(VALID);
+    expect(legacy.ok && legacy.manifest.allowMemberPosts).toBe(true);
+    const off = validateAppManifest({ ...VALID, allowMemberPosts: false });
+    expect(off.ok && off.manifest.allowMemberPosts).toBe(false);
+  });
+
   it("labels tabs", () => {
     expect(appTabLabel({ kind: "forms" })).toBe("Connect");
     expect(appTabLabel({ kind: "link", label: "Watch", url: "https://x.org" })).toBe("Watch");

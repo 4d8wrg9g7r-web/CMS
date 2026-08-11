@@ -8,6 +8,8 @@ import { appTabLabelUi as appTabLabel, APP_TAB_KINDS_UI as APP_TAB_KINDS, MAX_AP
 import { buttonClasses } from "./ui/Button";
 import { Input, Textarea } from "./ui/Input";
 import { AppScreen, type AppContent } from "./church-app/AppScreen";
+import { AppFeed } from "./church-app/AppFeed";
+import type { FeedPost } from "@cms/database";
 import { publishAppAction, saveAppAction, toggleAppListedAction, uploadAppLogoAction } from "../app/(dashboard)/app-studio/actions";
 
 /**
@@ -30,6 +32,7 @@ export function AppStudio({
   initial,
   organizationName,
   content,
+  feedPosts,
   enabled,
   listed,
   installUrl,
@@ -38,6 +41,8 @@ export function AppStudio({
   initial: AppManifest;
   organizationName: string;
   content: AppContent;
+  /** Signed-out view of the community feed, for the preview's Home tab. */
+  feedPosts: FeedPost[];
   enabled: boolean;
   listed: boolean;
   /** Absolute /a/<id> URL once the app row exists; null before first save. */
@@ -192,6 +197,17 @@ export function AppStudio({
           />
         </label>
 
+        <label className="flex items-center gap-2 text-sm font-medium text-ink-secondary">
+          <input
+            type="checkbox"
+            checked={manifest.allowMemberPosts}
+            onChange={(e) => set({ allowMemberPosts: e.target.checked })}
+            className="h-4 w-4 accent-current"
+          />
+          Let members post to the home feed
+          <span className="font-normal text-ink-muted">(announcements always show; moderate in Community)</span>
+        </label>
+
         <div>
           <p className="text-sm font-medium text-ink-secondary">
             Tabs <span className="text-ink-muted">(what your congregation sees along the bottom)</span>
@@ -332,6 +348,18 @@ export function AppStudio({
             content={content}
             activeIndex={Math.min(activeTab, manifest.tabs.length - 1)}
             onSelectTab={setActiveTab}
+            homeFeed={
+              <AppFeed
+                publicAppId=""
+                churchName={organizationName}
+                accent={manifest.themeColor}
+                posts={feedPosts}
+                member={null}
+                allowMemberPosts={manifest.allowMemberPosts}
+                myGroups={[]}
+                previewMode
+              />
+            }
           />
         </div>
       </div>
