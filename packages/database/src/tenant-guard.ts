@@ -24,6 +24,7 @@ export const TENANT_SCOPED_MODELS = new Set([
   "SavedReport",
   "EmailBlast",
   "EmailBlastAttachment",
+  "SavedPersonFilter",
   "Group",
   "GroupMembership",
   "FormDefinition",

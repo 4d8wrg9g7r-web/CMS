@@ -224,6 +224,19 @@ export async function askReportAiAction(input: { question: string; currentConfig
   }
 }
 
+/**
+ * Pin/unpin a saved report on the dashboard Overview. Pinned reports re-run live
+ * for each viewer (with that viewer's permissions re-checked), so pinning itself
+ * needs no extra gate beyond org membership.
+ */
+export async function toggleReportPinAction(reportId: string, pinned: boolean): Promise<void> {
+  const organization = await requireOrg();
+  const changed = await reportingService.setSavedReportPinned(organization.id, reportId, pinned);
+  if (!changed) return;
+  revalidatePath("/reports");
+  revalidatePath("/");
+}
+
 export async function deleteSavedReportAction(reportId: string): Promise<void> {
   const organization = await requireOrg();
   // Deleting a shortcut is harmless; creating/running is what's permission-gated.

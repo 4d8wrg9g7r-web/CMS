@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Lock, Mail, Paperclip } from "lucide-react";
 import { campusService, describeAudience, groupService, messageService, type BlastAudience } from "@cms/database";
-import { markdownToEmailBody } from "@cms/email";
+import { markdownToEmailBody, renderBlocksEmailBody, validateEmailBlocks } from "@cms/email";
 import { Badge } from "../../../../../components/ui/Badge";
 import { Card } from "../../../../../components/ui/Card";
 import { EmptyState } from "../../../../../components/ui/EmptyState";
@@ -110,8 +110,17 @@ export default async function BlastDetailPage({ params }: { params: Promise<{ bl
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
             <Mail size={15} /> Email content
           </h2>
-          {/* Safe: markdownToEmailBody escapes all input before transforming. */}
-          <div className="rounded-lg border border-border bg-white p-5" dangerouslySetInnerHTML={{ __html: markdownToEmailBody(blast.bodyMarkdown) }} />
+          {/* Safe: both renderers escape all input before transforming. Block-built
+              blasts show their designed layout; older markdown blasts fall back. */}
+          <div
+            className="rounded-lg border border-border bg-white p-5"
+            dangerouslySetInnerHTML={{
+              __html: (() => {
+                const blocks = blast.blocks ? validateEmailBlocks(blast.blocks) : null;
+                return blocks?.ok ? renderBlocksEmailBody(blocks.blocks) : markdownToEmailBody(blast.bodyMarkdown);
+              })(),
+            }}
+          />
         </Card>
         <Card padding="md">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">

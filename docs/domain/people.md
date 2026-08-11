@@ -137,3 +137,12 @@ changes to existing tables, so it is backward-safe for rolling deploys.
 - **Membership status** is a fixed enum in v1; per-org configurable statuses are deferred.
 - **Guardian inverse** is stored as `CHILD` (there is no `DEPENDENT` type yet) — an
   approximation documented in `inverseRelationshipType`.
+
+## Saved smart filters
+`SavedPersonFilter` stores a named People-list filter (`config`: q / status /
+campusId — the list's own query params). Smart = criteria stored, matches
+re-evaluated live wherever the filter appears: chips on /people apply it via the
+URL, and `pinned` filters render on the dashboard Overview as live-count cards
+(person.view required — no People access, no cards). Saving requires person.view;
+validated by `validatePersonFilterConfig` (unknown status rejected, empty configs
+refused). Audited as `person.filter_saved` / `person.filter_deleted`.

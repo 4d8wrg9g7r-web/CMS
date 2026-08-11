@@ -39,14 +39,18 @@ export async function resendMessageAction(messageId: string) {
 
 // -- Email blasts (newsletters) ---------------------------------------------------
 
+import path from "node:path";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { validateBlastAudience } from "@cms/database";
-import { markdownToEmailBody } from "@cms/email";
-import { getPrivateStorageProvider, sanitizeStorageKey } from "@cms/storage";
+import { blocksToPlainText, renderBlocksEmailBody, validateEmailBlocks } from "@cms/email";
+import { getPrivateStorageProvider, getStorageProvider, sanitizeStorageKey } from "@cms/storage";
 
 // Not exported: a "use server" module may only export async functions.
 const BLAST_MAX_ATTACHMENTS = 5;
 const BLAST_MAX_TOTAL_ATTACHMENT_BYTES = 8 * 1024 * 1024; // 8 MB across all files
+const IMAGE_MAX_BYTES = 4 * 1024 * 1024; // per inline newsletter image
+const IMAGE_CONTENT_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]);
 
 export interface BlastFormState {
   error: string | null;
@@ -63,9 +67,19 @@ export async function createBlastAction(_prev: BlastFormState, formData: FormDat
   await requireMessages(organization.id, "message.manage");
 
   const subject = String(formData.get("subject") ?? "").trim();
-  const body = String(formData.get("body") ?? "");
   if (!subject) return { error: "Subject is required." };
-  if (!body.trim()) return { error: "Write the email body first." };
+
+  // The composer submits the designed layout as a JSON block array; the stored
+  // markdown body is its plain-text derivation (used for the text/plain part).
+  let blocksInput: unknown;
+  try {
+    blocksInput = JSON.parse(String(formData.get("blocks") ?? "[]"));
+  } catch {
+    return { error: "The email layout could not be read — reload and try again." };
+  }
+  const blocksResult = validateEmailBlocks(blocksInput);
+  if (!blocksResult.ok) return { error: blocksResult.error };
+  const body = blocksToPlainText(blocksResult.blocks);
 
   const kind = String(formData.get("audienceKind") ?? "all");
   const validated = validateBlastAudience({
@@ -73,6 +87,8 @@ export async function createBlastAction(_prev: BlastFormState, formData: FormDat
     membershipStatus: String(formData.get("membershipStatus") ?? ""),
     campusId: String(formData.get("campusId") ?? ""),
     tag: String(formData.get("tag") ?? ""),
+    customFieldKey: String(formData.get("customFieldKey") ?? ""),
+    customFieldValue: String(formData.get("customFieldValue") ?? ""),
     groupId: String(formData.get("groupId") ?? ""),
     personIds: formData.getAll("personIds").map(String).filter(Boolean),
   });
@@ -107,6 +123,7 @@ export async function createBlastAction(_prev: BlastFormState, formData: FormDat
   const result = await messageService.createEmailBlast(organization.id, {
     subject,
     bodyMarkdown: body,
+    blocks: blocksResult.blocks,
     audience: validated.audience,
     attachments,
     createdByUserId: actor?.id ?? null,
@@ -140,9 +157,45 @@ export async function createBlastAction(_prev: BlastFormState, formData: FormDat
 }
 
 /** Live composer preview: renders the same body HTML the recipient will get. */
-export async function previewBlastAction(input: { markdown: string }): Promise<{ html: string }> {
+export async function previewBlastAction(input: { blocks: unknown }): Promise<{ html: string }> {
   const organization = await getCurrentOrganization();
   if (!organization) return { html: "" };
   await requireMessages(organization.id, "message.manage");
-  return { html: markdownToEmailBody(input.markdown.slice(0, 50000)) };
+  const result = validateEmailBlocks(input.blocks);
+  return { html: result.ok ? renderBlocksEmailBody(result.blocks) : "" };
+}
+
+/**
+ * Upload an inline newsletter image (header art etc.) to PUBLIC storage — email
+ * clients fetch images by URL, so unlike attachments these cannot live in the
+ * private bucket. Returns an absolute http(s) URL that satisfies the image-block
+ * validator; local-dev uploads land under public/uploads and are absolutized
+ * from the request origin.
+ */
+export async function uploadBlastImageAction(formData: FormData): Promise<{ url: string } | { error: string }> {
+  const organization = await getCurrentOrganization();
+  if (!organization) return { error: "No organization" };
+  await requireMessages(organization.id, "message.manage");
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose an image file." };
+  if (!IMAGE_CONTENT_TYPES.has(file.type)) return { error: "Images must be PNG, JPEG, GIF, or WebP." };
+  if (file.size > IMAGE_MAX_BYTES) return { error: "Images are capped at 4 MB." };
+
+  const saved = await getStorageProvider(path.join(process.cwd(), "public")).saveFile({
+    organizationId: organization.id,
+    fileName: file.name,
+    contentType: file.type,
+    data: Buffer.from(await file.arrayBuffer()),
+  });
+
+  let url = saved.url;
+  if (url.startsWith("/")) {
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host");
+    if (!host) return { error: "Could not determine the site URL for the image." };
+    const proto = h.get("x-forwarded-proto") ?? "http";
+    url = `${proto}://${host}${url}`;
+  }
+  return { url };
 }

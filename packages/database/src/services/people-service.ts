@@ -602,3 +602,75 @@ export async function listPersonFieldValues(organizationId: string, personId: st
     include: { field: true },
   });
 }
+
+// -- Saved smart filters ---------------------------------------------------------
+
+/**
+ * A saved People-list filter (docs/domain/people.md): the config mirrors the
+ * list's query params. "Smart" because it stores the criteria, not the matches —
+ * every application (and every pinned-card count) re-evaluates live.
+ */
+export interface PersonFilterConfig {
+  q: string | null;
+  status: MembershipStatus | null;
+  campusId: string | null;
+}
+
+export function validatePersonFilterConfig(input: unknown): PersonFilterConfig | null {
+  if (!input || typeof input !== "object") return null;
+  const raw = input as { q?: unknown; status?: unknown; campusId?: unknown };
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+  const status = str(raw.status);
+  if (status && !Object.values(MembershipStatus).includes(status as MembershipStatus)) return null;
+  const config: PersonFilterConfig = {
+    q: str(raw.q),
+    status: (status as MembershipStatus | null) ?? null,
+    campusId: str(raw.campusId),
+  };
+  if (!config.q && !config.status && !config.campusId) return null; // nothing to save
+  return config;
+}
+
+export async function listSavedPersonFilters(organizationId: string) {
+  return tenantDb.savedPersonFilter.findMany({
+    where: { organizationId },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+export async function createSavedPersonFilter(
+  organizationId: string,
+  input: { name: string; config: PersonFilterConfig; createdByUserId?: string | null },
+) {
+  const name = input.name.trim();
+  if (!name) throw new Error("Give the filter a name.");
+  return tenantDb.savedPersonFilter.create({
+    data: {
+      organizationId,
+      name,
+      config: input.config as unknown as Prisma.InputJsonValue,
+      createdByUserId: input.createdByUserId ?? null,
+    },
+  });
+}
+
+export async function deleteSavedPersonFilter(organizationId: string, filterId: string) {
+  const result = await tenantDb.savedPersonFilter.deleteMany({ where: { id: filterId, organizationId } });
+  return result.count > 0;
+}
+
+/** Pin/unpin a saved filter on the dashboard Overview (live people count card). */
+export async function setSavedPersonFilterPinned(organizationId: string, filterId: string, pinned: boolean) {
+  const result = await tenantDb.savedPersonFilter.updateMany({
+    where: { id: filterId, organizationId },
+    data: { pinned },
+  });
+  return result.count > 0;
+}
+
+export async function listPinnedPersonFilters(organizationId: string) {
+  return tenantDb.savedPersonFilter.findMany({
+    where: { organizationId, pinned: true },
+    orderBy: { createdAt: "asc" },
+  });
+}

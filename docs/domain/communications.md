@@ -112,3 +112,20 @@ the provider (Resend supports html + attachments; the console stub logs them).
 Composer at /messages/new (live preview via the same renderer), history + counts
 on /messages with per-blast detail (sent/sending/failed/suppressed/no-email,
 failure list). Audited as `message.blast_sent`.
+
+## Newsletter designer (blocks)
+Blasts can carry a designed layout: `EmailBlast.blocks` (Json, nullable) stores a
+validated array of content blocks — image / heading / text / button / divider
+(`@cms/email` blocks.ts, ≤40 blocks). The composer at /messages/new is a block
+builder (add/reorder/remove, live preview); `bodyMarkdown` holds the plain-text
+derivation of the blocks (used for the text/plain part and older markdown blasts).
+Rendering rules: every text field HTML-escaped, image/button URLs restricted to
+http(s), text blocks reuse the escaping markdown renderer; the worker re-validates
+stored blocks per send and falls back to the markdown body if invalid. Inline
+images upload to PUBLIC storage (Vercel Blob in prod, public/uploads locally,
+absolutized from the request origin) because recipients' mail clients fetch them
+by URL — attachments stay in private storage. Audience filters also cover custom
+person fields (key = value, case-insensitive on the formatted value). The People
+list and the report builder both link into the composer with the current filters
+prefilled as the audience (`/messages/new?audienceKind=filter&…`). Templates
+later = saved block arrays; nothing else needs to change.

@@ -8,7 +8,14 @@ import { MembershipStatus } from "@prisma/client";
 
 export type BlastAudience =
   | { kind: "all" }
-  | { kind: "filter"; membershipStatus: string | null; campusId: string | null; tag: string | null }
+  | {
+      kind: "filter";
+      membershipStatus: string | null;
+      campusId: string | null;
+      tag: string | null;
+      customFieldKey: string | null;
+      customFieldValue: string | null;
+    }
   | { kind: "group"; groupId: string }
   | { kind: "people"; personIds: string[] };
 
@@ -24,15 +31,33 @@ export function validateBlastAudience(input: unknown): AudienceValidation {
   if (raw.kind === "all") return { ok: true, audience: { kind: "all" } };
 
   if (raw.kind === "filter") {
-    const f = raw as { membershipStatus?: unknown; campusId?: unknown; tag?: unknown };
+    const f = raw as {
+      membershipStatus?: unknown;
+      campusId?: unknown;
+      tag?: unknown;
+      customFieldKey?: unknown;
+      customFieldValue?: unknown;
+    };
     const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
     const membershipStatus = str(f.membershipStatus);
     if (membershipStatus && !Object.values(MembershipStatus).includes(membershipStatus as MembershipStatus)) {
       return { ok: false, error: "Unknown membership status filter." };
     }
+    const customFieldKey = str(f.customFieldKey);
+    const customFieldValue = str(f.customFieldValue);
+    if (customFieldKey && !customFieldValue) {
+      return { ok: false, error: "Choose a value for the custom-field filter." };
+    }
     return {
       ok: true,
-      audience: { kind: "filter", membershipStatus, campusId: str(f.campusId), tag: str(f.tag) },
+      audience: {
+        kind: "filter",
+        membershipStatus,
+        campusId: str(f.campusId),
+        tag: str(f.tag),
+        customFieldKey: customFieldValue ? customFieldKey : null,
+        customFieldValue: customFieldKey ? customFieldValue : null,
+      },
     };
   }
 
@@ -71,6 +96,7 @@ export function describeAudience(
           : null,
         names.campusName ? `at ${names.campusName}` : null,
         audience.tag ? `tagged “${audience.tag}”` : null,
+        audience.customFieldKey ? `where ${audience.customFieldKey} = ${audience.customFieldValue}` : null,
       ].filter(Boolean);
       return parts.length > 0 ? parts.join(" ") : "Everyone with an email address";
     }

@@ -8,7 +8,11 @@ import {
   Sparkles,
   Users2,
 } from "lucide-react";
-import { auditService, eventService, groupService, peopleService, taskService, nextOccurrence } from "@cms/database";
+import { auditService, eventService, groupService, peopleService, reportingService, taskService, nextOccurrence, type MembershipStatus } from "@cms/database";
+import { runReportAction } from "../reports/actions";
+import { PinnedReportCard } from "../../../components/PinnedReportCard";
+import type { ChartSeries } from "../../../components/report-charts";
+import { canPeople } from "../../../lib/people-access";
 import { MetricCard } from "../../../components/ui/MetricCard";
 import { buttonClasses } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -29,13 +33,54 @@ export default async function OverviewPage() {
   const user = await getCurrentUser();
   if (!organization) return null;
 
-  const [peopleCount, groupCount, events, openTaskCount, activity] = await Promise.all([
-    peopleService.countPeople(organization.id),
-    groupService.countGroups(organization.id),
-    eventService.listEvents(organization.id),
-    taskService.countTasks(organization.id),
-    auditService.listAuditEvents(organization.id, 8),
-  ]);
+  const [peopleCount, groupCount, events, openTaskCount, activity, pinnedReports, pinnedFilters, peopleOk] =
+    await Promise.all([
+      peopleService.countPeople(organization.id),
+      groupService.countGroups(organization.id),
+      eventService.listEvents(organization.id),
+      taskService.countTasks(organization.id),
+      auditService.listAuditEvents(organization.id, 8),
+      reportingService.listPinnedReports(organization.id),
+      peopleService.listPinnedPersonFilters(organization.id),
+      canPeople(organization.id, "person.view"),
+    ]);
+
+  // Pinned reports re-run live for THIS viewer — runReportAction re-checks source
+  // and person permissions per run, so a card the viewer can't see simply drops out.
+  const pinnedCharts = (
+    await Promise.all(
+      pinnedReports.map(async (report) => {
+        const run = await runReportAction({ config: report.config });
+        if (!run.ok || !run.groups) return null;
+        const series: ChartSeries[] = [
+          { label: run.primaryLabel ?? report.name, groups: run.groups },
+          ...(run.comparisons ?? []).map((c) => ({ label: c.label, groups: c.groups })),
+        ];
+        const totals = [run.total ?? 0, ...(run.comparisons ?? []).map((c) => c.total)];
+        const chart = ((report.config as { chart?: string }).chart as string | undefined) ?? "table";
+        return { id: report.id, name: report.name, chart, measure: run.measure ?? "count", series, totals };
+      }),
+    )
+  ).filter((c): c is NonNullable<typeof c> => c !== null);
+
+  // Pinned smart filters: stored criteria, live counts.
+  const filterCards = peopleOk
+    ? await Promise.all(
+        pinnedFilters.map(async (filter) => {
+          const config = filter.config as { q?: string | null; status?: string | null; campusId?: string | null };
+          const count = await peopleService.countPeople(organization.id, {
+            search: config.q ?? undefined,
+            status: (config.status as MembershipStatus | null) ?? undefined,
+            campusId: config.campusId ?? undefined,
+          });
+          const sp = new URLSearchParams();
+          if (config.q) sp.set("q", config.q);
+          if (config.status) sp.set("status", config.status);
+          if (config.campusId) sp.set("campus", config.campusId);
+          return { id: filter.id, name: filter.name, count, href: `/people?${sp.toString()}` };
+        }),
+      )
+    : [];
 
   const now = new Date();
   const upcoming = events
@@ -70,6 +115,37 @@ export default async function OverviewPage() {
         />
         <MetricCard label="Open Tasks" value={openTaskCount} helperText="Open or in progress" icon={<CheckSquare size={16} />} />
       </div>
+
+      {filterCards.length > 0 && (
+        <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {filterCards.map((card) => (
+            <Link key={card.id} href={card.href} className="block">
+              <MetricCard
+                label={card.name}
+                value={card.count}
+                helperText="Pinned filter · live count"
+                icon={<Contact size={16} />}
+              />
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {pinnedCharts.length > 0 && (
+        <div className="mb-8 grid gap-6 lg:grid-cols-2">
+          {pinnedCharts.map((card) => (
+            <Card key={card.id}>
+              <PinnedReportCard
+                name={card.name}
+                chart={card.chart}
+                measure={card.measure}
+                series={card.series}
+                totals={card.totals}
+              />
+            </Card>
+          ))}
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

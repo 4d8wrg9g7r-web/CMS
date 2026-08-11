@@ -39,6 +39,7 @@ model User {
   contributions       Contribution[]       @relation("ContributionCreatedBy")
   savedReports        SavedReport[]        @relation("SavedReportCreatedBy")
   emailBlasts         EmailBlast[]         @relation("EmailBlastCreatedBy")
+  savedPersonFilters  SavedPersonFilter[]  @relation("SavedPersonFilterCreatedBy")
 }
 
 /** Single-use, short-lived; a fresh request invalidates prior unused tokens. */
@@ -87,6 +88,7 @@ model Organization {
   savedReports           SavedReport[]
   emailBlasts            EmailBlast[]
   emailBlastAttachments  EmailBlastAttachment[]
+  savedPersonFilters     SavedPersonFilter[]
   groups              Group[]
   groupMemberships    GroupMembership[]
   forms               FormDefinition[]
@@ -469,12 +471,35 @@ model SavedReport {
   organizationId  String
   name            String
   config          Json
+  // Pinned reports render live on the dashboard Overview.
+  pinned          Boolean  @default(false)
   createdByUserId String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdBy    User?        @relation("SavedReportCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+}
+
+/**
+ * A saved People-list filter combination ("smart filter"): name + the list's query
+ * config, re-run live wherever it's shown. Pinned filters surface on the dashboard
+ * Overview with a live count.
+ */
+model SavedPersonFilter {
+  id              String   @id @default(cuid())
+  organizationId  String
+  name            String
+  config          Json
+  pinned          Boolean  @default(false)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("SavedPersonFilterCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
 }
@@ -1006,6 +1031,9 @@ model EmailBlast {
   organizationId  String
   subject         String
   bodyMarkdown    String
+  // Rich block layout (image/heading/text/button/divider) — when present the email
+  // renders from blocks and bodyMarkdown holds the derived plain-text alternative.
+  blocks          Json?
   audience        Json
   recipientCount  Int      @default(0)
   suppressedCount Int      @default(0)

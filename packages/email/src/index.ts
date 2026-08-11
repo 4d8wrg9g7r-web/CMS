@@ -2,6 +2,14 @@ export type { EmailAttachmentInput, EmailProvider, SendEmailInput } from "./Emai
 export { ConsoleEmailProvider } from "./ConsoleEmailProvider";
 export { ResendEmailProvider } from "./ResendEmailProvider";
 export { markdownToEmailBody, renderEmailHtml } from "./markdown";
+export {
+  blocksToPlainText,
+  renderBlocksEmailBody,
+  renderBlocksEmailHtml,
+  validateEmailBlocks,
+  MAX_EMAIL_BLOCKS,
+} from "./blocks";
+export type { EmailBlock } from "./blocks";
 
 import type { EmailProvider } from "./EmailProvider";
 import { ConsoleEmailProvider } from "./ConsoleEmailProvider";

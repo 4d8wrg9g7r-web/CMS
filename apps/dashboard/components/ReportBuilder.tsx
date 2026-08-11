@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { BookmarkPlus, FileDown, Loader2, Sparkles, Trash2 } from "lucide-react";
+import { BookmarkPlus, FileDown, Loader2, Mail, Pin, Sparkles, Trash2 } from "lucide-react";
 import { buttonClasses } from "./ui/Button";
 import { Input, Select } from "./ui/Input";
 import { ReportBarChart, ReportLineChart, ReportRoundChart, ReportTable, type ChartSeries } from "./report-charts";
@@ -12,6 +12,7 @@ import {
   deleteSavedReportAction,
   runReportAction,
   saveReportAction,
+  toggleReportPinAction,
   type RunReportResult,
 } from "../app/(dashboard)/reports/actions";
 
@@ -37,6 +38,7 @@ export interface SavedReportItem {
   id: string;
   name: string;
   config: unknown;
+  pinned: boolean;
 }
 
 const DATE_PRESETS = [
@@ -100,6 +102,7 @@ export function ReportBuilder({
   customFields,
   savedReports,
   aiAvailable,
+  canEmail,
 }: {
   allowedSources: ReportSource[];
   campuses: OptionItem[];
@@ -108,6 +111,7 @@ export function ReportBuilder({
   customFields: CustomFieldOption[];
   savedReports: SavedReportItem[];
   aiAvailable: boolean;
+  canEmail: boolean;
 }) {
   const router = useRouter();
   const [source, setSource] = useState<ReportSource>(allowedSources[0] ?? "people");
@@ -257,6 +261,17 @@ export function ReportBuilder({
             <span key={item.id} className="flex items-center overflow-hidden rounded-full border border-border bg-surface text-sm">
               <button onClick={() => applyConfig(item.config)} className="px-3 py-1 font-medium text-ink hover:bg-surface-muted">
                 {item.name}
+              </button>
+              <button
+                onClick={async () => {
+                  await toggleReportPinAction(item.id, !item.pinned);
+                  router.refresh();
+                }}
+                aria-label={item.pinned ? `Unpin ${item.name} from the dashboard` : `Pin ${item.name} to the dashboard`}
+                title={item.pinned ? "Unpin from dashboard" : "Pin to dashboard"}
+                className={`pr-1.5 ${item.pinned ? "text-accent" : "text-ink-muted hover:text-ink"}`}
+              >
+                <Pin size={13} fill={item.pinned ? "currentColor" : "none"} />
               </button>
               <button
                 onClick={async () => {
@@ -535,6 +550,22 @@ export function ReportBuilder({
             <button onClick={() => window.print()} className={buttonClasses("secondary", "sm")}>
               <FileDown size={14} /> Download PDF
             </button>
+            {canEmail && (
+              <a
+                // Carries the report's person-side filters (status/campus/custom
+                // field) into the composer as a prefilled audience; giving/event
+                // filters have no audience equivalent.
+                href={`/messages/new?${new URLSearchParams({
+                  ...(status || campusId || (customKey && customValue) ? { audienceKind: "filter" } : {}),
+                  ...(status ? { membershipStatus: status } : {}),
+                  ...(campusId ? { campusId } : {}),
+                  ...(customKey && customValue ? { customFieldKey: customKey, customFieldValue: customValue } : {}),
+                }).toString()}`}
+                className={buttonClasses("secondary", "sm")}
+              >
+                <Mail size={14} /> Email this audience
+              </a>
+            )}
           </div>
         </div>
         {saveError && <p className="mt-2 text-sm text-danger">{saveError}</p>}

@@ -20,7 +20,14 @@ describe("validateBlastAudience", () => {
 
   it("normalizes blank filters to null and dedupes picked people", () => {
     const filter = validateBlastAudience({ kind: "filter", membershipStatus: "", campusId: "  ", tag: null });
-    expect(filter.ok && filter.audience).toEqual({ kind: "filter", membershipStatus: null, campusId: null, tag: null });
+    expect(filter.ok && filter.audience).toEqual({
+      kind: "filter",
+      membershipStatus: null,
+      campusId: null,
+      tag: null,
+      customFieldKey: null,
+      customFieldValue: null,
+    });
     const people = validateBlastAudience({ kind: "people", personIds: ["p1", "p1", "p2"] });
     expect(people.ok && people.audience).toEqual({ kind: "people", personIds: ["p1", "p2"] });
   });
@@ -31,10 +38,13 @@ describe("describeAudience", () => {
     expect(describeAudience({ kind: "all" })).toBe("Everyone with an email address");
     expect(
       describeAudience(
-        { kind: "filter", membershipStatus: "MEMBER", campusId: "c1", tag: "youth" },
+        { kind: "filter", membershipStatus: "MEMBER", campusId: "c1", tag: "youth", customFieldKey: null, customFieldValue: null },
         { campusName: "North" },
       ),
     ).toBe("Members at North tagged “youth”");
+    expect(validateBlastAudience({ kind: "filter", customFieldKey: "veteran" }).ok).toBe(false);
+    const custom = validateBlastAudience({ kind: "filter", customFieldKey: "veteran", customFieldValue: "Yes" });
+    expect(custom.ok && custom.audience).toMatchObject({ customFieldKey: "veteran", customFieldValue: "Yes" });
     expect(describeAudience({ kind: "group", groupId: "g" }, { groupName: "Choir" })).toBe("Group: Choir");
     expect(describeAudience({ kind: "people", personIds: ["a"] })).toBe("1 hand-picked person");
   });

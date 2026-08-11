@@ -163,6 +163,7 @@ export async function listMessagesForPerson(organizationId: string, personId: st
 // -- Email blasts (newsletters) ---------------------------------------------------
 
 import type { BlastAudience } from "../messaging/audience";
+import { formatFieldValue } from "../people/custom-fields";
 
 export interface BlastAttachmentInput {
   fileName: string;
@@ -198,10 +199,25 @@ export async function resolveBlastRecipients(
     orderBy: { createdAt: "asc" },
   });
 
+  // Custom-field equality (same semantics as the report builder's field filter).
+  let customPass: ((personId: string) => boolean) | null = null;
+  if (audience.kind === "filter" && audience.customFieldKey && audience.customFieldValue) {
+    const values = await tenantDb.personFieldValue.findMany({
+      where: { organizationId, field: { key: audience.customFieldKey } },
+      include: { field: { select: { type: true } } },
+    });
+    const wanted = audience.customFieldValue.toLowerCase();
+    const matching = new Set(
+      values.filter((v) => formatFieldValue(v.field.type, v.value).toLowerCase() === wanted).map((v) => v.personId),
+    );
+    customPass = (personId) => matching.has(personId);
+  }
+
   const seen = new Set<string>();
   const recipients: { id: string; email: string }[] = [];
   let noEmailCount = 0;
   for (const person of people) {
+    if (customPass && !customPass(person.id)) continue;
     const email = person.email?.trim();
     if (!email) {
       noEmailCount++;
@@ -225,6 +241,8 @@ export async function createEmailBlast(
   input: {
     subject: string;
     bodyMarkdown: string;
+    /** Rich block layout; bodyMarkdown then holds the plain-text alternative. */
+    blocks?: unknown[] | null;
     audience: BlastAudience;
     attachments: BlastAttachmentInput[];
     createdByUserId?: string | null;
@@ -239,6 +257,7 @@ export async function createEmailBlast(
       organizationId,
       subject,
       bodyMarkdown: input.bodyMarkdown,
+      blocks: (input.blocks ?? Prisma.JsonNull) as Prisma.InputJsonValue,
       audience: input.audience as unknown as Prisma.InputJsonValue,
       createdByUserId: input.createdByUserId ?? null,
       attachments: {

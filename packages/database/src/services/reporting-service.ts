@@ -185,3 +185,16 @@ export async function deleteSavedReport(organizationId: string, reportId: string
   const result = await tenantDb.savedReport.deleteMany({ where: { id: reportId, organizationId } });
   return result.count > 0;
 }
+
+/** Pin/unpin a saved report on the dashboard Overview (it re-runs live there). */
+export async function setSavedReportPinned(organizationId: string, reportId: string, pinned: boolean) {
+  const result = await tenantDb.savedReport.updateMany({ where: { id: reportId, organizationId }, data: { pinned } });
+  return result.count > 0;
+}
+
+export async function listPinnedReports(organizationId: string) {
+  return tenantDb.savedReport.findMany({
+    where: { organizationId, pinned: true },
+    orderBy: { createdAt: "asc" },
+  });
+}

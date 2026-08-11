@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Contact, FileSpreadsheet, Lock, Search, UserPlus } from "lucide-react";
+import { BookmarkPlus, Contact, FileSpreadsheet, Lock, Mail, Pin, Search, Trash2, UserPlus } from "lucide-react";
 import { campusService, peopleService, type MembershipStatus } from "@cms/database";
 import { personDisplayName } from "@cms/database";
 import { Badge } from "../../../components/ui/Badge";
@@ -8,7 +8,13 @@ import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Input, Select } from "../../../components/ui/Input";
 import { MEMBERSHIP_STATUS_OPTIONS, membershipStatusLabel, membershipStatusTone } from "../../../lib/people-format";
+import { canMessages } from "../../../lib/messages-access";
 import { canPeople } from "../../../lib/people-access";
+import {
+  deletePersonFilterAction,
+  savePersonFilterAction,
+  togglePersonFilterPinAction,
+} from "./actions";
 import { getCurrentOrganization } from "../../../lib/session";
 
 const PAGE_SIZE = 25;
@@ -23,10 +29,11 @@ export default async function PeoplePage({
 
   // Server-side authorization: People data is Confidential; only roles the matrix
   // grants person.view get past here (BLUEPRINT §34 -- never authorization-by-UI).
-  const [canView, canManage, canImport] = await Promise.all([
+  const [canView, canManage, canImport, canEmail] = await Promise.all([
     canPeople(organization.id, "person.view"),
     canPeople(organization.id, "person.manage"),
     canPeople(organization.id, "person.import"),
+    canMessages(organization.id, "message.manage"),
   ]);
 
   if (!canView) {
@@ -50,7 +57,10 @@ export default async function PeoplePage({
   const campusId = params.campus || undefined;
   const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
 
-  const campuses = await campusService.listCampuses(organization.id);
+  const [campuses, savedFilters] = await Promise.all([
+    campusService.listCampuses(organization.id),
+    peopleService.listSavedPersonFilters(organization.id),
+  ]);
 
   const opts = { search: q, status, campusId };
   const [people, total] = await Promise.all([
@@ -70,6 +80,21 @@ export default async function PeoplePage({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {canEmail && (
+            <Link
+              // Carries the current status/campus filters into the composer as a
+              // prefilled audience — the free-text search box has no audience
+              // equivalent, so it stays behind.
+              href={`/messages/new?${new URLSearchParams({
+                ...(status || campusId ? { audienceKind: "filter" } : {}),
+                ...(status ? { membershipStatus: status } : {}),
+                ...(campusId ? { campusId } : {}),
+              }).toString()}`}
+              className={buttonClasses("secondary", "md")}
+            >
+              <Mail size={16} /> {status || campusId ? "Email these people" : "Email people"}
+            </Link>
+          )}
           {canImport && (
             <Link href="/people/import" className={buttonClasses("secondary", "md")}>
               <FileSpreadsheet size={16} /> Import CSV
@@ -120,6 +145,59 @@ export default async function PeoplePage({
             Apply
           </button>
         </form>
+
+        {(savedFilters.length > 0 || hasFilters) && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+            <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Saved filters</span>
+            {savedFilters.map((f) => {
+              const config = f.config as { q?: string | null; status?: string | null; campusId?: string | null };
+              const sp = new URLSearchParams();
+              if (config.q) sp.set("q", config.q);
+              if (config.status) sp.set("status", config.status);
+              if (config.campusId) sp.set("campus", config.campusId);
+              return (
+                <span
+                  key={f.id}
+                  className="flex items-center overflow-hidden rounded-full border border-border bg-surface text-sm"
+                >
+                  <Link href={`/people?${sp.toString()}`} className="px-3 py-1 font-medium text-ink hover:bg-surface-muted">
+                    {f.name}
+                  </Link>
+                  <form action={togglePersonFilterPinAction.bind(null, f.id, !f.pinned)} className="flex">
+                    <button
+                      type="submit"
+                      aria-label={f.pinned ? `Unpin ${f.name} from the dashboard` : `Pin ${f.name} to the dashboard`}
+                      title={f.pinned ? "Unpin from dashboard" : "Pin to dashboard"}
+                      className={`pr-1.5 ${f.pinned ? "text-accent" : "text-ink-muted hover:text-ink"}`}
+                    >
+                      <Pin size={13} fill={f.pinned ? "currentColor" : "none"} />
+                    </button>
+                  </form>
+                  <form action={deletePersonFilterAction.bind(null, f.id)} className="flex">
+                    <button
+                      type="submit"
+                      aria-label={`Delete saved filter ${f.name}`}
+                      className="pr-2 text-ink-muted hover:text-danger"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </form>
+                </span>
+              );
+            })}
+            {hasFilters && (
+              <form action={savePersonFilterAction} className="ml-auto flex items-center gap-2">
+                {q && <input type="hidden" name="q" value={q} />}
+                {status && <input type="hidden" name="status" value={status} />}
+                {campusId && <input type="hidden" name="campusId" value={campusId} />}
+                <Input name="name" required placeholder="Name this filter" className="w-44" />
+                <button type="submit" className={buttonClasses("secondary", "sm")}>
+                  <BookmarkPlus size={14} /> Save filter
+                </button>
+              </form>
+            )}
+          </div>
+        )}
       </Card>
 
       {people.length === 0 ? (

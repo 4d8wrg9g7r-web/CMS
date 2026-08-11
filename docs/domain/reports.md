@@ -84,3 +84,12 @@ the UI states exactly what is sent.
 Multi-series comparisons (two measures = two charts per the one-axis rule),
 period-over-period overlays, scheduled email delivery of saved reports, CSV export
 of aggregates.
+
+## Pinned reports
+`SavedReport.pinned` surfaces a saved report on the dashboard Overview. Pinned
+reports are re-RUN live per viewer on every Overview load — the same
+validate + per-source + person.view gates as /reports apply, so a viewer without
+access to a pinned report's source simply doesn't see that card (pinning grants
+nothing). Charts render with the same components as the builder. The builder also
+offers "Email this audience": the report's person-side filters (status, campus,
+custom field) carry into the blast composer as a prefilled audience.

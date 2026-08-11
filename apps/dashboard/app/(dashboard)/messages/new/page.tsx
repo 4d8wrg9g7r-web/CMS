@@ -7,7 +7,18 @@ import { EmptyState } from "../../../../components/ui/EmptyState";
 import { canMessages } from "../../../../lib/messages-access";
 import { getCurrentOrganization } from "../../../../lib/session";
 
-export default async function NewBlastPage() {
+export default async function NewBlastPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    audienceKind?: string;
+    membershipStatus?: string;
+    campusId?: string;
+    tag?: string;
+    customFieldKey?: string;
+    customFieldValue?: string;
+  }>;
+}) {
   const organization = await getCurrentOrganization();
   if (!organization) return null;
 
@@ -19,12 +30,25 @@ export default async function NewBlastPage() {
     );
   }
 
-  const [campuses, groups, people] = await Promise.all([
+  const [campuses, groups, people, fieldDefs, params] = await Promise.all([
     campusService.listCampuses(organization.id),
     groupService.listGroups(organization.id),
     // Bounded picker, same v1 tradeoff as relationship linking.
     peopleService.listPeople(organization.id, { take: 500 }),
+    peopleService.listFieldDefinitions(organization.id),
+    searchParams,
   ]);
+
+  // Launched from People/Reports with filters in the query string — prefill the
+  // audience so "email these people" carries the current view over directly.
+  const prefill = {
+    audienceKind: params.audienceKind,
+    membershipStatus: params.membershipStatus,
+    campusId: params.campusId,
+    tag: params.tag,
+    customFieldKey: params.customFieldKey,
+    customFieldValue: params.customFieldValue,
+  };
 
   return (
     <div>
@@ -41,6 +65,8 @@ export default async function NewBlastPage() {
           campuses={campuses.map((c) => ({ id: c.id, name: c.name }))}
           groups={groups.map((g) => ({ id: g.id, name: g.name }))}
           people={people.map((p) => ({ id: p.id, name: personDisplayName(p) }))}
+          fieldKeys={fieldDefs.map((f) => f.key)}
+          prefill={prefill}
         />
       </Card>
     </div>

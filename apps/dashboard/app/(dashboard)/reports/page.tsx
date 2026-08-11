@@ -6,6 +6,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { canPeople } from "../../../lib/people-access";
 import { canCheckin } from "../../../lib/checkin-access";
 import { canGiving } from "../../../lib/giving-access";
+import { canMessages } from "../../../lib/messages-access";
 import { aiReportsAvailable } from "../../../lib/ai/report-assistant";
 import { getCurrentOrganization } from "../../../lib/session";
 import type { ReportSource } from "@cms/database";
@@ -19,10 +20,11 @@ export default async function ReportsPage() {
   const organization = await getCurrentOrganization();
   if (!organization) return null;
 
-  const [peopleOk, attendanceOk, givingOk] = await Promise.all([
+  const [peopleOk, attendanceOk, givingOk, emailOk] = await Promise.all([
     canPeople(organization.id, "person.view"),
     canCheckin(organization.id, "attendance.view"),
     canGiving(organization.id, "giving.view"),
+    canMessages(organization.id, "message.manage"),
   ]);
   const allowedSources = [
     ...(peopleOk ? (["people"] as ReportSource[]) : []),
@@ -65,8 +67,9 @@ export default async function ReportsPage() {
         funds={funds.map((f) => ({ id: f.id, name: f.name }))}
         events={events.map((e) => ({ id: e.id, name: e.title }))}
         customFields={fieldDefs.map((f) => ({ key: f.key, label: f.label, type: f.type, options: f.options }))}
-        savedReports={saved.map((s): SavedReportItem => ({ id: s.id, name: s.name, config: s.config }))}
+        savedReports={saved.map((s): SavedReportItem => ({ id: s.id, name: s.name, config: s.config, pinned: s.pinned }))}
         aiAvailable={aiReportsAvailable()}
+        canEmail={emailOk}
       />
     </div>
   );

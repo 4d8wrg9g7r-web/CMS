@@ -321,3 +321,67 @@ export async function updatePersonFieldsAction(personId: string, formData: FormD
 
   revalidatePath(`/people/${personId}`);
 }
+
+// -- Saved smart filters ---------------------------------------------------------
+
+/**
+ * Save the current People-list filters as a named smart filter. Smart = criteria
+ * are stored, matches are re-evaluated live everywhere the filter appears
+ * (list chips and pinned dashboard cards).
+ */
+export async function savePersonFilterAction(formData: FormData) {
+  const organization = await requireOrg();
+  await requirePeople(organization.id, "person.view");
+
+  const name = str(formData, "name");
+  if (!name) throw new Error("Give the filter a name.");
+  const config = peopleService.validatePersonFilterConfig({
+    q: optionalStr(formData, "q"),
+    status: optionalStr(formData, "status"),
+    campusId: optionalStr(formData, "campusId"),
+  });
+  if (!config) throw new Error("Apply at least one filter before saving.");
+
+  const actor = await getCurrentUser();
+  const saved = await peopleService.createSavedPersonFilter(organization.id, {
+    name,
+    config,
+    createdByUserId: actor?.id ?? null,
+  });
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: "person.filter_saved",
+    targetType: "SavedPersonFilter",
+    targetId: saved.id,
+    metadata: { name },
+  });
+
+  revalidatePath("/people");
+}
+
+export async function deletePersonFilterAction(filterId: string) {
+  const organization = await requireOrg();
+  await requirePeople(organization.id, "person.view");
+  const deleted = await peopleService.deleteSavedPersonFilter(organization.id, filterId);
+  if (!deleted) return;
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: "person.filter_deleted",
+    targetType: "SavedPersonFilter",
+    targetId: filterId,
+  });
+  revalidatePath("/people");
+  revalidatePath("/");
+}
+
+/** Pin/unpin a saved filter as a live-count card on the dashboard Overview. */
+export async function togglePersonFilterPinAction(filterId: string, pinned: boolean) {
+  const organization = await requireOrg();
+  await requirePeople(organization.id, "person.view");
+  await peopleService.setSavedPersonFilterPinned(organization.id, filterId, pinned);
+  revalidatePath("/people");
+  revalidatePath("/");
+}

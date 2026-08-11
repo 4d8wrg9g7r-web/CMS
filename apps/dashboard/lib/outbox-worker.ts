@@ -1,5 +1,5 @@
 import { formService, messageService, outboxService, type ClaimedEvent, type HandlerRegistry } from "@cms/database";
-import { getEmailProvider, renderEmailHtml, type EmailAttachmentInput } from "@cms/email";
+import { getEmailProvider, renderBlocksEmailHtml, renderEmailHtml, validateEmailBlocks, type EmailAttachmentInput } from "@cms/email";
 import { getPrivateStorageProvider } from "@cms/storage";
 import { workflowTriggerHandler } from "./workflow-runner";
 import { webhookDispatchHandler } from "./webhook-dispatcher";
@@ -65,7 +65,13 @@ const deliverMessage = {
       let html: string | undefined;
       let attachments: EmailAttachmentInput[] | undefined;
       if (message.blast) {
-        html = renderEmailHtml(message.blast.bodyMarkdown, { organizationName: message.organization.name });
+        // Block-built blasts (Mailchimp-style designer) re-validate their stored JSON
+        // before rendering; anything invalid falls back to the markdown body so a
+        // corrupt layout degrades to plain content rather than blocking the send.
+        const blocksResult = message.blast.blocks ? validateEmailBlocks(message.blast.blocks) : null;
+        html = blocksResult?.ok
+          ? renderBlocksEmailHtml(blocksResult.blocks, { organizationName: message.organization.name })
+          : renderEmailHtml(message.blast.bodyMarkdown, { organizationName: message.organization.name });
         if (message.blast.attachments.length > 0) {
           const storage = getPrivateStorageProvider();
           attachments = await Promise.all(
