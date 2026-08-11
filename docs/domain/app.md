@@ -52,3 +52,15 @@ surface bypasses the matrix by design.
 Push notifications (Phase 2 container app; ties into the Message outbox),
 sermon audio/podcast feeds, media uploads, per-tab custom pages, native builds
 + store submission automation, service-worker offline caching.
+
+## Container experience (directory)
+The container-app model (one store app previewing every church — the Subsplash
+shape) starts as a web twin: **/a** is "Find your church" — search over enabled
+apps with `listedInDirectory` (default true; App Studio toggle; unlisting never
+breaks direct links/QR codes). `searchDirectory` matches church OR app name at
+the public boundary and skips invalid manifests. The **app content API**
+(`/api/app/v1/directory?q=`, `/api/app/v1/apps/<publicAppId>`) serves the same
+data as JSON — unauthenticated (public content only), cacheable, and the
+contract the native container and white-label shells will consume as thin
+renderers; changes must stay additive once native clients ship. Unlike
+/api/v1/* this namespace is deliberately keyless.

@@ -57,6 +57,18 @@ export async function publishAppAction(enabled: boolean): Promise<{ ok: boolean;
   return { ok: true };
 }
 
+/** Show/hide the app in the container directory ("Find your church"). */
+export async function toggleAppListedAction(listed: boolean): Promise<{ ok: boolean; error?: string }> {
+  const organization = await getCurrentOrganization();
+  if (!organization) return { ok: false, error: "No organization" };
+  await requireApp(organization.id, "app.manage");
+
+  const changed = await appService.setAppListed(organization.id, listed);
+  if (!changed) return { ok: false, error: "Save the app design first." };
+  revalidatePath("/app-studio");
+  return { ok: true };
+}
+
 /** Upload the app logo to PUBLIC storage (it renders in the public app header). */
 export async function uploadAppLogoAction(formData: FormData): Promise<{ url: string } | { error: string }> {
   const organization = await getCurrentOrganization();

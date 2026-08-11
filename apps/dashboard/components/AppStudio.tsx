@@ -8,7 +8,7 @@ import { appTabLabelUi as appTabLabel, APP_TAB_KINDS_UI as APP_TAB_KINDS, MAX_AP
 import { buttonClasses } from "./ui/Button";
 import { Input, Textarea } from "./ui/Input";
 import { AppScreen, type AppContent } from "./church-app/AppScreen";
-import { publishAppAction, saveAppAction, uploadAppLogoAction } from "../app/(dashboard)/app-studio/actions";
+import { publishAppAction, saveAppAction, toggleAppListedAction, uploadAppLogoAction } from "../app/(dashboard)/app-studio/actions";
 
 /**
  * App Studio (docs/domain/app.md): the church designs their app on the left and
@@ -31,6 +31,7 @@ export function AppStudio({
   organizationName,
   content,
   enabled,
+  listed,
   installUrl,
   qrSvg,
 }: {
@@ -38,6 +39,7 @@ export function AppStudio({
   organizationName: string;
   content: AppContent;
   enabled: boolean;
+  listed: boolean;
   /** Absolute /a/<id> URL once the app row exists; null before first save. */
   installUrl: string | null;
   /** Server-generated QR SVG for the install URL (published apps only). */
@@ -53,6 +55,8 @@ export function AppStudio({
   const [uploading, setUploading] = useState(false);
   const [linkDraft, setLinkDraft] = useState({ label: "", url: "" });
   const [copied, setCopied] = useState(false);
+  // Optimistic: flips immediately, reverts if the server rejects the change.
+  const [isListed, setIsListed] = useState(listed);
 
   const set = (patch: Partial<AppManifest>) => setManifest((prev) => ({ ...prev, ...patch }));
 
@@ -289,6 +293,31 @@ export function AppStudio({
                 dangerouslySetInnerHTML={{ __html: qrSvg }}
               />
             )}
+            <label className="mt-3 flex items-center gap-2 text-sm text-ink-secondary">
+              <input
+                type="checkbox"
+                checked={isListed}
+                onChange={async (e) => {
+                  const next = e.target.checked;
+                  setIsListed(next);
+                  const result = await toggleAppListedAction(next);
+                  if (!result.ok) {
+                    setIsListed(!next);
+                    setError(result.error ?? "Could not update the directory listing");
+                  }
+                  router.refresh();
+                }}
+                className="h-4 w-4 accent-current"
+              />
+              List in the church directory —{" "}
+              <a href="/a" target="_blank" rel="noreferrer" className="text-accent hover:text-accent-dark">
+                Find your church
+              </a>
+            </label>
+            <p className="mt-1 text-xs text-ink-muted">
+              The directory is the container-app experience: one place to preview and open every published church.
+              Unlisting keeps your direct link and QR code working.
+            </p>
           </div>
         )}
       </div>

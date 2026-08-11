@@ -60,6 +60,7 @@ export default async function AppStudioPage() {
         organizationName={organization.name}
         content={content}
         enabled={app?.enabled ?? false}
+        listed={app?.listedInDirectory ?? true}
         installUrl={installUrl}
         qrSvg={qrSvg}
       />

@@ -37,6 +37,79 @@ export async function setAppEnabled(organizationId: string, enabled: boolean) {
   return result.count > 0;
 }
 
+/** Show/hide the app in the container directory (direct links keep working). */
+export async function setAppListed(organizationId: string, listed: boolean) {
+  const result = await tenantDb.churchApp.updateMany({
+    where: { organizationId },
+    data: { listedInDirectory: listed },
+  });
+  return result.count > 0;
+}
+
+export interface DirectoryEntry {
+  publicAppId: string;
+  appName: string;
+  themeColor: string;
+  logoUrl: string | null;
+  organizationName: string;
+}
+
+/**
+ * The container app's "find your church" search: enabled + listed apps whose
+ * app or organization name matches. Public boundary (rawDb, like
+ * resolvePublicApp); invalid stored manifests are skipped, never surfaced.
+ */
+export async function searchDirectory(query?: string): Promise<DirectoryEntry[]> {
+  const q = query?.trim();
+  const apps = await rawDb.churchApp.findMany({
+    where: {
+      enabled: true,
+      listedInDirectory: true,
+      ...(q ? { organization: { name: { contains: q, mode: "insensitive" } } } : {}),
+    },
+    include: { organization: { select: { name: true } } },
+    orderBy: { organization: { name: "asc" } },
+    take: 50,
+  });
+
+  const entries: DirectoryEntry[] = [];
+  for (const app of apps) {
+    const validated = validateAppManifest(app.config);
+    if (!validated.ok) continue;
+    entries.push({
+      publicAppId: app.publicAppId,
+      appName: validated.manifest.appName,
+      themeColor: validated.manifest.themeColor,
+      logoUrl: validated.manifest.logoUrl,
+      organizationName: app.organization.name,
+    });
+  }
+  // Church name OR app name match: the query above narrows on org name for the
+  // common case; app-name matches are folded in here without a second query.
+  if (q) {
+    const lower = q.toLowerCase();
+    const missing = await rawDb.churchApp.findMany({
+      where: { enabled: true, listedInDirectory: true },
+      include: { organization: { select: { name: true } } },
+      take: 200,
+    });
+    for (const app of missing) {
+      if (entries.some((e) => e.publicAppId === app.publicAppId)) continue;
+      const validated = validateAppManifest(app.config);
+      if (!validated.ok || !validated.manifest.appName.toLowerCase().includes(lower)) continue;
+      entries.push({
+        publicAppId: app.publicAppId,
+        appName: validated.manifest.appName,
+        themeColor: validated.manifest.themeColor,
+        logoUrl: validated.manifest.logoUrl,
+        organizationName: app.organization.name,
+      });
+    }
+    entries.sort((a, b) => a.organizationName.localeCompare(b.organizationName));
+  }
+  return entries.slice(0, 50);
+}
+
 export interface PublicApp {
   organizationId: string;
   organizationName: string;

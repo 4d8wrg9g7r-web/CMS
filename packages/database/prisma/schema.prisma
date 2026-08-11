@@ -549,6 +549,9 @@ model ChurchApp {
   organizationId String   @unique
   publicAppId    String   @unique @default(cuid())
   enabled        Boolean  @default(false)
+  // Discoverable in the container app's "find your church" directory. Direct
+  // links and QR codes keep working when false — this only affects search.
+  listedInDirectory Boolean @default(true)
   config         Json
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
