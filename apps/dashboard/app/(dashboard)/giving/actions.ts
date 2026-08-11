@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
   auditService,
   givingService,
+  onlineGivingService,
   mapContributionRows,
   parseMoney,
   MAX_IMPORT_BYTES,
@@ -228,4 +229,63 @@ export async function importContributionsAction(
   } catch (err) {
     return { summary: null, error: err instanceof Error ? err.message : "Import failed" };
   }
+}
+
+/* ---------------------------------------------------------------- *
+ * Online giving (docs/domain/giving.md "Online giving", ADR-015).
+ * Keys are write-only from the UI; empty fields keep the stored key.
+ * ---------------------------------------------------------------- */
+
+export async function saveOnlineGivingConfigAction(
+  _prev: { error: string | null; saved: boolean },
+  formData: FormData,
+): Promise<{ error: string | null; saved: boolean }> {
+  try {
+    const organization = await requireOrg();
+    await requireGiving(organization.id, "giving.manage_funds");
+
+    await onlineGivingService.saveConfig(organization.id, {
+      enabled: formData.get("enabled") === "on",
+      currency: str(formData, "currency") || "usd",
+      stripeSecretKey: str(formData, "stripeSecretKey") || null,
+      stripeWebhookSecret: str(formData, "stripeWebhookSecret") || null,
+    });
+
+    const actor = await getCurrentUser();
+    await auditService.recordAuditEvent({
+      organizationId: organization.id,
+      actorUserId: actor?.id,
+      action: "giving.online_config_updated",
+      targetType: "Organization",
+      targetId: organization.id,
+      // Never the keys themselves — only which fields changed.
+      metadata: {
+        enabled: formData.get("enabled") === "on",
+        keyUpdated: Boolean(str(formData, "stripeSecretKey")),
+        webhookSecretUpdated: Boolean(str(formData, "stripeWebhookSecret")),
+      },
+    });
+
+    revalidatePath("/giving/online");
+    return { error: null, saved: true };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not save", saved: false };
+  }
+}
+
+export async function setFundOnlineAction(fundId: string, online: boolean) {
+  const organization = await requireOrg();
+  await requireGiving(organization.id, "giving.manage_funds");
+
+  await onlineGivingService.setFundOnline(organization.id, fundId, online);
+
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: online ? "giving.fund_online_enabled" : "giving.fund_online_disabled",
+    targetType: "Fund",
+    targetId: fundId,
+  });
+  revalidatePath("/giving/online");
 }

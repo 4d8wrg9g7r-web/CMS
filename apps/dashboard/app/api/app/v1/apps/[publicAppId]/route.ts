@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { appFeedService, groupService } from "@cms/database";
+import { appFeedService, groupService, onlineGivingService } from "@cms/database";
 import { buildAppContent } from "../../../../../../lib/church-app-content";
 import { memberJson, resolveAppRequest } from "../../../../../../lib/app-api-auth";
 
@@ -22,11 +22,20 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicAp
   if (!resolved) return NextResponse.json({ error: "not_found" }, { status: 404 });
   const { app, member } = resolved;
 
-  const [content, feed, memberships] = await Promise.all([
+  const [content, feed, memberships, givingConfig] = await Promise.all([
     buildAppContent(app.organizationId),
     appFeedService.listFeed(app.organizationId, member?.personId ?? null),
     member ? groupService.listGroupsForPerson(app.organizationId, member.personId) : Promise.resolve([]),
+    onlineGivingService.getConfig(app.organizationId),
   ]);
+  // Additive: in-app giving options (never the keys — just what to render).
+  const givingLive = onlineGivingService.isLive(givingConfig);
+  const onlineFunds = givingLive ? await onlineGivingService.listOnlineFunds(app.organizationId) : [];
+  const giving = {
+    online: givingLive && onlineFunds.length > 0,
+    currency: givingConfig?.currency ?? "usd",
+    funds: onlineFunds.map((f) => ({ id: f.id, name: f.name })),
+  };
 
   return NextResponse.json(
     {
@@ -36,6 +45,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicAp
         manifest: app.manifest,
         content,
         feed,
+        giving,
         ...(member
           ? {
               member: memberJson(member),

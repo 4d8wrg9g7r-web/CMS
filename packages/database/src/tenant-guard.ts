@@ -21,6 +21,7 @@ export const TENANT_SCOPED_MODELS = new Set([
   "Fund",
   "ContributionBatch",
   "Contribution",
+  "OnlineGivingConfig",
   "SavedReport",
   "EmailBlast",
   "EmailBlastAttachment",

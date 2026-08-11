@@ -20,6 +20,7 @@ import { clearToken, getToken, signOut } from "../auth";
 import { disablePush, enablePush, isPushEnabled } from "../push";
 import type { AppPayload, AppTab } from "../contract";
 import { Feed, type FeedActions } from "../components/Feed";
+import { GiveOnline } from "../components/GiveOnline";
 import { PageBlocks } from "../components/PageBlocks";
 import { GroupSpaceScreen } from "./GroupSpaceScreen";
 import { SignInScreen } from "./SignInScreen";
@@ -439,6 +440,17 @@ export function ChurchAppScreen({ publicAppId, onSwitchChurch }: { publicAppId: 
           </View>
         );
       case "giving":
+        if (payload.giving?.online && payload.giving.funds.length > 0) {
+          return (
+            <View style={styles.column}>
+              <View style={styles.give}>
+                <Text style={styles.giveIcon}>❤️</Text>
+                <Text style={styles.giveText}>Your generosity makes ministry happen. Thank you.</Text>
+              </View>
+              <GiveOnline publicAppId={publicAppId} giving={payload.giving} token={token} accent={accent} />
+            </View>
+          );
+        }
         return (
           <View style={styles.give}>
             <Text style={styles.giveIcon}>❤️</Text>

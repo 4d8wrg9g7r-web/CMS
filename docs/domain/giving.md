@@ -68,3 +68,40 @@ funds/methods/dates surface per line on import, never silently dropped.
 Online giving (Stripe/processor per ADR-006 — tokenized, PCI stays with the
 processor), recurring gifts, pledges/campaigns, refunds/voids (currently:
 open-batch delete only), Gift Aid/multi-currency, direct scanner-hardware drivers.
+
+---
+
+# Online giving (v2)
+
+Members give from the church app — PWA and native — through the church's OWN
+Stripe account (ADR-015). The platform never holds money and never sees card
+data (Stripe-hosted Checkout).
+
+## Flow
+1. Setup on `/giving/online` (giving.manage_funds): paste the church's Stripe
+   secret key + webhook signing secret (write-only, masked on read), enable,
+   and mark which funds appear in the app (`Fund.onlineEnabled`).
+2. The app's Give tab becomes an amount picker (presets + custom, fund choice,
+   one-time or monthly). Guests can give; signed-in members' `person_id` rides
+   as metadata. Checkout happens on Stripe; success returns to a themed
+   thank-you page.
+3. Stripe calls `/api/giving/stripe/<publicAppId>` — verified with that
+   church's signing secret (HMAC-SHA256, 5-minute replay window). One-time
+   gifts record from `checkout.session.completed`; recurring gifts (first
+   charge + renewals) from `invoice.paid` with metadata read off the
+   subscription. Rows land in the same Contribution ledger as Sunday's count:
+   method `ONLINE`, `externalId` = Stripe id (unique per org → idempotent
+   under retries), donor linked by person metadata, then receipt-email match,
+   then donor name. A deleted fund falls back to the first active fund —
+   received money is never dropped.
+
+## Invariants
+- Stripe keys never serialize to any client (masked config only) and never
+  appear in app payloads.
+- The webhook rejects unsigned/foreign-signed/stale payloads before parsing.
+- `ONLINE` is display-only in the dashboard — webhook-recorded, never a
+  manual-entry option.
+
+## Audit
+`giving.online_config_updated` (flags only, never keys),
+`giving.fund_online_enabled` / `giving.fund_online_disabled`.

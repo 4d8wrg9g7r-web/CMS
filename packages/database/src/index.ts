@@ -58,6 +58,16 @@ export * as groupSpaceService from "./services/group-space-service";
 export type { GroupSpace } from "./services/group-space-service";
 export * as appActivityService from "./services/app-activity-service";
 export type { PersonAppActivity, AppActivityItem } from "./services/app-activity-service";
+export * as onlineGivingService from "./services/online-giving-service";
+export type { MaskedGivingConfig } from "./services/online-giving-service";
+export {
+  stripeFormEncode,
+  verifyStripeSignature,
+  signStripePayload,
+  giftAmountError,
+  MIN_GIFT_CENTS,
+  MAX_GIFT_CENTS,
+} from "./giving/stripe";
 export type { ActivePage } from "./services/app-page-service";
 export { validateAppPageBlocks, toEmbedUrl, MAX_PAGE_BLOCKS } from "./app/page-blocks";
 export type { AppPageBlock, AppLinkTarget } from "./app/page-blocks";

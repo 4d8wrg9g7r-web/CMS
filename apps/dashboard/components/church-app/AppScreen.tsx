@@ -152,6 +152,7 @@ export function AppScreen({
   tabHref,
   homeFeed,
   myGroupsNav,
+  givingPanel,
 }: {
   manifest: AppManifest;
   organizationName: string;
@@ -165,6 +166,8 @@ export function AppScreen({
   homeFeed?: React.ReactNode;
   /** Signed-in member's group spaces, rendered above the group directory on the Groups tab. */
   myGroupsNav?: React.ReactNode;
+  /** In-app giving panel (Stripe); when set it replaces the static giving-link screen. */
+  givingPanel?: React.ReactNode;
 }) {
   const accent = manifest.themeColor;
   const active = manifest.tabs[activeIndex] ?? manifest.tabs[0]!;
@@ -297,6 +300,19 @@ export function AppScreen({
           </div>
         );
       case "giving":
+        if (givingPanel) {
+          return (
+            <div className="flex flex-col gap-3">
+              <div className="pt-2 text-center">
+                <Heart size={30} className="mx-auto" style={{ color: accent }} />
+                <p className="mx-auto mt-2 max-w-[260px] text-sm text-neutral-600">
+                  Your generosity makes ministry happen. Thank you.
+                </p>
+              </div>
+              {givingPanel}
+            </div>
+          );
+        }
         return (
           <div className="pt-8 text-center">
             {manifest.givingUrl ? (

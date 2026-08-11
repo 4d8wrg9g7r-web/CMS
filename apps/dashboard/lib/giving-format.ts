@@ -8,7 +8,10 @@ export const CONTRIBUTION_METHOD_OPTIONS: { value: ContributionMethod; label: st
   { value: "OTHER", label: "Other" },
 ];
 
+// ONLINE rows are webhook-recorded, never hand-entered — label it for display
+// but keep it out of the manual-entry options above.
 export function contributionMethodLabel(method: ContributionMethod): string {
+  if (method === "ONLINE") return "Online";
   return CONTRIBUTION_METHOD_OPTIONS.find((o) => o.value === method)?.label ?? method;
 }
 

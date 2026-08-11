@@ -93,6 +93,25 @@ export async function setReaction(publicAppId: string, token: string, postId: st
   await postJson(appPath(publicAppId, `/posts/${encodeURIComponent(postId)}/reaction`), token, { emoji });
 }
 
+/** Start Stripe Checkout for a gift; token optional (guests can give). Returns the checkout URL. */
+export async function startGiveCheckout(
+  publicAppId: string,
+  token: string | null,
+  input: { amountCents: number; fundId: string; interval: "month" | null },
+): Promise<string> {
+  const res = await fetch(`${apiBase()}${appPath(publicAppId, "/give/checkout")}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ amount_cents: input.amountCents, fund_id: input.fundId, interval: input.interval }),
+  });
+  const json = (await res.json().catch(() => ({}))) as { url?: string; message?: string };
+  if (!res.ok || !json.url) throw new Error(json.message ?? "Could not start checkout");
+  return json.url;
+}
+
 /* -- Group space (docs/domain/groups.md) — members only, leader writes gated server-side. -- */
 
 const groupPath = (publicAppId: string, groupId: string, rest = "") =>

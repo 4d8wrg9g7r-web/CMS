@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { HandCoins, Landmark, Lock, Plus, ReceiptText } from "lucide-react";
+import { Globe, HandCoins, Landmark, Lock, Plus, ReceiptText } from "lucide-react";
 import { formatCents, givingService } from "@cms/database";
 import { Badge } from "../../../components/ui/Badge";
 import { buttonClasses } from "../../../components/ui/Button";
@@ -44,11 +44,14 @@ export default async function GivingPage() {
         <div>
           <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Giving</h1>
           <p className="text-sm text-ink-secondary">
-            Record cash, checks, and scanner batches. Online giving comes later via a payment processor — no card
-            data ever lives here.
+            Record cash, checks, and scanner batches — and take gifts in your church app through your own Stripe
+            account. No card data ever lives here.
           </p>
         </div>
         <div className="flex gap-2">
+          <Link href="/giving/online" className={buttonClasses("secondary", "sm")}>
+            <Globe size={15} /> Online giving
+          </Link>
           <Link href="/giving/funds" className={buttonClasses("secondary", "sm")}>
             <Landmark size={15} /> Funds
           </Link>

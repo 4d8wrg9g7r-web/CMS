@@ -175,6 +175,13 @@ export interface GroupSpace {
   polls: GroupSpacePoll[];
 }
 
+/** In-app giving options (never keys). `online: false` → fall back to givingUrl. */
+export interface AppGiving {
+  online: boolean;
+  currency: string;
+  funds: { id: string; name: string }[];
+}
+
 export interface AppPayload {
   public_app_id: string;
   organization_name: string;
@@ -182,6 +189,8 @@ export interface AppPayload {
   content: AppContent;
   /** Personalized when the request carries a Bearer member token; signed-out view otherwise. */
   feed: FeedPost[];
+  /** Additive: present once the server ships online giving. */
+  giving?: AppGiving;
   /** Present only on authenticated requests. */
   member?: ApiMember;
   my_groups?: { id: string; name: string }[];

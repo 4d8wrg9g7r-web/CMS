@@ -135,6 +135,27 @@ model Organization {
   webhookSubscriptions WebhookSubscription[]
   webhookDeliveries   WebhookDelivery[]
   personImports       PersonImport[]
+  onlineGivingConfig  OnlineGivingConfig?
+}
+
+/**
+ * Per-church Stripe configuration for online giving (docs/domain/giving.md
+ * "Online giving", ADR-015). The church connects its OWN Stripe account by
+ * pasting its secret key + webhook signing secret — money settles directly to
+ * the church, the platform never touches funds. Keys are write-only in the UI
+ * (masked on read) and must never appear in any app-facing payload.
+ */
+model OnlineGivingConfig {
+  id                  String   @id @default(cuid())
+  organizationId      String   @unique
+  enabled             Boolean  @default(false)
+  stripeSecretKey     String?
+  stripeWebhookSecret String?
+  currency            String   @default("usd")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 /**
@@ -414,6 +435,7 @@ enum ContributionMethod {
   CHECK
   CARD
   ACH
+  ONLINE
   OTHER
 }
 
@@ -430,6 +452,8 @@ model Fund {
   // False for payments for goods/services (books, trip fees, event payments) —
   // recorded identically but excluded from tax statements.
   taxDeductible  Boolean   @default(true)
+  // Shown as a giving option in the church app when online giving is enabled.
+  onlineEnabled  Boolean   @default(false)
   archivedAt     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -477,6 +501,9 @@ model Contribution {
   receivedAt      DateTime
   note            String?
   createdByUserId String?
+  // Payment-processor id (Stripe payment_intent / invoice) — idempotency key
+  // for webhook-recorded gifts; null for manually entered rows.
+  externalId      String?
   createdAt       DateTime           @default(now())
 
   organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -485,6 +512,7 @@ model Contribution {
   batch        ContributionBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
   createdBy    User?              @relation("ContributionCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
+  @@unique([organizationId, externalId])
   @@index([organizationId, receivedAt])
   @@index([personId])
   @@index([fundId])
