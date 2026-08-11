@@ -7,6 +7,8 @@ export {
   getPrivateStorageProvider,
   sanitizeStorageKey,
 } from "./PrivateStorageProvider";
+export { S3PrivateStorageProvider, s3ConfigFromEnv } from "./S3PrivateStorageProvider";
+export type { S3Config } from "./S3PrivateStorageProvider";
 
 import type { StorageProvider } from "./StorageProvider";
 import { LocalStorageProvider } from "./LocalStorageProvider";

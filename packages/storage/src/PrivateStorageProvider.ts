@@ -67,14 +67,22 @@ export class LocalPrivateStorageProvider implements PrivateStorageProvider {
 
 let cachedPrivateProvider: PrivateStorageProvider | null = null;
 
+import { S3PrivateStorageProvider, s3ConfigFromEnv } from "./S3PrivateStorageProvider";
+
 /**
- * Env-switched like getStorageProvider(): local filesystem under a NON-public directory
- * by default (CMS_PRIVATE_STORAGE_DIR overrides). A cloud private-bucket provider
- * slots in here when configured.
+ * Env-switched like getStorageProvider(): a full STORAGE_S3_* configuration
+ * (endpoint, bucket, keys — R2/S3/MinIO) selects the S3 provider, which is what
+ * production needs since Vercel's disk is ephemeral; otherwise local filesystem
+ * under a NON-public directory (CMS_PRIVATE_STORAGE_DIR overrides) for dev.
  */
 export function getPrivateStorageProvider(): PrivateStorageProvider {
   if (cachedPrivateProvider) return cachedPrivateProvider;
-  const baseDir = process.env.CMS_PRIVATE_STORAGE_DIR || ".private-storage";
-  cachedPrivateProvider = new LocalPrivateStorageProvider(baseDir);
+  const s3 = s3ConfigFromEnv();
+  if (s3) {
+    cachedPrivateProvider = new S3PrivateStorageProvider(s3);
+  } else {
+    const baseDir = process.env.CMS_PRIVATE_STORAGE_DIR || ".private-storage";
+    cachedPrivateProvider = new LocalPrivateStorageProvider(baseDir);
+  }
   return cachedPrivateProvider;
 }

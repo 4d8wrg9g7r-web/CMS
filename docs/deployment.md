@@ -70,10 +70,26 @@ Sender is `CMS <noreply@$RESEND_EMAIL_DOMAIN>`.
 
 ## Known limitations on serverless hosts
 
-- **File uploads (Person attachments)** use a local-disk `PrivateStorageProvider` —
-  on Vercel the filesystem is ephemeral, so uploaded files will NOT survive. Treat
-  the Files feature as unavailable in production until an object-storage provider
-  (e.g. S3/R2 behind the existing provider seam) is implemented.
+- **File uploads (Person attachments)** need object storage in production — the
+  local-disk fallback does not survive Vercel's ephemeral filesystem. Set the
+  `STORAGE_S3_*` variables (below) to switch to the S3-compatible provider
+  (Cloudflare R2 recommended: free tier, no egress fees). The bucket stays fully
+  private; downloads always flow through the authorizing app route.
+
+  1. Cloudflare dashboard → R2 → Create bucket (e.g. `cms-private`). No public
+     access needed.
+  2. R2 → Manage API Tokens → Create API token, Object Read & Write, scoped to the
+     bucket → copy the Access Key ID + Secret Access Key and your account's S3
+     endpoint (`https://<account-id>.r2.cloudflarestorage.com`).
+  3. Add to Vercel env (Production) and redeploy:
+
+  | Variable | Value |
+  |---|---|
+  | `STORAGE_S3_ENDPOINT` | `https://<account-id>.r2.cloudflarestorage.com` |
+  | `STORAGE_S3_BUCKET` | `cms-private` |
+  | `STORAGE_S3_REGION` | `auto` (R2) or the AWS region for S3 |
+  | `STORAGE_S3_ACCESS_KEY_ID` | from the API token |
+  | `STORAGE_S3_SECRET_ACCESS_KEY` | from the API token |
 - **API rate limiting is in-memory per instance** — fine as an abuse speed bump, not
   a strict global limit across serverless instances.
 - `maxDuration = 300` on the cron route requires Fluid compute (default on new Vercel
