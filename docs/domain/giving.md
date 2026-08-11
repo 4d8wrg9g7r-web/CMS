@@ -105,3 +105,22 @@ data (Stripe-hosted Checkout).
 ## Audit
 `giving.online_config_updated` (flags only, never keys),
 `giving.fund_online_enabled` / `giving.fund_online_disabled`.
+
+## Giving experience v3 (Subsplash parity)
+
+- **Flow**: amount-first (large editable amount), quick presets, frequency
+  ladder One time / Weekly / Every 2 weeks / Monthly (`GIFT_INTERVALS` — each
+  maps 1:1 to Stripe `recurring{interval, interval_count}`), fund, and
+  **cover processing costs**: `grossUpCents` (2.9% + 30¢, ceil) charges the
+  donor the grossed-up amount so the church nets the intended gift; the fee
+  preview updates live in the UI (client mirrors the math — the pure module
+  can't enter the bundle).
+- **My giving (members)**: recent gifts of every method — Sunday checks
+  included — plus active recurring schedules with confirm-then-cancel.
+  `RecurringGift` mirrors Stripe subscriptions (upserted on `invoice.paid`
+  with `gift_interval` metadata, one row per subscription, canceled by
+  `customer.subscription.deleted` or in-app cancel: Stripe DELETE first, then
+  the mirror — a failed Stripe call surfaces an error and never half-cancels).
+  Ownership = the personId link; a member can only ever see/cancel their own.
+  Surfaces: PWA Give tab and native (`GET give/mine`,
+  `POST give/recurring/[id] {action:"cancel"}`).

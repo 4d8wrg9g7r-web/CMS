@@ -182,6 +182,20 @@ export interface AppGiving {
   funds: { id: string; name: string }[];
 }
 
+export type GiftInterval = "week" | "2week" | "month";
+
+/** GET give/mine — the signed-in member's own gifts + recurring schedules. */
+export interface MyGiving {
+  history: { id: string; amount_cents: number; fund_name: string; method: string; received_at: string }[];
+  recurring: {
+    subscription_id: string;
+    amount_cents: number;
+    interval: string;
+    fund_name: string | null;
+    last_payment_at: string | null;
+  }[];
+}
+
 export interface AppPayload {
   public_app_id: string;
   organization_name: string;

@@ -163,3 +163,95 @@ export async function recordOnlineContribution(
   });
   return { recorded: true, contributionId: created.id };
 }
+
+/* ---------------------------------------------------------------- *
+ * Recurring gifts — a local mirror of Stripe subscriptions so the
+ * app can show schedules and members can cancel, without Stripe keys
+ * ever reaching a client. Stripe stays the source of truth for
+ * charging; this mirror is upserted from webhooks.
+ * ---------------------------------------------------------------- */
+
+export interface RecurringGiftUpsert {
+  subscriptionId: string;
+  personId?: string | null;
+  email?: string | null;
+  fundId?: string | null;
+  amountCents: number;
+  interval: string;
+  lastPaymentAt: Date;
+}
+
+export async function upsertRecurringGift(organizationId: string, input: RecurringGiftUpsert) {
+  const existing = await tenantDb.recurringGift.findFirst({
+    where: { organizationId, subscriptionId: input.subscriptionId },
+    select: { id: true },
+  });
+
+  let personId = input.personId ?? null;
+  if (personId) {
+    const person = await tenantDb.person.findFirst({ where: { id: personId, organizationId }, select: { id: true } });
+    personId = person?.id ?? null;
+  }
+  if (!personId && input.email) {
+    const person = await tenantDb.person.findFirst({
+      where: { organizationId, archivedAt: null, email: { equals: input.email.trim().toLowerCase(), mode: "insensitive" } },
+      select: { id: true },
+    });
+    personId = person?.id ?? null;
+  }
+  const fund = input.fundId
+    ? await tenantDb.fund.findFirst({ where: { id: input.fundId, organizationId }, select: { id: true } })
+    : null;
+
+  if (existing) {
+    await tenantDb.recurringGift.updateMany({
+      where: { id: existing.id, organizationId },
+      data: {
+        amountCents: input.amountCents,
+        interval: input.interval,
+        lastPaymentAt: input.lastPaymentAt,
+        // A paid invoice on a "canceled" gift means it's actually alive again.
+        canceledAt: null,
+        ...(personId ? { personId } : {}),
+        ...(input.email ? { email: input.email } : {}),
+        ...(fund ? { fundId: fund.id } : {}),
+      },
+    });
+    return;
+  }
+  await tenantDb.recurringGift.create({
+    data: {
+      organizationId,
+      subscriptionId: input.subscriptionId,
+      personId,
+      email: input.email ?? null,
+      fundId: fund?.id ?? null,
+      amountCents: input.amountCents,
+      interval: input.interval,
+      lastPaymentAt: input.lastPaymentAt,
+    },
+  });
+}
+
+export async function markRecurringGiftCanceled(organizationId: string, subscriptionId: string) {
+  await tenantDb.recurringGift.updateMany({
+    where: { organizationId, subscriptionId },
+    data: { canceledAt: new Date() },
+  });
+}
+
+/** A member's active schedules — ownership is the personId link. */
+export async function listRecurringGiftsForPerson(organizationId: string, personId: string) {
+  return tenantDb.recurringGift.findMany({
+    where: { organizationId, personId, canceledAt: null },
+    include: { fund: { select: { name: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getRecurringGiftForPerson(organizationId: string, personId: string, subscriptionId: string) {
+  return tenantDb.recurringGift.findFirst({
+    where: { organizationId, personId, subscriptionId },
+    select: { id: true, subscriptionId: true, canceledAt: true },
+  });
+}

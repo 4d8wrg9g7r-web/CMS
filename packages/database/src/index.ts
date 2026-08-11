@@ -67,7 +67,14 @@ export {
   giftAmountError,
   MIN_GIFT_CENTS,
   MAX_GIFT_CENTS,
+  GIFT_INTERVALS,
+  parseGiftInterval,
+  grossUpCents,
+  feeCoverCents,
+  FEE_PERCENT,
+  FEE_FIXED_CENTS,
 } from "./giving/stripe";
+export type { GiftInterval } from "./giving/stripe";
 export type { ActivePage } from "./services/app-page-service";
 export { validateAppPageBlocks, toEmbedUrl, MAX_PAGE_BLOCKS } from "./app/page-blocks";
 export type { AppPageBlock, AppLinkTarget } from "./app/page-blocks";

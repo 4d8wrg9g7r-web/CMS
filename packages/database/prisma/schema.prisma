@@ -136,6 +136,7 @@ model Organization {
   webhookDeliveries   WebhookDelivery[]
   personImports       PersonImport[]
   onlineGivingConfig  OnlineGivingConfig?
+  recurringGifts      RecurringGift[]
 }
 
 /**
@@ -156,6 +157,35 @@ model OnlineGivingConfig {
   updatedAt           DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+/**
+ * A donor's recurring gift schedule, mirrored from Stripe subscriptions so the
+ * app can show and cancel it without keys ever reaching a client. Upserted by
+ * the giving webhook on invoice.paid; marked canceled locally on cancel and by
+ * customer.subscription.deleted.
+ */
+model RecurringGift {
+  id             String    @id @default(cuid())
+  organizationId String
+  subscriptionId String
+  personId       String?
+  email          String?
+  fundId         String?
+  amountCents    Int
+  /** "week" | "2week" | "month" — display only; Stripe owns the schedule. */
+  interval       String
+  canceledAt     DateTime?
+  lastPaymentAt  DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  person       Person?      @relation(fields: [personId], references: [id], onDelete: SetNull)
+  fund         Fund?        @relation(fields: [fundId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, subscriptionId])
+  @@index([organizationId, personId])
 }
 
 /**
@@ -363,6 +393,7 @@ model Person {
   files             File[]
   fieldValues       PersonFieldValue[]
   contributions     Contribution[]
+  recurringGifts    RecurringGift[]
   appPosts          AppPost[]
   appPostLikes      AppPostLike[]
   appPostComments   AppPostComment[]
@@ -460,6 +491,7 @@ model Fund {
 
   organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   contributions Contribution[]
+  recurringGifts RecurringGift[]
 
   @@unique([organizationId, name])
   @@index([organizationId])

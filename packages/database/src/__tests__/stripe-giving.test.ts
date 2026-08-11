@@ -78,3 +78,40 @@ describe("tenant guard registration", () => {
     expect(TENANT_SCOPED_MODELS.has("OnlineGivingConfig")).toBe(true);
   });
 });
+
+describe("gift intervals", () => {
+  it("maps every frequency onto a Stripe recurring shape", async () => {
+    const { GIFT_INTERVALS, parseGiftInterval } = await import("../giving/stripe");
+    expect(GIFT_INTERVALS["week"]).toEqual({ interval: "week", intervalCount: 1, label: "Weekly" });
+    expect(GIFT_INTERVALS["2week"]).toEqual({ interval: "week", intervalCount: 2, label: "Every 2 weeks" });
+    expect(GIFT_INTERVALS["month"]).toEqual({ interval: "month", intervalCount: 1, label: "Monthly" });
+    expect(parseGiftInterval("2week")).toBe("2week");
+    expect(parseGiftInterval("year")).toBeNull();
+    expect(parseGiftInterval(null)).toBeNull();
+  });
+});
+
+describe("fee gross-up", () => {
+  it("nets the church at least the intended gift", async () => {
+    const { grossUpCents, FEE_PERCENT, FEE_FIXED_CENTS } = await import("../giving/stripe");
+    for (const net of [100, 2500, 5000, 10000, 123457]) {
+      const gross = grossUpCents(net);
+      const afterFees = gross - Math.round(gross * FEE_PERCENT) - FEE_FIXED_CENTS;
+      expect(afterFees).toBeGreaterThanOrEqual(net);
+      // ...and doesn't overshoot by more than a cent of rounding.
+      expect(afterFees).toBeLessThanOrEqual(net + 2);
+    }
+  });
+
+  it("computes the donor's fee-cover portion", async () => {
+    const { feeCoverCents, grossUpCents } = await import("../giving/stripe");
+    expect(feeCoverCents(5000)).toBe(grossUpCents(5000) - 5000);
+    expect(feeCoverCents(5000)).toBeGreaterThan(0);
+  });
+});
+
+describe("tenant guard registration (v3)", () => {
+  it("registers RecurringGift", () => {
+    expect(TENANT_SCOPED_MODELS.has("RecurringGift")).toBe(true);
+  });
+});

@@ -1,5 +1,5 @@
 import Constants from "expo-constants";
-import type { AppPayload, DirectoryEntry, GroupSpace } from "./contract";
+import type { AppPayload, DirectoryEntry, GiftInterval, GroupSpace, MyGiving } from "./contract";
 
 /**
  * Thin client for the CMS church-app content API (keyless, public content
@@ -97,7 +97,7 @@ export async function setReaction(publicAppId: string, token: string, postId: st
 export async function startGiveCheckout(
   publicAppId: string,
   token: string | null,
-  input: { amountCents: number; fundId: string; interval: "month" | null },
+  input: { amountCents: number; fundId: string; interval: GiftInterval | null; coverFees: boolean },
 ): Promise<string> {
   const res = await fetch(`${apiBase()}${appPath(publicAppId, "/give/checkout")}`, {
     method: "POST",
@@ -105,11 +105,27 @@ export async function startGiveCheckout(
       "content-type": "application/json",
       ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ amount_cents: input.amountCents, fund_id: input.fundId, interval: input.interval }),
+    body: JSON.stringify({
+      amount_cents: input.amountCents,
+      fund_id: input.fundId,
+      interval: input.interval,
+      cover_fees: input.coverFees,
+    }),
   });
   const json = (await res.json().catch(() => ({}))) as { url?: string; message?: string };
   if (!res.ok || !json.url) throw new Error(json.message ?? "Could not start checkout");
   return json.url;
+}
+
+export async function fetchMyGiving(publicAppId: string, token: string): Promise<MyGiving> {
+  const data = await getJson<{ data: MyGiving }>(appPath(publicAppId, "/give/mine"), token);
+  return data.data;
+}
+
+export async function cancelRecurringGift(publicAppId: string, token: string, subscriptionId: string) {
+  await postJson(appPath(publicAppId, `/give/recurring/${encodeURIComponent(subscriptionId)}`), token, {
+    action: "cancel",
+  });
 }
 
 /* -- Group space (docs/domain/groups.md) — members only, leader writes gated server-side. -- */

@@ -3,10 +3,11 @@ import { ChevronRight, Users2 } from "lucide-react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { appFeedService, appMemberService, appService, groupService, onlineGivingService } from "@cms/database";
+import { appFeedService, appMemberService, appService, givingService, groupService, onlineGivingService } from "@cms/database";
 import { AppFeed } from "../../../components/church-app/AppFeed";
 import { AppScreen } from "../../../components/church-app/AppScreen";
 import { GiveOnlinePanel } from "../../../components/church-app/GiveOnlinePanel";
+import { MyGivingPanel } from "../../../components/church-app/MyGivingPanel";
 import { buildAppContent } from "../../../lib/church-app-content";
 import { webPushPublicKey } from "../../../lib/app-push";
 
@@ -62,6 +63,13 @@ export default async function PublicAppPage({ params, searchParams }: Props) {
   ]);
   const givingLive = onlineGivingService.isLive(givingConfig);
   const onlineFunds = givingLive ? await onlineGivingService.listOnlineFunds(app.organizationId) : [];
+  // The member's own giving (any method) + recurring schedules, for the Give tab.
+  const [myGifts, myRecurring] = member
+    ? await Promise.all([
+        givingService.listContributionsForPerson(app.organizationId, member.personId, 10),
+        onlineGivingService.listRecurringGiftsForPerson(app.organizationId, member.personId),
+      ])
+    : [[], []];
 
   const requested = Number.parseInt(tab ?? "0", 10);
   const activeIndex = Number.isFinite(requested) ? Math.min(Math.max(requested, 0), app.manifest.tabs.length - 1) : 0;
@@ -105,11 +113,32 @@ export default async function PublicAppPage({ params, searchParams }: Props) {
         myGroupsNav={myGroupsNav}
         givingPanel={
           givingLive && onlineFunds.length > 0 ? (
-            <GiveOnlinePanel
-              publicAppId={publicAppId}
-              funds={onlineFunds.map((f) => ({ id: f.id, name: f.name }))}
-              accent={app.manifest.themeColor}
-            />
+            <>
+              <GiveOnlinePanel
+                publicAppId={publicAppId}
+                funds={onlineFunds.map((f) => ({ id: f.id, name: f.name }))}
+                accent={app.manifest.themeColor}
+              />
+              {member && (
+                <MyGivingPanel
+                  publicAppId={publicAppId}
+                  accent={app.manifest.themeColor}
+                  history={myGifts.map((c) => ({
+                    id: c.id,
+                    amountCents: c.amountCents,
+                    fundName: c.fund.name,
+                    method: c.method,
+                    receivedAt: c.receivedAt.toISOString(),
+                  }))}
+                  recurring={myRecurring.map((r) => ({
+                    subscriptionId: r.subscriptionId,
+                    amountCents: r.amountCents,
+                    interval: r.interval,
+                    fundName: r.fund?.name ?? null,
+                  }))}
+                />
+              )}
+            </>
           ) : undefined
         }
         homeFeed={

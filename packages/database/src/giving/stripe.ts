@@ -79,3 +79,38 @@ export function giftAmountError(amountCents: unknown): string | null {
   if (amountCents > MAX_GIFT_CENTS) return "That amount is above the online limit — contact your church office.";
   return null;
 }
+
+/**
+ * Gift frequencies (the Subsplash set minus 1st-and-15th, which Stripe's
+ * price intervals can't express): every entry maps 1:1 onto Stripe's
+ * recurring {interval, interval_count}.
+ */
+export const GIFT_INTERVALS = {
+  week: { interval: "week", intervalCount: 1, label: "Weekly" },
+  "2week": { interval: "week", intervalCount: 2, label: "Every 2 weeks" },
+  month: { interval: "month", intervalCount: 1, label: "Monthly" },
+} as const;
+
+export type GiftInterval = keyof typeof GIFT_INTERVALS;
+
+export function parseGiftInterval(value: unknown): GiftInterval | null {
+  return value === "week" || value === "2week" || value === "month" ? value : null;
+}
+
+/** Card processing fee model used for "cover the fees": 2.9% + 30¢. */
+export const FEE_PERCENT = 0.029;
+export const FEE_FIXED_CENTS = 30;
+
+/**
+ * Gross-up so the church nets the intended gift after Stripe's fee:
+ * gross = (net + fixed) / (1 - percent), rounded up to the next cent.
+ * Solves gross - (gross*percent + fixed) >= net.
+ */
+export function grossUpCents(netCents: number): number {
+  return Math.ceil((netCents + FEE_FIXED_CENTS) / (1 - FEE_PERCENT));
+}
+
+/** The fee portion a donor adds when covering costs. */
+export function feeCoverCents(netCents: number): number {
+  return grossUpCents(netCents) - netCents;
+}

@@ -1,8 +1,16 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
-import { appMemberService, appService, giftAmountError, onlineGivingService } from "@cms/database";
-import { createGiveCheckoutSession } from "../../../../lib/stripe-checkout";
+import {
+  appMemberService,
+  appService,
+  giftAmountError,
+  grossUpCents,
+  onlineGivingService,
+  type GiftInterval,
+} from "@cms/database";
+import { cancelStripeSubscription, createGiveCheckoutSession } from "../../../../lib/stripe-checkout";
 
 /**
  * PWA checkout starter (cookie-session variant of the give/checkout API).
@@ -11,7 +19,7 @@ import { createGiveCheckoutSession } from "../../../../lib/stripe-checkout";
  */
 export async function giveCheckoutAction(
   publicAppId: string,
-  input: { amountCents: number; fundId: string; interval: "month" | null },
+  input: { amountCents: number; fundId: string; interval: GiftInterval | null; coverFees?: boolean },
 ): Promise<{ url?: string; error?: string }> {
   try {
     const app = await appService.resolvePublicApp(publicAppId);
@@ -37,7 +45,7 @@ export async function giveCheckoutAction(
     const origin = `${proto}://${host}`;
 
     const session = await createGiveCheckoutSession(config!.stripeSecretKey!, {
-      amountCents: input.amountCents,
+      amountCents: input.coverFees ? grossUpCents(input.amountCents) : input.amountCents,
       currency: config!.currency,
       fundId: fund.id,
       fundName: fund.name,
@@ -49,5 +57,33 @@ export async function giveCheckoutAction(
     return { url: session.url };
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Could not start checkout" };
+  }
+}
+
+/** Cancel one of the signed-in member's recurring gifts (ownership enforced). */
+export async function cancelRecurringGiftAction(
+  publicAppId: string,
+  subscriptionId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const app = await appService.resolvePublicApp(publicAppId);
+    if (!app) return { ok: false, error: "This app is not available." };
+    const orgId = app.organizationId;
+
+    const token = (await cookies()).get(`app_session_${publicAppId}`)?.value ?? "";
+    const member = token ? await appMemberService.getSessionMember(orgId, token) : null;
+    if (!member) return { ok: false, error: "Sign in first." };
+
+    const gift = await onlineGivingService.getRecurringGiftForPerson(orgId, member.personId, subscriptionId);
+    if (!gift) return { ok: false, error: "That recurring gift wasn't found." };
+    if (!gift.canceledAt) {
+      const config = await onlineGivingService.getConfig(orgId);
+      if (config?.stripeSecretKey) await cancelStripeSubscription(config.stripeSecretKey, subscriptionId);
+      await onlineGivingService.markRecurringGiftCanceled(orgId, subscriptionId);
+    }
+    revalidatePath(`/a/${publicAppId}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not cancel" };
   }
 }
