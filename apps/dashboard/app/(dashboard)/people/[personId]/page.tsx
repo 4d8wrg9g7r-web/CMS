@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CheckSquare, FileText, HeartHandshake, Home, Link2, Mail, MailX, Map, Paperclip, Trash2, Undo2, Users2, X, Zap } from "lucide-react";
-import { checkinService, fileService, formatFieldValue, groupService, isOverdue, journeyService, messageService, peopleService, personDisplayName, taskService, volunteerService } from "@cms/database";
+import { ArrowLeft, BellRing, CheckSquare, FileText, HeartHandshake, Home, Link2, Mail, MailX, Map, Paperclip, Smartphone, Trash2, Undo2, Users2, X, Zap } from "lucide-react";
+import { appActivityService, checkinService, fileService, formatFieldValue, groupService, isOverdue, journeyService, messageService, peopleService, personDisplayName, taskService, volunteerService } from "@cms/database";
 import { campusService } from "@cms/database";
 import { SubmitButton } from "../../../../components/SubmitButton";
 import { Badge } from "../../../../components/ui/Badge";
@@ -92,6 +92,22 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ p
   const canViewFiles = await canFiles(organization.id, "file.view");
   const canManageFiles = await canFiles(organization.id, "file.manage");
   const personFiles = canViewFiles ? await fileService.listFilesForPerson(organization.id, person.id) : [];
+
+  // Church-app engagement (docs/domain/app.md). Staff-only by construction:
+  // this page sits behind staff auth + person.view, and the activity service is
+  // never wired into the member-facing app API — members can't read each
+  // other's activity. Group-sourced items (prayer requests, RSVPs, votes)
+  // additionally require group.view, matching the group-space permission ladder.
+  const appActivityRaw = await appActivityService.getPersonAppActivity(organization.id, person.id);
+  const appActivity = canViewGroups
+    ? appActivityRaw
+    : {
+        ...appActivityRaw,
+        timeline: appActivityRaw.timeline.filter((item) => !item.kind.startsWith("group") && item.kind !== "poll_vote"),
+        counts: { ...appActivityRaw.counts, groupPosts: 0, rsvps: 0, pollVotes: 0 },
+      };
+  const hasAppActivity =
+    appActivity.lastSignInAt !== null || appActivity.pushEnabled || appActivity.timeline.length > 0;
 
   // Serving + qualifications (BLUEPRINT §10).
   const canViewServing = await canVolunteers(organization.id, "volunteer.view");
@@ -300,6 +316,59 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ p
                         {m.group.name}
                       </Link>
                       <span className="text-xs text-ink-muted">{groupTypeLabel(m.group.type)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          )}
+
+          {/* App activity -- read-only engagement from the church app. Only ever
+              rendered here (staff dashboard); the app itself has no surface that
+              shows one member's activity to another. */}
+          {hasAppActivity && (
+            <Card padding="md" data-section="app-activity">
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+                <Smartphone size={15} /> App activity
+              </h2>
+              <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+                {appActivity.lastSignInAt ? (
+                  <span>Last sign-in {new Date(appActivity.lastSignInAt).toLocaleDateString()}</span>
+                ) : (
+                  <span>Hasn&rsquo;t signed in yet</span>
+                )}
+                {appActivity.pushEnabled && (
+                  <span className="inline-flex items-center gap-1 text-accent-dark">
+                    <BellRing size={11} /> Push on
+                  </span>
+                )}
+                {appActivity.counts.feedPosts + appActivity.counts.groupPosts > 0 && (
+                  <span>{appActivity.counts.feedPosts + appActivity.counts.groupPosts} posts</span>
+                )}
+                {appActivity.counts.feedComments > 0 && <span>{appActivity.counts.feedComments} comments</span>}
+                {appActivity.counts.feedReactions > 0 && <span>{appActivity.counts.feedReactions} reactions</span>}
+                {appActivity.counts.rsvps > 0 && <span>{appActivity.counts.rsvps} RSVPs</span>}
+                {appActivity.counts.pollVotes > 0 && <span>{appActivity.counts.pollVotes} poll votes</span>}
+              </p>
+              {appActivity.timeline.length === 0 ? (
+                <p className="text-sm text-ink-muted">Signed in, but nothing posted yet.</p>
+              ) : (
+                <ul className="space-y-2.5">
+                  {appActivity.timeline.map((item, i) => (
+                    <li key={i} className="text-sm">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-ink">{item.label}</span>
+                        <span className="shrink-0 text-xs text-ink-muted">
+                          {new Date(item.at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      {(item.detail || item.groupName) && (
+                        <p className="truncate text-xs text-ink-muted">
+                          {item.groupName && <span className="font-medium">{item.groupName}</span>}
+                          {item.groupName && item.detail && " · "}
+                          {item.detail}
+                        </p>
+                      )}
                     </li>
                   ))}
                 </ul>

@@ -169,3 +169,16 @@ attach flow), `POST posts/<id>/reaction` (whitelist),
 token per church in AsyncStorage (src/auth.ts), clears it when the server
 stops recognizing it, and drives SignInScreen + the interactive native feed
 (composer with group audience, reaction picker, comments/replies).
+
+## App activity on the person profile
+
+The dashboard person page shows an **App activity** panel: last sign-in, push
+status, engagement counts, and a merged newest-first timeline (feed posts,
+comments, reactions, group posts, RSVPs/attendance, poll votes) from
+`app-activity-service`. **Staff-only by design** — the service is called
+exclusively from the dashboard (staff auth + `person.view`; group-sourced items
+additionally require `group.view`) and must never be wired into the member API
+under `/api/app/v1/**`: members can read their own session via `/me` and the
+spaces they belong to, never another member's activity. Anonymity note: staff
+see prayer-request authorship (as in the group-space staff view); anonymous
+prayers are labeled "(anonymous to the group)" so staff handle them with care.

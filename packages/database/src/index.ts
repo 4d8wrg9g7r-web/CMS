@@ -56,6 +56,8 @@ export * as appPushService from "./services/app-push-service";
 export * as appPageService from "./services/app-page-service";
 export * as groupSpaceService from "./services/group-space-service";
 export type { GroupSpace } from "./services/group-space-service";
+export * as appActivityService from "./services/app-activity-service";
+export type { PersonAppActivity, AppActivityItem } from "./services/app-activity-service";
 export type { ActivePage } from "./services/app-page-service";
 export { validateAppPageBlocks, toEmbedUrl, MAX_PAGE_BLOCKS } from "./app/page-blocks";
 export type { AppPageBlock, AppLinkTarget } from "./app/page-blocks";
