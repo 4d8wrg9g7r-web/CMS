@@ -96,17 +96,68 @@ export interface AppMember {
   personId: string;
   firstName: string;
   displayName: string;
+  photoUrl: string | null;
 }
 
 export async function getSessionMember(organizationId: string, token: string): Promise<AppMember | null> {
   if (!token) return null;
   const session = await tenantDb.appSession.findFirst({
     where: { organizationId, tokenHash: sha256(token), expiresAt: { gt: new Date() } },
-    include: { person: { select: { id: true, firstName: true, lastName: true, preferredName: true, archivedAt: true } } },
+    include: {
+      person: {
+        select: { id: true, firstName: true, lastName: true, preferredName: true, photoUrl: true, archivedAt: true },
+      },
+    },
   });
   if (!session || session.person.archivedAt) return null;
   const first = session.person.preferredName || session.person.firstName;
-  return { personId: session.person.id, firstName: first, displayName: `${first} ${session.person.lastName}`.trim() };
+  return {
+    personId: session.person.id,
+    firstName: first,
+    displayName: `${first} ${session.person.lastName}`.trim(),
+    photoUrl: session.person.photoUrl,
+  };
+}
+
+/** Member self-service avatar (uploaded through the app's gated upload action). */
+export async function setMemberPhoto(organizationId: string, personId: string, photoUrl: string | null) {
+  const result = await tenantDb.person.updateMany({
+    where: { id: personId, organizationId },
+    data: { photoUrl },
+  });
+  return result.count > 0;
+}
+
+export interface MemberProfile {
+  personId: string;
+  displayName: string;
+  photoUrl: string | null;
+  memberSince: string;
+  groups: { id: string; name: string }[];
+}
+
+/** Profile card data — members viewing members; only group names, never contact info. */
+export async function getMemberProfile(organizationId: string, personId: string): Promise<MemberProfile | null> {
+  const person = await tenantDb.person.findFirst({
+    where: { id: personId, organizationId, archivedAt: null },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      preferredName: true,
+      photoUrl: true,
+      createdAt: true,
+      groupMemberships: { where: { group: { archivedAt: null } }, select: { group: { select: { id: true, name: true } } } },
+    },
+  });
+  if (!person) return null;
+  return {
+    personId: person.id,
+    displayName: `${person.preferredName || person.firstName} ${person.lastName}`.trim(),
+    photoUrl: person.photoUrl,
+    memberSince: person.createdAt.toISOString(),
+    groups: person.groupMemberships.map((m) => m.group),
+  };
 }
 
 export async function signOut(organizationId: string, token: string): Promise<void> {

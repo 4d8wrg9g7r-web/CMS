@@ -92,3 +92,25 @@ signed-out feed view.
 **Deferred:** reactions beyond ❤, threaded replies, member
 profiles, push notifications on new posts (Phase 2), rate limiting beyond
 attempt caps, blocked-words filters.
+
+## Profiles, reactions, replies, push (feed v3)
+- **Profiles** (/a/&lt;id&gt;/profile/&lt;personId&gt;, members-only): photo, name,
+  "part of &lt;church&gt; since", group chips, and the author's posts THE VIEWER may
+  see (same feed visibility rules) — never contact info. `Person.photoUrl` is
+  the member's self-service avatar (gated upload, public storage); avatars
+  render across post/comment headers and author names link to profiles.
+- **Reactions**: one per person per post from the ❤️🙏🙌🎉 whitelist (same emoji
+  toggles off, different replaces; `AppPostLike.emoji`). The feed returns a
+  per-emoji breakdown plus the viewer's own; likeCount/likedByMe remain for API
+  compatibility.
+- **Replies**: single-level threading (`AppPostComment.parentCommentId`; parent
+  must be a top-level comment on the same post). Feed shows the latest 3
+  top-level comments with up to 5 replies each.
+- **Web push** (ADR-013): signed-in members opt in per device ("Notify me");
+  subscriptions stored in `AppPushSubscription` (endpoint unique, pruned on
+  404/410). Announcements fan out via after() using VAPID keys
+  (`WEB_PUSH_VAPID_PUBLIC_KEY`/`_PRIVATE_KEY`/`_SUBJECT`, generated with
+  `npx web-push generate-vapid-keys`); no keys → silent no-op and the toggle
+  hides. public/sw.js shows the notification and opens /a/&lt;id&gt; on tap. Works
+  on installed PWAs (Android; iOS 16.4+); the native container will reuse the
+  same subscription data.

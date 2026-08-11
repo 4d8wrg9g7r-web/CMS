@@ -27,33 +27,50 @@ async function memberGroupIds(organizationId: string, personId: string): Promise
   return memberships.map((m) => m.groupId);
 }
 
+/** Reaction whitelist — church-appropriate, extendable without migration. */
+export const REACTION_EMOJIS = ["❤️", "🙏", "🙌", "🎉"] as const;
+
 export interface FeedComment {
   id: string;
   authorName: string;
+  authorAvatarUrl: string | null;
+  authorPersonId: string;
   body: string;
+  replies: FeedComment[];
 }
 
 export interface FeedPost {
   id: string;
   kind: "CHURCH" | "MEMBER";
   authorName: string | null;
+  authorAvatarUrl: string | null;
+  authorPersonId: string | null;
   groupName: string | null;
   body: string;
   imageUrl: string | null;
   createdAt: string;
   likeCount: number;
   likedByMe: boolean;
+  reactions: { emoji: string; count: number }[];
+  myReaction: string | null;
   commentCount: number;
   comments: FeedComment[];
   mine: boolean;
 }
 
-export async function listFeed(organizationId: string, viewerPersonId: string | null): Promise<FeedPost[]> {
+const COMMENT_PERSON = { select: { id: true, firstName: true, lastName: true, preferredName: true, photoUrl: true } };
+
+export async function listFeed(
+  organizationId: string,
+  viewerPersonId: string | null,
+  opts: { authorPersonId?: string } = {},
+): Promise<FeedPost[]> {
   const groupIds = viewerPersonId ? await memberGroupIds(organizationId, viewerPersonId) : [];
   const posts = await tenantDb.appPost.findMany({
     where: {
       organizationId,
       hiddenAt: null,
+      ...(opts.authorPersonId ? { personId: opts.authorPersonId } : {}),
       ...(viewerPersonId
         ? { OR: [{ groupId: null }, { groupId: { in: groupIds } }] }
         : { kind: "CHURCH", groupId: null }),
@@ -61,42 +78,64 @@ export async function listFeed(organizationId: string, viewerPersonId: string | 
     orderBy: { createdAt: "desc" },
     take: FEED_TAKE,
     include: {
-      person: { select: { firstName: true, lastName: true, preferredName: true } },
+      person: COMMENT_PERSON,
       group: { select: { name: true } },
-      _count: { select: { likes: true, comments: true } },
+      likes: { select: { emoji: true, personId: true } },
+      _count: { select: { comments: true } },
       comments: {
+        where: { parentCommentId: null },
         orderBy: { createdAt: "desc" },
         take: COMMENTS_SHOWN,
-        include: { person: { select: { firstName: true, lastName: true, preferredName: true } } },
+        include: {
+          person: COMMENT_PERSON,
+          replies: { orderBy: { createdAt: "asc" }, take: 5, include: { person: COMMENT_PERSON } },
+        },
       },
     },
   });
 
-  const myLikes = viewerPersonId
-    ? new Set(
-        (
-          await tenantDb.appPostLike.findMany({
-            where: { organizationId, personId: viewerPersonId, postId: { in: posts.map((p) => p.id) } },
-            select: { postId: true },
-          })
-        ).map((l) => l.postId),
-      )
-    : new Set<string>();
+  const toComment = (c: {
+    id: string;
+    body: string;
+    person: { id: string; firstName: string; lastName: string; preferredName: string | null; photoUrl: string | null };
+  }): FeedComment => ({
+    id: c.id,
+    authorName: displayName(c.person),
+    authorAvatarUrl: c.person.photoUrl,
+    authorPersonId: c.person.id,
+    body: c.body,
+    replies: [],
+  });
 
-  return posts.map((post) => ({
-    id: post.id,
-    kind: post.kind,
-    authorName: post.person ? displayName(post.person) : null,
-    groupName: post.group?.name ?? null,
-    body: post.body,
-    imageUrl: post.imageUrl,
-    createdAt: post.createdAt.toISOString(),
-    likeCount: post._count.likes,
-    likedByMe: myLikes.has(post.id),
-    commentCount: post._count.comments,
-    comments: [...post.comments].reverse().map((c) => ({ id: c.id, authorName: displayName(c.person), body: c.body })),
-    mine: viewerPersonId !== null && post.personId === viewerPersonId,
-  }));
+  return posts.map((post) => {
+    const counts = new Map<string, number>();
+    let myReaction: string | null = null;
+    for (const like of post.likes) {
+      counts.set(like.emoji, (counts.get(like.emoji) ?? 0) + 1);
+      if (viewerPersonId && like.personId === viewerPersonId) myReaction = like.emoji;
+    }
+    return {
+      id: post.id,
+      kind: post.kind,
+      authorName: post.person ? displayName(post.person) : null,
+      authorAvatarUrl: post.person?.photoUrl ?? null,
+      authorPersonId: post.person?.id ?? null,
+      groupName: post.group?.name ?? null,
+      body: post.body,
+      imageUrl: post.imageUrl,
+      createdAt: post.createdAt.toISOString(),
+      likeCount: post.likes.length,
+      likedByMe: myReaction !== null,
+      reactions: [...counts.entries()].map(([emoji, count]) => ({ emoji, count })),
+      myReaction,
+      commentCount: post._count.comments,
+      comments: [...post.comments].reverse().map((c) => ({
+        ...toComment(c),
+        replies: c.replies.map(toComment),
+      })),
+      mine: viewerPersonId !== null && post.personId === viewerPersonId,
+    };
+  });
 }
 
 function cleanBody(body: string, max: number, opts: { allowEmpty?: boolean } = {}): string {
@@ -144,8 +183,17 @@ export async function createChurchPost(
   return tenantDb.appPost.create({ data: { organizationId, kind: "CHURCH", body, imageUrl } });
 }
 
-/** Returns the new liked state. */
-export async function toggleLike(organizationId: string, personId: string, postId: string): Promise<boolean> {
+/**
+ * One reaction per person per post: same emoji toggles it off, a different
+ * emoji replaces it. Returns the member's resulting reaction (null = none).
+ */
+export async function setReaction(
+  organizationId: string,
+  personId: string,
+  postId: string,
+  emoji: string,
+): Promise<string | null> {
+  if (!(REACTION_EMOJIS as readonly string[]).includes(emoji)) throw new Error("Unknown reaction.");
   const post = await tenantDb.appPost.findFirst({
     where: { id: postId, organizationId, hiddenAt: null },
     select: { id: true },
@@ -154,24 +202,44 @@ export async function toggleLike(organizationId: string, personId: string, postI
 
   const existing = await tenantDb.appPostLike.findFirst({
     where: { organizationId, postId, personId },
-    select: { id: true },
+    select: { id: true, emoji: true },
   });
-  if (existing) {
+  if (existing?.emoji === emoji) {
     await tenantDb.appPostLike.deleteMany({ where: { id: existing.id, organizationId } });
-    return false;
+    return null;
   }
-  await tenantDb.appPostLike.create({ data: { organizationId, postId, personId } });
-  return true;
+  if (existing) {
+    await tenantDb.appPostLike.updateMany({ where: { id: existing.id, organizationId }, data: { emoji } });
+    return emoji;
+  }
+  await tenantDb.appPostLike.create({ data: { organizationId, postId, personId, emoji } });
+  return emoji;
 }
 
-export async function addComment(organizationId: string, personId: string, postId: string, body: string) {
+export async function addComment(
+  organizationId: string,
+  personId: string,
+  postId: string,
+  body: string,
+  opts: { parentCommentId?: string | null } = {},
+) {
   const cleaned = cleanBody(body, COMMENT_MAX_CHARS);
   const post = await tenantDb.appPost.findFirst({
     where: { id: postId, organizationId, hiddenAt: null },
     select: { id: true },
   });
   if (!post) throw new Error("That post is no longer available.");
-  return tenantDb.appPostComment.create({ data: { organizationId, postId, personId, body: cleaned } });
+
+  const parentCommentId = opts.parentCommentId || null;
+  if (parentCommentId) {
+    // Single-level threading: the parent must be a top-level comment on this post.
+    const parent = await tenantDb.appPostComment.findFirst({
+      where: { id: parentCommentId, organizationId, postId, parentCommentId: null },
+      select: { id: true },
+    });
+    if (!parent) throw new Error("That comment is no longer available.");
+  }
+  return tenantDb.appPostComment.create({ data: { organizationId, postId, personId, body: cleaned, parentCommentId } });
 }
 
 // -- Staff moderation --------------------------------------------------------------

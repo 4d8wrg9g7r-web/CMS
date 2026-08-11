@@ -1,22 +1,25 @@
 "use client";
 
 import { useActionState, useRef, useState, useTransition } from "react";
-import { Church, Heart, ImagePlus, Loader2, LogOut, MessageCircle, Send, X } from "lucide-react";
-import type { FeedPost } from "@cms/database";
+import { Church, ImagePlus, Loader2, LogOut, MessageCircle, Send, SmilePlus, X } from "lucide-react";
+import type { FeedComment, FeedPost } from "@cms/database";
+import { REACTION_EMOJIS_UI } from "../../lib/app-manifest-ui";
+import { PushToggle } from "./PushToggle";
 import {
   addAppCommentAction,
   createAppPostAction,
+  setAppReactionAction,
   signOutAppAction,
-  toggleAppLikeAction,
   uploadAppPhotoAction,
   type PostFormState,
 } from "../../app/a/[publicAppId]/actions";
 
 /**
  * The community feed (docs/domain/app.md) rendered inside the app's Home tab.
- * Interactive on the public app (composer, hearts, comments via server
- * actions); App Studio's preview renders the same cards through previewMode,
- * which disables every action so the phone frame never navigates the studio.
+ * Interactive on the public app (composer, reactions, threaded comments via
+ * server actions); App Studio's preview renders the same cards through
+ * previewMode, which disables every action so the phone frame never navigates
+ * the studio.
  */
 
 function timeAgo(iso: string): string {
@@ -28,6 +31,37 @@ function timeAgo(iso: string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   return days < 7 ? `${days}d ago` : new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function Avatar({
+  name,
+  photoUrl,
+  isChurch,
+  accent,
+  size = 36,
+}: {
+  name: string | null;
+  photoUrl: string | null;
+  isChurch?: boolean;
+  accent: string;
+  size?: number;
+}) {
+  if (photoUrl) {
+    // eslint-disable-next-line @next/next/no-img-element -- member-uploaded avatar
+    return <img src={photoUrl} alt="" style={{ width: size, height: size }} className="shrink-0 rounded-full object-cover" />;
+  }
+  return (
+    <span
+      className="flex shrink-0 items-center justify-center rounded-full font-bold text-white"
+      style={{ width: size, height: size, backgroundColor: isChurch ? accent : "#8a8985", fontSize: size * 0.4 }}
+    >
+      {isChurch ? <Church size={size * 0.45} /> : (name ?? "?").charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
+function profileHref(publicAppId: string, personId: string) {
+  return `/a/${publicAppId}/profile/${personId}`;
 }
 
 function Composer({ publicAppId, groups, accent }: { publicAppId: string; groups: { id: string; name: string }[]; accent: string }) {
@@ -124,9 +158,19 @@ function Composer({ publicAppId, groups, accent }: { publicAppId: string; groups
   );
 }
 
-function CommentForm({ publicAppId, postId }: { publicAppId: string; postId: string }) {
+function CommentForm({
+  publicAppId,
+  postId,
+  parentCommentId,
+  placeholder,
+}: {
+  publicAppId: string;
+  postId: string;
+  parentCommentId: string | null;
+  placeholder: string;
+}) {
   const [state, formAction, pending] = useActionState<PostFormState, FormData>(
-    addAppCommentAction.bind(null, publicAppId, postId),
+    addAppCommentAction.bind(null, publicAppId, postId, parentCommentId),
     { error: null },
   );
   const formRef = useRef<HTMLFormElement>(null);
@@ -143,7 +187,7 @@ function CommentForm({ publicAppId, postId }: { publicAppId: string; postId: str
         name="body"
         required
         maxLength={300}
-        placeholder="Write a comment…"
+        placeholder={placeholder}
         className="w-full rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs text-neutral-900 outline-none placeholder:text-neutral-400"
       />
       <button type="submit" disabled={pending} aria-label="Send comment" className="text-neutral-400 hover:text-neutral-700">
@@ -151,6 +195,138 @@ function CommentForm({ publicAppId, postId }: { publicAppId: string; postId: str
       </button>
       {state.error && <p className="text-xs text-red-600">{state.error}</p>}
     </form>
+  );
+}
+
+function CommentRow({
+  comment,
+  publicAppId,
+  accent,
+  interactive,
+  postId,
+  isReply = false,
+}: {
+  comment: FeedComment;
+  publicAppId: string;
+  accent: string;
+  interactive: boolean;
+  postId: string;
+  isReply?: boolean;
+}) {
+  const [replying, setReplying] = useState(false);
+  return (
+    <div className={isReply ? "ml-7 mt-1" : "mt-2"}>
+      <div className="flex items-start gap-2">
+        <Avatar name={comment.authorName} photoUrl={comment.authorAvatarUrl} accent={accent} size={22} />
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-neutral-700">
+            {interactive ? (
+              <a href={profileHref(publicAppId, comment.authorPersonId)} className="font-semibold hover:underline">
+                {comment.authorName}
+              </a>
+            ) : (
+              <span className="font-semibold">{comment.authorName}</span>
+            )}{" "}
+            {comment.body}
+          </p>
+          {interactive && !isReply && (
+            <button
+              type="button"
+              onClick={() => setReplying((v) => !v)}
+              className="mt-0.5 text-[10px] font-medium text-neutral-400 hover:text-neutral-700"
+            >
+              Reply
+            </button>
+          )}
+        </div>
+      </div>
+      {comment.replies.map((reply) => (
+        <CommentRow
+          key={reply.id}
+          comment={reply}
+          publicAppId={publicAppId}
+          accent={accent}
+          interactive={interactive}
+          postId={postId}
+          isReply
+        />
+      ))}
+      {replying && (
+        <div className="ml-7">
+          <CommentForm
+            publicAppId={publicAppId}
+            postId={postId}
+            parentCommentId={comment.id}
+            placeholder={`Reply to ${comment.authorName.split(" ")[0]}…`}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReactionBar({
+  post,
+  publicAppId,
+  accent,
+  interactive,
+}: {
+  post: FeedPost;
+  publicAppId: string;
+  accent: string;
+  interactive: boolean;
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [reacting, startReacting] = useTransition();
+
+  const react = (emoji: string) => {
+    setPickerOpen(false);
+    if (interactive) startReacting(() => setAppReactionAction(publicAppId, post.id, emoji));
+  };
+
+  return (
+    <div className="relative flex items-center gap-2">
+      {post.reactions.map((r) => (
+        <button
+          key={r.emoji}
+          type="button"
+          disabled={!interactive || reacting}
+          onClick={() => react(r.emoji)}
+          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${
+            post.myReaction === r.emoji ? "border-current bg-neutral-50 font-semibold" : "border-neutral-200"
+          }`}
+          style={post.myReaction === r.emoji ? { color: accent } : undefined}
+          aria-label={`React ${r.emoji}`}
+        >
+          {r.emoji} {r.count}
+        </button>
+      ))}
+      {interactive && (
+        <button
+          type="button"
+          onClick={() => setPickerOpen((v) => !v)}
+          aria-label="Add a reaction"
+          className="text-neutral-400 hover:text-neutral-700"
+        >
+          <SmilePlus size={15} />
+        </button>
+      )}
+      {pickerOpen && (
+        <div className="absolute bottom-6 left-0 z-10 flex gap-1 rounded-full border border-neutral-200 bg-white px-2 py-1 shadow-lg">
+          {REACTION_EMOJIS_UI.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              onClick={() => react(emoji)}
+              className="rounded-full p-1 text-lg hover:bg-neutral-100"
+              aria-label={`React ${emoji}`}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -167,21 +343,24 @@ function PostCard({
   publicAppId: string;
   interactive: boolean;
 }) {
-  const [liking, startLiking] = useTransition();
   const [showComments, setShowComments] = useState(false);
   const isChurch = post.kind === "CHURCH";
+  const authorName = isChurch ? churchName : post.authorName;
 
   return (
     <article className="rounded-xl border border-neutral-200 bg-white p-4">
       <header className="mb-2 flex items-center gap-2.5">
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
-          style={{ backgroundColor: isChurch ? accent : "#8a8985" }}
-        >
-          {isChurch ? <Church size={16} /> : (post.authorName ?? "?").charAt(0).toUpperCase()}
-        </span>
+        <Avatar name={post.authorName} photoUrl={post.authorAvatarUrl} isChurch={isChurch} accent={accent} />
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-neutral-900">{isChurch ? churchName : post.authorName}</p>
+          <p className="truncate text-sm font-semibold text-neutral-900">
+            {interactive && !isChurch && post.authorPersonId ? (
+              <a href={profileHref(publicAppId, post.authorPersonId)} className="hover:underline">
+                {authorName}
+              </a>
+            ) : (
+              authorName
+            )}
+          </p>
           <p className="text-xs text-neutral-500">
             {timeAgo(post.createdAt)}
             {post.groupName && ` · ${post.groupName}`}
@@ -197,19 +376,7 @@ function PostCard({
       )}
 
       <footer className="mt-3 flex items-center gap-4 text-xs text-neutral-500">
-        <button
-          type="button"
-          disabled={!interactive || liking}
-          onClick={() => {
-            if (interactive) startLiking(() => toggleAppLikeAction(publicAppId, post.id));
-          }}
-          className="inline-flex items-center gap-1.5"
-          style={post.likedByMe ? { color: accent } : undefined}
-          aria-label={post.likedByMe ? "Unlike" : "Like"}
-        >
-          <Heart size={15} fill={post.likedByMe ? "currentColor" : "none"} />
-          {post.likeCount > 0 && post.likeCount}
-        </button>
+        <ReactionBar post={post} publicAppId={publicAppId} accent={accent} interactive={interactive} />
         <button
           type="button"
           onClick={() => setShowComments((v) => !v)}
@@ -222,13 +389,20 @@ function PostCard({
       </footer>
 
       {(showComments || post.comments.length > 0) && (
-        <div className="mt-3 border-t border-neutral-100 pt-2">
+        <div className="mt-3 border-t border-neutral-100 pt-1">
           {post.comments.map((comment) => (
-            <p key={comment.id} className="mt-1 text-xs text-neutral-700">
-              <span className="font-semibold">{comment.authorName}</span> {comment.body}
-            </p>
+            <CommentRow
+              key={comment.id}
+              comment={comment}
+              publicAppId={publicAppId}
+              accent={accent}
+              interactive={interactive}
+              postId={post.id}
+            />
           ))}
-          {interactive && showComments && <CommentForm publicAppId={publicAppId} postId={post.id} />}
+          {interactive && showComments && (
+            <CommentForm publicAppId={publicAppId} postId={post.id} parentCommentId={null} placeholder="Write a comment…" />
+          )}
         </div>
       )}
     </article>
@@ -243,34 +417,50 @@ export function AppFeed({
   member,
   allowMemberPosts,
   myGroups,
+  pushPublicKey = null,
   previewMode = false,
+  chromeless = false,
 }: {
   publicAppId: string;
   churchName: string;
   accent: string;
   posts: FeedPost[];
-  member: { displayName: string } | null;
+  member: { personId: string; displayName: string } | null;
   allowMemberPosts: boolean;
   myGroups: { id: string; name: string }[];
+  /** VAPID public key; null hides the notifications toggle. */
+  pushPublicKey?: string | null;
   previewMode?: boolean;
+  /** Posts only — no signed-in header, sign-in banner, or composer (profile pages). */
+  chromeless?: boolean;
 }) {
   const interactive = !previewMode && member !== null;
 
   return (
     <div className="flex flex-col gap-3">
-      {member ? (
+      {chromeless ? null : member ? (
         <div className="flex items-center justify-between px-1">
           <p className="text-xs text-neutral-500">
-            Signed in as <span className="font-semibold text-neutral-700">{member.displayName}</span>
+            Signed in as{" "}
+            {previewMode ? (
+              <span className="font-semibold text-neutral-700">{member.displayName}</span>
+            ) : (
+              <a href={profileHref(publicAppId, member.personId)} className="font-semibold text-neutral-700 hover:underline">
+                {member.displayName}
+              </a>
+            )}
           </p>
           {!previewMode && (
-            <button
-              type="button"
-              onClick={() => void signOutAppAction(publicAppId)}
-              className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-700"
-            >
-              <LogOut size={12} /> Sign out
-            </button>
+            <span className="flex items-center gap-3">
+              {pushPublicKey && <PushToggle publicAppId={publicAppId} vapidPublicKey={pushPublicKey} />}
+              <button
+                type="button"
+                onClick={() => void signOutAppAction(publicAppId)}
+                className="inline-flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-700"
+              >
+                <LogOut size={12} /> Sign out
+              </button>
+            </span>
           )}
         </div>
       ) : (
@@ -283,7 +473,7 @@ export function AppFeed({
         </a>
       )}
 
-      {member && allowMemberPosts && !previewMode && (
+      {member && allowMemberPosts && !previewMode && !chromeless && (
         <Composer publicAppId={publicAppId} groups={myGroups} accent={accent} />
       )}
 

@@ -5,6 +5,7 @@ import { appFeedService, appMemberService, appService, groupService } from "@cms
 import { AppFeed } from "../../../components/church-app/AppFeed";
 import { AppScreen } from "../../../components/church-app/AppScreen";
 import { buildAppContent } from "../../../lib/church-app-content";
+import { webPushPublicKey } from "../../../lib/app-push";
 
 /**
  * The public church app (docs/domain/app.md): an installable, mobile-first web
@@ -73,9 +74,10 @@ export default async function PublicAppPage({ params, searchParams }: Props) {
             churchName={app.organizationName}
             accent={app.manifest.themeColor}
             posts={posts}
-            member={member ? { displayName: member.displayName } : null}
+            member={member ? { personId: member.personId, displayName: member.displayName } : null}
             allowMemberPosts={app.manifest.allowMemberPosts}
             myGroups={myGroups.map((m) => ({ id: m.group.id, name: m.group.name }))}
+            pushPublicKey={webPushPublicKey()}
           />
         }
       />

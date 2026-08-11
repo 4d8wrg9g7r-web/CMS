@@ -98,6 +98,7 @@ model Organization {
   appPostComments        AppPostComment[]
   appSessions            AppSession[]
   appLoginCodes          AppLoginCode[]
+  appPushSubscriptions   AppPushSubscription[]
   groups              Group[]
   groupMemberships    GroupMembership[]
   forms               FormDefinition[]
@@ -300,6 +301,8 @@ model Person {
   preferredName String?
   email         String?
   phone         String?
+  // Member-facing avatar (public storage URL) — uploadable from the church app.
+  photoUrl      String?
 
   membershipStatus MembershipStatus @default(VISITOR)
   birthdate        DateTime?
@@ -336,6 +339,7 @@ model Person {
   appPostComments   AppPostComment[]
   appSessions       AppSession[]
   appLoginCodes     AppLoginCode[]
+  appPushSubscriptions AppPushSubscription[]
 
   @@index([organizationId])
   @@index([organizationId, lastName])
@@ -612,6 +616,8 @@ model AppPostLike {
   organizationId String
   postId         String
   personId       String
+  // One reaction per person per post, changeable; whitelist enforced in service.
+  emoji          String   @default("❤️")
   createdAt      DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -623,16 +629,20 @@ model AppPostLike {
 }
 
 model AppPostComment {
-  id             String   @id @default(cuid())
-  organizationId String
-  postId         String
-  personId       String
-  body           String
-  createdAt      DateTime @default(now())
+  id              String   @id @default(cuid())
+  organizationId  String
+  postId          String
+  personId        String
+  body            String
+  // Single-level threading: replies point at a top-level comment, never a reply.
+  parentCommentId String?
+  createdAt       DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   post         AppPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
   person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  parent       AppPostComment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies      AppPostComment[] @relation("CommentReplies")
 
   @@index([postId, createdAt])
   @@index([organizationId])
@@ -651,6 +661,26 @@ model AppLoginCode {
   codeHash       String
   attempts       Int      @default(0)
   expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, personId])
+}
+
+/**
+ * Web-push subscription for a signed-in member's device (docs/domain/app.md).
+ * endpoint is globally unique per browser subscription; dead endpoints are
+ * removed when the push service reports 404/410 on send.
+ */
+model AppPushSubscription {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  endpoint       String   @unique
+  p256dh         String
+  auth           String
   createdAt      DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

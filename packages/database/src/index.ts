@@ -51,8 +51,10 @@ export * as sermonService from "./services/sermon-service";
 export * as appService from "./services/app-service";
 export * as appMemberService from "./services/app-member-service";
 export * as appFeedService from "./services/app-feed-service";
-export type { AppMember } from "./services/app-member-service";
+export * as appPushService from "./services/app-push-service";
+export type { AppMember, MemberProfile } from "./services/app-member-service";
 export type { FeedPost, FeedComment } from "./services/app-feed-service";
+export { REACTION_EMOJIS } from "./services/app-feed-service";
 export * as appPermissions from "./authz/app-permissions";
 export type { AppAction } from "./authz/app-permissions";
 export {

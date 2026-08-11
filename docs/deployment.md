@@ -90,6 +90,18 @@ Sender is `CMS <noreply@$RESEND_EMAIL_DOMAIN>`.
   | `STORAGE_S3_REGION` | `auto` (R2) or the AWS region for S3 |
   | `STORAGE_S3_ACCESS_KEY_ID` | from the API token |
   | `STORAGE_S3_SECRET_ACCESS_KEY` | from the API token |
+- **Church-app push notifications** (optional): run `npx web-push generate-vapid-keys`
+  once, then add to Vercel env (Production) and redeploy:
+
+  | Variable | Value |
+  |---|---|
+  | `WEB_PUSH_VAPID_PUBLIC_KEY` | the generated public key |
+  | `WEB_PUSH_VAPID_PRIVATE_KEY` | the generated private key |
+  | `WEB_PUSH_VAPID_SUBJECT` | `mailto:you@yourdomain` |
+
+  Without these, the app's "Notify me" toggle stays hidden and announcement push
+  fan-out is a silent no-op. Rotating the keys invalidates existing device
+  subscriptions (members just re-enable).
 - **API rate limiting is in-memory per instance** — fine as an abuse speed bump, not
   a strict global limit across serverless instances.
 - `maxDuration = 300` on the cron route requires Fluid compute (default on new Vercel

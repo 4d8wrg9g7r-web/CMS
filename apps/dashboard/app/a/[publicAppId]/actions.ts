@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
-import { appFeedService, appMemberService, appService, messageService } from "@cms/database";
+import { appFeedService, appMemberService, appPushService, appService, messageService } from "@cms/database";
 import { getStorageProvider } from "@cms/storage";
 import { drainOutbox } from "../../../lib/outbox-worker";
 
@@ -167,26 +167,88 @@ export async function uploadAppPhotoAction(
   return { url };
 }
 
-export async function toggleAppLikeAction(publicAppId: string, postId: string): Promise<void> {
+/** Set/toggle the member's reaction (same emoji = off, different = replace). */
+export async function setAppReactionAction(publicAppId: string, postId: string, emoji: string): Promise<void> {
   const app = await resolveApp(publicAppId);
   const member = await requireMember(publicAppId, app.organizationId);
-  await appFeedService.toggleLike(app.organizationId, member.personId, postId);
+  await appFeedService.setReaction(app.organizationId, member.personId, postId, emoji);
   revalidatePath(`/a/${publicAppId}`);
 }
 
 export async function addAppCommentAction(
   publicAppId: string,
   postId: string,
+  parentCommentId: string | null,
   _prev: PostFormState,
   formData: FormData,
 ): Promise<PostFormState> {
   try {
     const app = await resolveApp(publicAppId);
     const member = await requireMember(publicAppId, app.organizationId);
-    await appFeedService.addComment(app.organizationId, member.personId, postId, String(formData.get("body") ?? ""));
+    await appFeedService.addComment(app.organizationId, member.personId, postId, String(formData.get("body") ?? ""), {
+      parentCommentId,
+    });
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Could not comment" };
   }
   revalidatePath(`/a/${publicAppId}`);
   return { error: null };
+}
+
+/** Member avatar: upload + set in one step (session-gated, public storage). */
+export async function uploadAppAvatarAction(
+  publicAppId: string,
+  formData: FormData,
+): Promise<{ url: string } | { error: string }> {
+  const app = await resolveApp(publicAppId);
+  const member = await requireMember(publicAppId, app.organizationId).catch(() => null);
+  if (!member) return { error: "Sign in first." };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose a photo." };
+  if (!PHOTO_CONTENT_TYPES.has(file.type)) return { error: "Photos must be PNG, JPEG, WebP, or GIF." };
+  if (file.size > PHOTO_MAX_BYTES) return { error: "Photos are capped at 4 MB." };
+
+  const saved = await getStorageProvider(path.join(process.cwd(), "public")).saveFile({
+    organizationId: app.organizationId,
+    fileName: file.name,
+    contentType: file.type,
+    data: Buffer.from(await file.arrayBuffer()),
+  });
+
+  let url = saved.url;
+  if (url.startsWith("/")) {
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host");
+    if (!host) return { error: "Could not determine the site URL for the photo." };
+    url = `${h.get("x-forwarded-proto") ?? "http"}://${host}${url}`;
+  }
+  await appMemberService.setMemberPhoto(app.organizationId, member.personId, url);
+  revalidatePath(`/a/${publicAppId}`);
+  return { url };
+}
+
+/** Store this device's web-push subscription for the signed-in member. */
+export async function savePushSubscriptionAction(
+  publicAppId: string,
+  subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const app = await resolveApp(publicAppId);
+    const member = await requireMember(publicAppId, app.organizationId);
+    await appPushService.saveSubscription(app.organizationId, member.personId, {
+      endpoint: subscription.endpoint,
+      p256dh: subscription.keys.p256dh,
+      auth: subscription.keys.auth,
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not enable notifications" };
+  }
+}
+
+export async function removePushSubscriptionAction(publicAppId: string, endpoint: string): Promise<void> {
+  const app = await resolveApp(publicAppId);
+  const member = await requireMember(publicAppId, app.organizationId);
+  await appPushService.removeSubscription(app.organizationId, member.personId, endpoint);
 }

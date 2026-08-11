@@ -3,10 +3,12 @@
 import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { appFeedService, auditService } from "@cms/database";
+import { after } from "next/server";
+import { appFeedService, appService, auditService } from "@cms/database";
 import { getStorageProvider } from "@cms/storage";
 import { getCurrentOrganization, getCurrentUser } from "../../../lib/session";
 import { requireApp } from "../../../lib/app-access";
+import { sendAppPush } from "../../../lib/app-push";
 
 // Not exported: a "use server" module may only export async functions.
 const PHOTO_MAX_BYTES = 4 * 1024 * 1024;
@@ -43,6 +45,25 @@ export async function createAnnouncementAction(
     targetType: "AppPost",
     targetId: post.id,
   });
+
+  // Lock-screen push to subscribed members (no-op without VAPID keys).
+  const orgId = organization.id;
+  const orgName = organization.name;
+  const body = post.body;
+  after(async () => {
+    try {
+      const app = await appService.getChurchApp(orgId);
+      if (!app?.enabled) return;
+      await sendAppPush(orgId, {
+        title: orgName,
+        body: body.slice(0, 140) || "New announcement from your church",
+        url: `/a/${app.publicAppId}`,
+      });
+    } catch (err) {
+      console.error("Announcement push fan-out failed:", err);
+    }
+  });
+
   revalidatePath("/community");
   return { error: null };
 }

@@ -11,6 +11,9 @@ import type { AppTab, AppTabKind } from "@cms/database";
 
 export const APP_TAB_KINDS_UI = ["home", "events", "sermons", "groups", "forms"] as const satisfies readonly AppTabKind[];
 
+/** Client-safe mirror of REACTION_EMOJIS (canonical list lives in app-feed-service). */
+export const REACTION_EMOJIS_UI = ["❤️", "🙏", "🙌", "🎉"] as const;
+
 export const MAX_APP_TABS_UI = 8;
 
 export function appTabLabelUi(tab: AppTab): string {
