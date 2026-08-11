@@ -36,6 +36,30 @@ export async function saveSubscription(organizationId: string, personId: string,
   return created.id;
 }
 
+const EXPO_TOKEN = /^Expo(nent)?PushToken\[[^\]\s]+\]$/;
+
+/** Native device registration: the Expo push token is the endpoint (kind "expo"). */
+export async function saveExpoToken(organizationId: string, personId: string, token: string) {
+  const endpoint = token.trim();
+  if (!EXPO_TOKEN.test(endpoint)) throw new Error("Invalid Expo push token.");
+
+  const existing = await tenantDb.appPushSubscription.findFirst({
+    where: { organizationId, endpoint },
+    select: { id: true },
+  });
+  if (existing) {
+    await tenantDb.appPushSubscription.updateMany({
+      where: { id: existing.id, organizationId },
+      data: { personId, kind: "expo" },
+    });
+    return existing.id;
+  }
+  const created = await tenantDb.appPushSubscription.create({
+    data: { organizationId, personId, kind: "expo", endpoint },
+  });
+  return created.id;
+}
+
 export async function removeSubscription(organizationId: string, personId: string, endpoint: string) {
   await tenantDb.appPushSubscription.deleteMany({ where: { organizationId, personId, endpoint } });
 }
@@ -43,7 +67,7 @@ export async function removeSubscription(organizationId: string, personId: strin
 export async function listSubscriptions(organizationId: string) {
   return tenantDb.appPushSubscription.findMany({
     where: { organizationId },
-    select: { id: true, endpoint: true, p256dh: true, auth: true },
+    select: { id: true, kind: true, endpoint: true, p256dh: true, auth: true },
   });
 }
 

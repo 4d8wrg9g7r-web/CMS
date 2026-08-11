@@ -690,17 +690,19 @@ model AppPage {
 }
 
 /**
- * Web-push subscription for a signed-in member's device (docs/domain/app.md).
- * endpoint is globally unique per browser subscription; dead endpoints are
- * removed when the push service reports 404/410 on send.
+ * Push subscription for a signed-in member's device (docs/domain/app.md).
+ * kind "webpush": endpoint is the browser push URL with p256dh/auth keys
+ * (pruned on 404/410). kind "expo": endpoint is the Expo push token from the
+ * native app (pruned on DeviceNotRegistered). endpoint stays globally unique.
  */
 model AppPushSubscription {
   id             String   @id @default(cuid())
   organizationId String
   personId       String
+  kind           String   @default("webpush")
   endpoint       String   @unique
-  p256dh         String
-  auth           String
+  p256dh         String?
+  auth           String?
   createdAt      DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

@@ -17,6 +17,7 @@ import * as WebBrowser from "expo-web-browser";
 import { WebView } from "react-native-webview";
 import { addComment, createPost, fetchApp, resolveUrl, setReaction, uploadPhoto } from "../api";
 import { clearToken, getToken, signOut } from "../auth";
+import { disablePush, enablePush, isPushEnabled } from "../push";
 import type { AppPayload, AppTab } from "../contract";
 import { Feed, type FeedActions } from "../components/Feed";
 import { PageBlocks } from "../components/PageBlocks";
@@ -123,9 +124,13 @@ export function ChurchAppScreen({ publicAppId, onSwitchChurch }: { publicAppId: 
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [pushOn, setPushOn] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
+      setPushOn(await isPushEnabled(publicAppId));
       const stored = await getToken(publicAppId);
       const data = await fetchApp(publicAppId, stored);
       // A token that no longer resolves to a member is expired/revoked.
@@ -229,20 +234,50 @@ export function ChurchAppScreen({ publicAppId, onSwitchChurch }: { publicAppId: 
             </View>
 
             {member ? (
-              <View style={styles.memberBar}>
-                <Text style={styles.memberBarText}>
-                  Signed in as <Text style={styles.memberBarName}>{member.display_name}</Text>
-                </Text>
-                <Pressable
-                  onPress={async () => {
-                    await signOut(publicAppId);
-                    setToken(null);
-                    await load();
-                  }}
-                  hitSlop={8}
-                >
-                  <Text style={styles.memberBarAction}>Sign out</Text>
-                </Pressable>
+              <View>
+                <View style={styles.memberBar}>
+                  <Text style={styles.memberBarText}>
+                    Signed in as <Text style={styles.memberBarName}>{member.display_name}</Text>
+                  </Text>
+                  <View style={styles.memberBarActions}>
+                    <Pressable
+                      disabled={pushBusy}
+                      onPress={async () => {
+                        if (!token) return;
+                        setPushBusy(true);
+                        setPushError(null);
+                        try {
+                          if (pushOn) {
+                            await disablePush(publicAppId, token);
+                            setPushOn(false);
+                          } else {
+                            await enablePush(publicAppId, token);
+                            setPushOn(true);
+                          }
+                        } catch (err) {
+                          setPushError(err instanceof Error ? err.message : "Notifications are unavailable.");
+                        }
+                        setPushBusy(false);
+                      }}
+                      hitSlop={8}
+                    >
+                      <Text style={[styles.memberBarAction, pushOn && styles.memberBarActionOn]}>
+                        {pushBusy ? "…" : pushOn ? "🔔 On" : "🔕 Notify me"}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={async () => {
+                        await signOut(publicAppId);
+                        setToken(null);
+                        await load();
+                      }}
+                      hitSlop={8}
+                    >
+                      <Text style={styles.memberBarAction}>Sign out</Text>
+                    </Pressable>
+                  </View>
+                </View>
+                {pushError && <Text style={styles.pushError}>{pushError}</Text>}
               </View>
             ) : (
               <Pressable style={styles.signInBanner} onPress={() => setSigningIn(true)}>
@@ -511,7 +546,10 @@ const styles = StyleSheet.create({
   memberBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 4 },
   memberBarText: { fontSize: 12, color: "#737373" },
   memberBarName: { fontWeight: "700", color: "#404040" },
+  memberBarActions: { flexDirection: "row", alignItems: "center", gap: 14 },
   memberBarAction: { fontSize: 12, color: "#a3a3a3" },
+  memberBarActionOn: { color: "#404040", fontWeight: "600" },
+  pushError: { fontSize: 11, color: "#b91c1c", paddingHorizontal: 4, marginTop: 2 },
   signInBanner: {
     borderWidth: 1,
     borderStyle: "dashed",

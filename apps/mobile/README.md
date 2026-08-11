@@ -48,8 +48,10 @@ npx eas submit                     # store submission
 
 ## Deliberately not here yet
 
-- Push registration (server + subscription storage already exist)
 - Store assets (icons/splash are Expo defaults until branding pass)
+- Remote push requires a physical device; in Expo Go remote push support
+  varies by SDK — a development build (`eas build --profile development`) is
+  the reliable way to test the "Notify me" flow end to end
 
 Contract types live in `src/contract.ts` and mirror the API additively — the
 server never breaks them; never widen them here.

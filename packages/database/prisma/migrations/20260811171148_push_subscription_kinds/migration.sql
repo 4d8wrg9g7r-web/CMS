@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "AppPushSubscription" ADD COLUMN     "kind" TEXT NOT NULL DEFAULT 'webpush',
+ALTER COLUMN "p256dh" DROP NOT NULL,
+ALTER COLUMN "auth" DROP NOT NULL;
