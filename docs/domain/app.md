@@ -134,3 +134,19 @@ presentation, so the native shells upgrade behavior without a migration.
 `PageBlocksView` renders pages identically in the studio preview, the public
 app, and (later) native. Content/API additively expose active pages. Audited:
 `app.page_created/updated/archived`.
+
+## Native container scaffold (apps/mobile, ADR-014)
+`@cms/mobile` is the Expo app for Phases 2–3: a thin renderer over the keyless
+content API (directory → per-church payload), mirroring the contract in
+`src/contract.ts` (additive-only; no @cms/database import — Prisma stays out of
+the bundle). Renders the manifest natively: themed header, 5-tab bottom bar,
+events/media/groups/connect/give, livestream (WebView embed), custom pages —
+where link targets get their native upgrade: `tab` switches the bar, `inapp`
+opens expo-web-browser (SFSafariViewController / Custom Tabs), `external` opens
+the system browser. Two products from one codebase via app.config.ts:
+container ("Church Connect", persisted church picker + Switch) and white-label
+(`APP_VARIANT=whitelabel CHURCH_APP_ID=…` pins one church, per-church
+name/slug/bundle id — submitted under the church's own developer account).
+Verified in CI as typecheck + Metro export; device builds go through EAS.
+Deferred: member auth (token flow mirroring the email-code sign-in), native
+push registration, store branding assets.
