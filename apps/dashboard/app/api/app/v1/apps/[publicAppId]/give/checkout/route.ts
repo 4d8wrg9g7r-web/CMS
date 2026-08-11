@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
-import { giftAmountError, grossUpCents, onlineGivingService, parseGiftInterval } from "@cms/database";
+import {
+  giftAmountError,
+  grossUpCentsForMethod,
+  onlineGivingService,
+  parseGiftInterval,
+  parsePaymentMethod,
+} from "@cms/database";
 import { resolveAppRequest } from "../../../../../../../../lib/app-api-auth";
 import { createGiveCheckoutSession } from "../../../../../../../../lib/stripe-checkout";
 
@@ -29,11 +35,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ publicA
       fund_id?: unknown;
       interval?: unknown;
       cover_fees?: unknown;
+      payment_method?: unknown;
     };
     const amountCents = typeof json.amount_cents === "number" ? json.amount_cents : NaN;
     const amountError = giftAmountError(amountCents);
     if (amountError) return NextResponse.json({ error: "invalid", message: amountError }, { status: 400 });
-    const chargeCents = json.cover_fees === true ? grossUpCents(amountCents) : amountCents;
+    const paymentMethod = parsePaymentMethod(json.payment_method);
+    if (paymentMethod === "bank" && !config!.achEnabled) {
+      return NextResponse.json({ error: "invalid", message: "Bank giving isn't enabled." }, { status: 400 });
+    }
+    const chargeCents = json.cover_fees === true ? grossUpCentsForMethod(amountCents, paymentMethod) : amountCents;
 
     const funds = await onlineGivingService.listOnlineFunds(orgId);
     const fund = funds.find((f) => f.id === json.fund_id) ?? funds[0];
@@ -48,6 +59,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ publicA
       fundId: fund.id,
       fundName: fund.name,
       interval: parseGiftInterval(json.interval),
+      paymentMethod,
       personId: resolved.member?.personId ?? null,
       successUrl: `${origin}/a/${encodeURIComponent(publicAppId)}/give/thanks`,
       cancelUrl: `${origin}/a/${encodeURIComponent(publicAppId)}`,

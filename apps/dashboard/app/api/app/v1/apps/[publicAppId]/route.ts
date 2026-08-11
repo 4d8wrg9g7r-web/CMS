@@ -33,6 +33,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicAp
   const onlineFunds = givingLive ? await onlineGivingService.listOnlineFunds(app.organizationId) : [];
   const giving = {
     online: givingLive && onlineFunds.length > 0,
+    bank: Boolean(givingLive && givingConfig?.achEnabled),
     currency: givingConfig?.currency ?? "usd",
     funds: onlineFunds.map((f) => ({ id: f.id, name: f.name })),
   };

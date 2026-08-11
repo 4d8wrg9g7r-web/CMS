@@ -115,3 +115,37 @@ describe("tenant guard registration (v3)", () => {
     expect(TENANT_SCOPED_MODELS.has("RecurringGift")).toBe(true);
   });
 });
+
+describe("ACH fee gross-up", () => {
+  it("nets the church at least the intended gift under the capped model", async () => {
+    const { grossUpCentsForMethod, ACH_FEE_PERCENT, ACH_FEE_CAP_CENTS } = await import("../giving/stripe");
+    for (const net of [100, 5000, 25000, 61000, 62000, 100000, 500000]) {
+      const gross = grossUpCentsForMethod(net, "bank");
+      const fee = Math.min(Math.round(gross * ACH_FEE_PERCENT), ACH_FEE_CAP_CENTS);
+      expect(gross - fee).toBeGreaterThanOrEqual(net);
+      expect(gross - fee).toBeLessThanOrEqual(net + 2);
+    }
+  });
+
+  it("caps the donor's added fee at $5 for large gifts", async () => {
+    const { grossUpCentsForMethod, ACH_FEE_CAP_CENTS } = await import("../giving/stripe");
+    expect(grossUpCentsForMethod(100000, "bank") - 100000).toBe(ACH_FEE_CAP_CENTS);
+    expect(grossUpCentsForMethod(500000, "bank") - 500000).toBe(ACH_FEE_CAP_CENTS);
+  });
+
+  it("bank fees undercut card fees at every size", async () => {
+    const { grossUpCentsForMethod } = await import("../giving/stripe");
+    for (const net of [2500, 5000, 25000, 100000]) {
+      expect(grossUpCentsForMethod(net, "bank")).toBeLessThan(grossUpCentsForMethod(net, "card"));
+    }
+  });
+
+  it("card method delegates to the card formula", async () => {
+    const { grossUpCentsForMethod, grossUpCents, parsePaymentMethod } = await import("../giving/stripe");
+    expect(grossUpCentsForMethod(5000, "card")).toBe(grossUpCents(5000));
+    expect(parsePaymentMethod("bank")).toBe("bank");
+    expect(parsePaymentMethod("card")).toBe("card");
+    expect(parsePaymentMethod(undefined)).toBe("card");
+    expect(parsePaymentMethod("crypto")).toBe("card");
+  });
+});

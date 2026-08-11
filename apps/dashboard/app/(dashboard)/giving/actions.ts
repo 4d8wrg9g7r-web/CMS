@@ -246,6 +246,7 @@ export async function saveOnlineGivingConfigAction(
 
     await onlineGivingService.saveConfig(organization.id, {
       enabled: formData.get("enabled") === "on",
+      achEnabled: formData.get("achEnabled") === "on",
       currency: str(formData, "currency") || "usd",
       stripeSecretKey: str(formData, "stripeSecretKey") || null,
       stripeWebhookSecret: str(formData, "stripeWebhookSecret") || null,

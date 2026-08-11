@@ -6,9 +6,10 @@ import {
   appMemberService,
   appService,
   giftAmountError,
-  grossUpCents,
+  grossUpCentsForMethod,
   onlineGivingService,
   type GiftInterval,
+  type GivePaymentMethod,
 } from "@cms/database";
 import { cancelStripeSubscription, createGiveCheckoutSession } from "../../../../lib/stripe-checkout";
 
@@ -19,7 +20,13 @@ import { cancelStripeSubscription, createGiveCheckoutSession } from "../../../..
  */
 export async function giveCheckoutAction(
   publicAppId: string,
-  input: { amountCents: number; fundId: string; interval: GiftInterval | null; coverFees?: boolean },
+  input: {
+    amountCents: number;
+    fundId: string;
+    interval: GiftInterval | null;
+    coverFees?: boolean;
+    paymentMethod?: GivePaymentMethod;
+  },
 ): Promise<{ url?: string; error?: string }> {
   try {
     const app = await appService.resolvePublicApp(publicAppId);
@@ -44,8 +51,10 @@ export async function giveCheckoutAction(
     const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
     const origin = `${proto}://${host}`;
 
+    const paymentMethod: GivePaymentMethod = input.paymentMethod === "bank" && config!.achEnabled ? "bank" : "card";
     const session = await createGiveCheckoutSession(config!.stripeSecretKey!, {
-      amountCents: input.coverFees ? grossUpCents(input.amountCents) : input.amountCents,
+      amountCents: input.coverFees ? grossUpCentsForMethod(input.amountCents, paymentMethod) : input.amountCents,
+      paymentMethod,
       currency: config!.currency,
       fundId: fund.id,
       fundName: fund.name,

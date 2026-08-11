@@ -178,6 +178,8 @@ export interface GroupSpace {
 /** In-app giving options (never keys). `online: false` → fall back to givingUrl. */
 export interface AppGiving {
   online: boolean;
+  /** Additive: bank (ACH) giving offered alongside card. */
+  bank?: boolean;
   currency: string;
   funds: { id: string; name: string }[];
 }

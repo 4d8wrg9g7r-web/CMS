@@ -153,6 +153,9 @@ model OnlineGivingConfig {
   stripeSecretKey     String?
   stripeWebhookSecret String?
   currency            String   @default("usd")
+  // Offer bank (ACH) giving — opt-in; the church must enable ACH debits on
+  // its Stripe account first or Checkout will reject the session.
+  achEnabled          Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

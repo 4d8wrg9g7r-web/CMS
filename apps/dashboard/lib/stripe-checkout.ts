@@ -1,4 +1,4 @@
-import { GIFT_INTERVALS, stripeFormEncode, type GiftInterval } from "@cms/database";
+import { GIFT_INTERVALS, stripeFormEncode, type GiftInterval, type GivePaymentMethod } from "@cms/database";
 
 /**
  * Stripe Checkout over plain REST (ADR-015 — no SDK; the API is form-encoded
@@ -42,6 +42,8 @@ export interface GiveCheckoutInput {
   fundName: string;
   /** null = one-time; otherwise a GIFT_INTERVALS key (week / 2week / month). */
   interval: GiftInterval | null;
+  /** card (default) or bank (ACH Direct Debit — settles asynchronously). */
+  paymentMethod: GivePaymentMethod;
   personId: string | null;
   successUrl: string;
   cancelUrl: string;
@@ -59,6 +61,7 @@ export async function createGiveCheckoutSession(
   const recurring = input.interval ? GIFT_INTERVALS[input.interval] : null;
   const session = await stripePost<{ id: string; url: string | null }>(secretKey, "/checkout/sessions", {
     mode: recurring ? "subscription" : "payment",
+    payment_method_types: [input.paymentMethod === "bank" ? "us_bank_account" : "card"],
     line_items: [
       {
         quantity: 1,

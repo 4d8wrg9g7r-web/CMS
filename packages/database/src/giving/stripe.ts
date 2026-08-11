@@ -114,3 +114,25 @@ export function grossUpCents(netCents: number): number {
 export function feeCoverCents(netCents: number): number {
   return grossUpCents(netCents) - netCents;
 }
+
+export type GivePaymentMethod = "card" | "bank";
+
+export function parsePaymentMethod(value: unknown): GivePaymentMethod {
+  return value === "bank" ? "bank" : "card";
+}
+
+/** ACH Direct Debit fee model: 0.8% capped at $5 — the cheap way to give big. */
+export const ACH_FEE_PERCENT = 0.008;
+export const ACH_FEE_CAP_CENTS = 500;
+
+/**
+ * Method-aware gross-up. Bank: gross = net/(1-0.8%) until the fee hits the $5
+ * cap, then flat net + $5. Card: the 2.9% + 30¢ formula above.
+ */
+export function grossUpCentsForMethod(netCents: number, method: GivePaymentMethod): number {
+  if (method === "bank") {
+    const uncapped = Math.ceil(netCents / (1 - ACH_FEE_PERCENT));
+    return uncapped - netCents >= ACH_FEE_CAP_CENTS ? netCents + ACH_FEE_CAP_CENTS : uncapped;
+  }
+  return grossUpCents(netCents);
+}

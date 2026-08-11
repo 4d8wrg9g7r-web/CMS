@@ -21,6 +21,17 @@ export function OnlineGivingSettings({ config }: { config: MaskedGivingConfig })
         Accept gifts in the church app
       </label>
 
+      <label className="flex items-start gap-2 text-sm text-ink">
+        <input type="checkbox" name="achEnabled" defaultChecked={config.achEnabled} className="mt-0.5 h-4 w-4" />
+        <span>
+          Offer bank (ACH) giving
+          <span className="block text-xs text-ink-muted">
+            0.8% fee capped at $5 — enable ACH Direct Debit on your Stripe account first, or bank checkouts will
+            fail. Bank gifts settle in a few business days and are recorded when they clear.
+          </span>
+        </span>
+      </label>
+
       <label className="text-xs text-ink-secondary">
         Stripe secret key{" "}
         {config.hasSecretKey && <span className="text-ink-muted">(saved — ends in {config.secretKeyLast4})</span>}

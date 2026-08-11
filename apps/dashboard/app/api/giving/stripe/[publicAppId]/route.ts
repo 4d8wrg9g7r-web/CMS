@@ -12,8 +12,13 @@ export const runtime = "nodejs";
  * impossible by construction.
  *
  * Recorded events:
- *   - checkout.session.completed (mode=payment): one-time gifts, keyed by
- *     payment_intent. Subscription checkouts are skipped here — their first
+ *   - checkout.session.completed (mode=payment, payment_status=paid): one-time
+ *     CARD gifts, keyed by payment_intent. ACH sessions complete with
+ *     payment_status "unpaid" (the debit takes days to clear) and are skipped
+ *     here — money is only ever recorded once it actually settles.
+ *   - checkout.session.async_payment_succeeded (mode=payment): the settled ACH
+ *     debit — recorded with method ACH. async_payment_failed records nothing.
+ *     Subscription checkouts are skipped in both — their first
  *     charge arrives as invoice.paid, so nothing double-records.
  *   - invoice.paid: recurring gifts (first charge + renewals), keyed by
  *     invoice id; fund/person metadata read from the subscription. Also
@@ -58,9 +63,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ publicA
   }
 
   try {
-    if (event.type === "checkout.session.completed") {
+    if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
       const session = event.data.object;
-      if (session.mode === "payment") {
+      // completed + "paid" = card, settled now. completed + "unpaid" = an async
+      // method (ACH) still clearing — skip; async_payment_succeeded is the
+      // settlement signal and records as a bank gift.
+      const isAsyncSettle = event.type === "checkout.session.async_payment_succeeded";
+      if (session.mode === "payment" && (isAsyncSettle || session.payment_status === "paid")) {
         const externalId = str(session.payment_intent);
         const amountCents = num(session.amount_total);
         if (externalId && amountCents) {
@@ -74,6 +83,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ publicA
             email: str(customer.email),
             donorName: str(customer.name),
             receivedAt: new Date(event.created * 1000),
+            method: isAsyncSettle ? "ACH" : "ONLINE",
           });
         }
       }

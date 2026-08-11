@@ -97,7 +97,13 @@ export async function setReaction(publicAppId: string, token: string, postId: st
 export async function startGiveCheckout(
   publicAppId: string,
   token: string | null,
-  input: { amountCents: number; fundId: string; interval: GiftInterval | null; coverFees: boolean },
+  input: {
+    amountCents: number;
+    fundId: string;
+    interval: GiftInterval | null;
+    coverFees: boolean;
+    paymentMethod: "card" | "bank";
+  },
 ): Promise<string> {
   const res = await fetch(`${apiBase()}${appPath(publicAppId, "/give/checkout")}`, {
     method: "POST",
@@ -110,6 +116,7 @@ export async function startGiveCheckout(
       fund_id: input.fundId,
       interval: input.interval,
       cover_fees: input.coverFees,
+      payment_method: input.paymentMethod,
     }),
   });
   const json = (await res.json().catch(() => ({}))) as { url?: string; message?: string };

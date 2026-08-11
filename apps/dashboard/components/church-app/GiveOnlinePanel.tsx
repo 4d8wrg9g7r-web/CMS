@@ -17,7 +17,15 @@ const PRESETS_CENTS = [2500, 5000, 10000, 25000];
 // node:crypto and must not enter the browser bundle). Keep in sync.
 const FEE_PERCENT = 0.029;
 const FEE_FIXED_CENTS = 30;
-const grossUp = (net: number) => Math.ceil((net + FEE_FIXED_CENTS) / (1 - FEE_PERCENT));
+const ACH_FEE_PERCENT = 0.008;
+const ACH_FEE_CAP_CENTS = 500;
+const grossUp = (net: number, method: "card" | "bank") => {
+  if (method === "bank") {
+    const uncapped = Math.ceil(net / (1 - ACH_FEE_PERCENT));
+    return uncapped - net >= ACH_FEE_CAP_CENTS ? net + ACH_FEE_CAP_CENTS : uncapped;
+  }
+  return Math.ceil((net + FEE_FIXED_CENTS) / (1 - FEE_PERCENT));
+};
 
 const FREQUENCIES = [
   { value: null, label: "One time" },
@@ -33,15 +41,18 @@ export function GiveOnlinePanel({
   publicAppId,
   funds,
   accent,
+  bankEnabled = false,
 }: {
   publicAppId: string;
   funds: { id: string; name: string }[];
   accent: string;
+  bankEnabled?: boolean;
 }) {
   const [amountText, setAmountText] = useState("50");
   const [fundId, setFundId] = useState(funds[0]?.id ?? "");
   const [interval, setInterval] = useState<"week" | "2week" | "month" | null>(null);
   const [coverFees, setCoverFees] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "bank">("card");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const amountRef = useRef<HTMLInputElement>(null);
@@ -51,15 +62,15 @@ export function GiveOnlinePanel({
     return Number.isFinite(parsed) ? Math.round(parsed * 100) : 0;
   }, [amountText]);
   const valid = amountCents >= 100;
-  const chargeCents = coverFees && valid ? grossUp(amountCents) : amountCents;
-  const feeCents = valid ? grossUp(amountCents) - amountCents : 0;
+  const chargeCents = coverFees && valid ? grossUp(amountCents, paymentMethod) : amountCents;
+  const feeCents = valid ? grossUp(amountCents, paymentMethod) - amountCents : 0;
   const frequencyLabel = FREQUENCIES.find((f) => f.value === interval)?.label ?? "";
 
   const give = async () => {
     if (!valid || busy) return;
     setBusy(true);
     setError(null);
-    const result = await giveCheckoutAction(publicAppId, { amountCents, fundId, interval, coverFees });
+    const result = await giveCheckoutAction(publicAppId, { amountCents, fundId, interval, coverFees, paymentMethod });
     if (result.url) {
       window.location.href = result.url;
       return;
@@ -125,6 +136,32 @@ export function GiveOnlinePanel({
         })}
       </div>
 
+      {bankEnabled && (
+        <div className="grid grid-cols-2 gap-1 rounded-full bg-neutral-100 p-1" role="radiogroup" aria-label="Payment method">
+          {(
+            [
+              { value: "card" as const, label: "\uD83D\uDCB3 Card" },
+              { value: "bank" as const, label: "\uD83C\uDFE6 Bank (lower fees)" },
+            ] as const
+          ).map(({ value, label }) => {
+            const selected = paymentMethod === value;
+            return (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setPaymentMethod(value)}
+                className="rounded-full py-1.5 text-[11px] font-semibold"
+                style={selected ? { backgroundColor: accent, color: "#ffffff" } : { color: "#525252" }}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {funds.length > 1 && (
         <label className="text-xs font-medium text-neutral-500">
           Give to
@@ -162,6 +199,11 @@ export function GiveOnlinePanel({
             : "Give"}
       </button>
       {error && <p className="text-center text-xs text-red-600">{error}</p>}
+      {paymentMethod === "bank" && (
+        <p className="text-center text-[11px] text-neutral-400">
+          Bank gifts take a few business days to settle before they appear in your history.
+        </p>
+      )}
       <p className="flex items-center justify-center gap-1 text-[11px] text-neutral-400">
         <Lock size={11} /> Secure checkout by Stripe — we never see your card.
       </p>

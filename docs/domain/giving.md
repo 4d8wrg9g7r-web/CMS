@@ -124,3 +124,20 @@ data (Stripe-hosted Checkout).
   Ownership = the personId link; a member can only ever see/cancel their own.
   Surfaces: PWA Give tab and native (`GET give/mine`,
   `POST give/recurring/[id] {action:"cancel"}`).
+
+## Bank (ACH) giving
+
+Opt-in per church (`OnlineGivingConfig.achEnabled` — the church must enable
+ACH Direct Debit on its Stripe account first). The give flow adds a
+Card / Bank toggle; bank fees are 0.8% capped at $5 (`grossUpCentsForMethod`),
+so fee-cover on large gifts costs dollars instead of tens of dollars.
+
+**Async settlement is the critical invariant**: an ACH Checkout session
+"completes" while the debit is still clearing, so
+`checkout.session.completed` is only recorded when `payment_status` is
+`"paid"` (card); the settled bank debit arrives days later as
+`checkout.session.async_payment_succeeded` and records then — method `ACH`,
+same idempotency key. A failed debit (`async_payment_failed`) records
+nothing. Money appears in the ledger only when it has actually settled.
+Recurring bank gifts need no special handling — `invoice.paid` already fires
+on settlement.

@@ -73,8 +73,12 @@ export {
   feeCoverCents,
   FEE_PERCENT,
   FEE_FIXED_CENTS,
+  parsePaymentMethod,
+  grossUpCentsForMethod,
+  ACH_FEE_PERCENT,
+  ACH_FEE_CAP_CENTS,
 } from "./giving/stripe";
-export type { GiftInterval } from "./giving/stripe";
+export type { GiftInterval, GivePaymentMethod } from "./giving/stripe";
 export type { ActivePage } from "./services/app-page-service";
 export { validateAppPageBlocks, toEmbedUrl, MAX_PAGE_BLOCKS } from "./app/page-blocks";
 export type { AppPageBlock, AppLinkTarget } from "./app/page-blocks";

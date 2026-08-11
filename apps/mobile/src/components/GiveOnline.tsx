@@ -17,7 +17,15 @@ const PRESETS_CENTS = [2500, 5000, 10000, 25000];
 // Client-safe mirror of giving/stripe.ts fee math — keep in sync.
 const FEE_PERCENT = 0.029;
 const FEE_FIXED_CENTS = 30;
-const grossUp = (net: number) => Math.ceil((net + FEE_FIXED_CENTS) / (1 - FEE_PERCENT));
+const ACH_FEE_PERCENT = 0.008;
+const ACH_FEE_CAP_CENTS = 500;
+const grossUp = (net: number, method: "card" | "bank") => {
+  if (method === "bank") {
+    const uncapped = Math.ceil(net / (1 - ACH_FEE_PERCENT));
+    return uncapped - net >= ACH_FEE_CAP_CENTS ? net + ACH_FEE_CAP_CENTS : uncapped;
+  }
+  return Math.ceil((net + FEE_FIXED_CENTS) / (1 - FEE_PERCENT));
+};
 
 const FREQUENCIES: { value: GiftInterval | null; label: string }[] = [
   { value: null, label: "One time" },
@@ -46,6 +54,7 @@ export function GiveOnline({
   const [fundId, setFundId] = useState(giving.funds[0]?.id ?? "");
   const [interval, setInterval] = useState<GiftInterval | null>(null);
   const [coverFees, setCoverFees] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "bank">("card");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mine, setMine] = useState<MyGiving | null>(null);
@@ -67,15 +76,15 @@ export function GiveOnline({
   const parsed = Number.parseFloat(amountText.replace(/[^0-9.]/g, ""));
   const amountCents = Number.isFinite(parsed) ? Math.round(parsed * 100) : 0;
   const valid = amountCents >= 100;
-  const chargeCents = coverFees && valid ? grossUp(amountCents) : amountCents;
-  const feeCents = valid ? grossUp(amountCents) - amountCents : 0;
+  const chargeCents = coverFees && valid ? grossUp(amountCents, paymentMethod) : amountCents;
+  const feeCents = valid ? grossUp(amountCents, paymentMethod) - amountCents : 0;
 
   const give = async () => {
     if (!valid || busy) return;
     setBusy(true);
     setError(null);
     try {
-      const url = await startGiveCheckout(publicAppId, token, { amountCents, fundId, interval, coverFees });
+      const url = await startGiveCheckout(publicAppId, token, { amountCents, fundId, interval, coverFees, paymentMethod });
       await WebBrowser.openBrowserAsync(url);
       await loadMine();
     } catch (err) {
@@ -138,6 +147,30 @@ export function GiveOnline({
             );
           })}
         </View>
+
+        {giving.bank === true && (
+          <View style={styles.freqTrack}>
+            {(
+              [
+                { value: "card", label: "\uD83D\uDCB3 Card" },
+                { value: "bank", label: "\uD83C\uDFE6 Bank (lower fees)" },
+              ] as { value: "card" | "bank"; label: string }[]
+            ).map(({ value, label }) => {
+              const selected = paymentMethod === value;
+              return (
+                <Pressable
+                  key={value}
+                  onPress={() => setPaymentMethod(value)}
+                  style={[styles.freqPill, selected && { backgroundColor: accent }]}
+                >
+                  <Text style={[styles.freqPillText, selected && styles.freqPillTextOn]} numberOfLines={1}>
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
 
         {giving.funds.length > 1 && (
           <View style={styles.fundRow}>

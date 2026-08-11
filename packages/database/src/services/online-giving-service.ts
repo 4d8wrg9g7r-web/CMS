@@ -11,6 +11,7 @@ import { tenantDb } from "../client";
 
 export interface MaskedGivingConfig {
   enabled: boolean;
+  achEnabled: boolean;
   currency: string;
   hasSecretKey: boolean;
   hasWebhookSecret: boolean;
@@ -27,6 +28,7 @@ export async function getMaskedConfig(organizationId: string): Promise<MaskedGiv
   const config = await getConfig(organizationId);
   return {
     enabled: config?.enabled ?? false,
+    achEnabled: config?.achEnabled ?? false,
     currency: config?.currency ?? "usd",
     hasSecretKey: Boolean(config?.stripeSecretKey),
     hasWebhookSecret: Boolean(config?.stripeWebhookSecret),
@@ -36,6 +38,7 @@ export async function getMaskedConfig(organizationId: string): Promise<MaskedGiv
 
 export interface SaveConfigInput {
   enabled: boolean;
+  achEnabled?: boolean;
   currency?: string;
   /** Empty/absent keeps the stored key; a value replaces it. */
   stripeSecretKey?: string | null;
@@ -59,6 +62,7 @@ export async function saveConfig(organizationId: string, input: SaveConfigInput)
       where: { id: existing.id, organizationId },
       data: {
         enabled: input.enabled,
+        ...(input.achEnabled === undefined ? {} : { achEnabled: input.achEnabled }),
         currency,
         ...(secretKey ? { stripeSecretKey: secretKey } : {}),
         ...(webhookSecret ? { stripeWebhookSecret: webhookSecret } : {}),
@@ -70,6 +74,7 @@ export async function saveConfig(organizationId: string, input: SaveConfigInput)
     data: {
       organizationId,
       enabled: input.enabled,
+      achEnabled: input.achEnabled ?? false,
       currency,
       stripeSecretKey: secretKey || null,
       stripeWebhookSecret: webhookSecret || null,
@@ -103,6 +108,8 @@ export interface OnlineContributionInput {
   email?: string | null;
   donorName?: string | null;
   receivedAt: Date;
+  /** ACH for settled bank debits; defaults to ONLINE (card / unknown). */
+  method?: "ONLINE" | "ACH";
 }
 
 /**
@@ -155,9 +162,9 @@ export async function recordOnlineContribution(
       donorName: personId ? null : (input.donorName?.trim() || null),
       fundId: fund.id,
       amountCents: input.amountCents,
-      method: ContributionMethod.ONLINE,
+      method: input.method === "ACH" ? ContributionMethod.ACH : ContributionMethod.ONLINE,
       receivedAt: input.receivedAt,
-      note: "Online gift (Stripe)",
+      note: input.method === "ACH" ? "Online gift — bank transfer (Stripe)" : "Online gift (Stripe)",
       externalId: input.externalId,
     },
   });

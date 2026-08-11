@@ -118,6 +118,7 @@ export default async function PublicAppPage({ params, searchParams }: Props) {
                 publicAppId={publicAppId}
                 funds={onlineFunds.map((f) => ({ id: f.id, name: f.name }))}
                 accent={app.manifest.themeColor}
+                bankEnabled={Boolean(givingConfig?.achEnabled)}
               />
               {member && (
                 <MyGivingPanel
