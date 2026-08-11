@@ -15,18 +15,18 @@ import type { ReportGroup } from "@cms/database";
  */
 
 const SERIES_1 = "#2a78d6";
-const SERIES_2 = "#eb6834";
 const CATEGORICAL = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"];
 const OTHER_COLOR = "#52514e";
 
-/** One aligned series; when two are passed their groups share labels and length. */
+/** One aligned series; all passed series share labels and length. */
 export interface ChartSeries {
   label: string;
   groups: ReportGroup[];
 }
 
+/** Fixed period colors, first four categorical slots — never cycled or reordered. */
 export function seriesColor(index: number): string {
-  return index === 0 ? SERIES_1 : SERIES_2;
+  return CATEGORICAL[Math.min(index, 3)]!;
 }
 
 function Legend({ series }: { series: ChartSeries[] }) {
@@ -75,9 +75,11 @@ export function ReportBarChart({ series, format }: { series: ChartSeries[]; form
             </div>
             <span className="w-24 shrink-0 text-right text-xs font-medium tabular-nums text-ink">
               {format(series[0]?.groups[row]?.value ?? 0)}
-              {series.length > 1 && (
-                <span className="block font-normal text-ink-muted">{format(series[1]?.groups[row]?.value ?? 0)}</span>
-              )}
+              {series.slice(1).map((s) => (
+                <span key={s.label} className="block font-normal text-ink-muted">
+                  {format(s.groups[row]?.value ?? 0)}
+                </span>
+              ))}
             </span>
           </div>
         ))}
@@ -297,13 +299,17 @@ export function ReportTable({
       <thead>
         <tr className="text-left text-xs text-ink-muted">
           <th className="pb-2 pr-4 font-medium">Group</th>
-          <th className="pb-2 pr-4 text-right font-medium">{comparing ? series[0]!.label : "Value"}</th>
-          {comparing && <th className="pb-2 pr-4 text-right font-medium">{series[1]!.label}</th>}
           {comparing ? (
-            <th className="pb-2 text-right font-medium">Change</th>
+            series.map((s, i) => (
+              <th key={s.label} className="pb-2 pr-4 text-right font-medium">
+                <span className="mr-1.5 inline-block h-2 w-2 rounded-[2px]" style={{ backgroundColor: seriesColor(i) }} />
+                {s.label}
+              </th>
+            ))
           ) : (
-            <th className="pb-2 text-right font-medium">Share</th>
+            <th className="pb-2 pr-4 text-right font-medium">Value</th>
           )}
+          <th className="pb-2 text-right font-medium">{comparing ? `Change vs ${series[1]!.label}` : "Share"}</th>
         </tr>
       </thead>
       <tbody>
@@ -313,8 +319,18 @@ export function ReportTable({
           return (
             <tr key={label} className="border-t border-border">
               <td className="py-1.5 pr-4">{label}</td>
-              <td className="py-1.5 pr-4 text-right tabular-nums">{format(cur)}</td>
-              {comparing && <td className="py-1.5 pr-4 text-right tabular-nums text-ink-secondary">{format(prev)}</td>}
+              {comparing ? (
+                series.map((s, i) => (
+                  <td
+                    key={s.label}
+                    className={`py-1.5 pr-4 text-right tabular-nums ${i === 0 ? "" : "text-ink-secondary"}`}
+                  >
+                    {format(s.groups[row]?.value ?? 0)}
+                  </td>
+                ))
+              ) : (
+                <td className="py-1.5 pr-4 text-right tabular-nums">{format(cur)}</td>
+              )}
               <td className="py-1.5 text-right text-xs tabular-nums text-ink-muted">
                 {comparing
                   ? change(cur, prev)
@@ -327,8 +343,15 @@ export function ReportTable({
         })}
         <tr className="border-t border-border font-semibold">
           <td className="py-1.5 pr-4">Total</td>
-          <td className="py-1.5 pr-4 text-right tabular-nums">{format(totals[0] ?? 0)}</td>
-          {comparing && <td className="py-1.5 pr-4 text-right tabular-nums text-ink-secondary">{format(totals[1] ?? 0)}</td>}
+          {comparing ? (
+            series.map((s, i) => (
+              <td key={s.label} className={`py-1.5 pr-4 text-right tabular-nums ${i === 0 ? "" : "text-ink-secondary"}`}>
+                {format(totals[i] ?? 0)}
+              </td>
+            ))
+          ) : (
+            <td className="py-1.5 pr-4 text-right tabular-nums">{format(totals[0] ?? 0)}</td>
+          )}
           <td className="py-1.5 text-right text-xs tabular-nums text-ink-muted">
             {comparing ? change(totals[0] ?? 0, totals[1] ?? 0) : ""}
           </td>

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import {
   aggregateReport,
-  alignSeries,
+  alignMany,
   auditService,
   peopleService,
   periodLabel,
@@ -59,9 +59,9 @@ export interface RunReportResult {
   rowCount?: number;
   truncated?: boolean;
   measure?: ReportMeasure;
-  /** Set when the config compares two periods: aligned to the same labels as groups. */
+  /** Set when the config compares periods: each aligned to the same labels as groups. */
   primaryLabel?: string;
-  comparison?: { label: string; groups: ReportGroup[]; total: number };
+  comparisons?: { label: string; groups: ReportGroup[]; total: number }[];
 }
 
 export async function runReportAction(input: { config: unknown }): Promise<RunReportResult> {
@@ -88,27 +88,41 @@ export async function runReportAction(input: { config: unknown }): Promise<RunRe
       };
     }
 
-    // Comparison run: identical config over the shifted range, aligned to the
-    // primary series so every chart gets two same-length, same-label series.
-    const shifted = shiftRange(validated.config.from, validated.config.to, validated.config.compare);
-    const compareConfig: ReportConfig = { ...validated.config, from: shifted.from, to: shifted.to, compare: null };
-    const compareFetch = await reportingService.fetchReportRows(organization.id, compareConfig);
-    const compareResult = aggregateReport(compareFetch.rows, compareConfig);
-    const aligned = alignSeries(result, compareResult, validated.config.groupBy.kind);
+    // Comparison runs: identical config over successively shifted ranges, all
+    // aligned to the primary so every chart gets same-length, same-label series.
+    const count = validated.config.compareCount ?? 1;
+    const ranges: { from: string; to: string }[] = [];
+    let range = { from: validated.config.from, to: validated.config.to };
+    for (let k = 0; k < count; k++) {
+      range = shiftRange(range.from, range.to, validated.config.compare);
+      ranges.push(range);
+    }
+    const compareResults = await Promise.all(
+      ranges.map(async (r) => {
+        const compareConfig: ReportConfig = { ...validated.config, from: r.from, to: r.to, compare: null };
+        const fetch = await reportingService.fetchReportRows(organization.id, compareConfig);
+        return { result: aggregateReport(fetch.rows, compareConfig), truncated: fetch.truncated };
+      }),
+    );
+    const aligned = alignMany(
+      result,
+      compareResults.map((c) => c.result),
+      validated.config.groupBy.kind,
+    );
 
     return {
       ok: true,
-      groups: aligned.labels.map((label, i) => ({ label, value: aligned.primary[i] ?? 0 })),
+      groups: aligned.labels.map((label, i) => ({ label, value: aligned.values[0]?.[i] ?? 0 })),
       total: result.total,
       rowCount: result.rowCount,
-      truncated: truncated || compareFetch.truncated,
+      truncated: truncated || compareResults.some((c) => c.truncated),
       measure: result.measure,
       primaryLabel: periodLabel(validated.config.from, validated.config.to),
-      comparison: {
-        label: periodLabel(shifted.from, shifted.to),
-        groups: aligned.labels.map((label, i) => ({ label, value: aligned.comparison[i] ?? 0 })),
-        total: compareResult.total,
-      },
+      comparisons: ranges.map((r, k) => ({
+        label: periodLabel(r.from, r.to),
+        groups: aligned.labels.map((label, i) => ({ label, value: aligned.values[k + 1]?.[i] ?? 0 })),
+        total: compareResults[k]!.result.total,
+      })),
     };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not run the report" };

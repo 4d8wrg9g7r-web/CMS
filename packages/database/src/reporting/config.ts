@@ -42,9 +42,13 @@ export interface ReportConfig {
   measure: ReportMeasure;
   chart: ReportChart;
   filters: ReportFilters;
-  /** Overlay a second color-coded period (e.g. this year vs last year). */
+  /** Overlay color-coded prior periods (e.g. this year vs last year). */
   compare?: CompareMode | null;
+  /** How many prior periods to overlay (1–3, so 4 series total). Default 1. */
+  compareCount?: number | null;
 }
+
+export const MAX_COMPARE_COUNT = 3;
 
 /** Person-attribute dimensions available on every source (rows join to a Person). */
 export const PERSON_DIMENSIONS = ["membershipStatus", "campus"] as const;
@@ -132,6 +136,7 @@ export function validateReportConfig(input: unknown, customFieldKeys: string[]):
   }
 
   let compare: CompareMode | null = null;
+  let compareCount: number | null = null;
   if (raw.compare !== undefined && raw.compare !== null) {
     if (!COMPARE_MODES.includes(raw.compare as CompareMode)) {
       errors.push("Unknown comparison mode.");
@@ -139,9 +144,17 @@ export function validateReportConfig(input: unknown, customFieldKeys: string[]):
       errors.push("Comparisons need explicit start and end dates.");
     } else {
       compare = raw.compare as CompareMode;
+      const rawCount = raw.compareCount;
+      if (rawCount === undefined || rawCount === null) {
+        compareCount = 1;
+      } else if (!Number.isInteger(rawCount) || rawCount < 1 || rawCount > MAX_COMPARE_COUNT) {
+        errors.push(`Comparisons support 1–${MAX_COMPARE_COUNT} prior periods.`);
+      } else {
+        compareCount = rawCount;
+      }
     }
   }
 
   if (errors.length > 0) return { ok: false, errors };
-  return { ok: true, config: { source, from, to, groupBy, measure, chart, filters, compare } };
+  return { ok: true, config: { source, from, to, groupBy, measure, chart, filters, compare, compareCount } };
 }

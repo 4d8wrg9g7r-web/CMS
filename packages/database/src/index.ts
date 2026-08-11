@@ -156,9 +156,9 @@ export type {
   ReportSource,
   TimeBucket,
 } from "./reporting/config";
-export { aggregateReport, alignSeries, periodLabel, shiftRange, MAX_TIME_BUCKETS } from "./reporting/aggregate";
-export type { AlignedSeries, ReportGroup, ReportResult, ReportRow } from "./reporting/aggregate";
-export { COMPARE_MODES } from "./reporting/config";
+export { aggregateReport, alignMany, alignSeries, periodLabel, shiftRange, MAX_TIME_BUCKETS } from "./reporting/aggregate";
+export type { AlignedMany, AlignedSeries, ReportGroup, ReportResult, ReportRow } from "./reporting/aggregate";
+export { COMPARE_MODES, MAX_COMPARE_COUNT } from "./reporting/config";
 export type { CompareMode } from "./reporting/config";
 
 export * as groupPermissions from "./authz/group-permissions";

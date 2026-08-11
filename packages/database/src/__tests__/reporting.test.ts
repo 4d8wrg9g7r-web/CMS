@@ -8,6 +8,7 @@ import {
 } from "../reporting/config";
 import {
   aggregateReport,
+  alignMany,
   alignSeries,
   periodLabel,
   shiftRange,
@@ -199,5 +200,49 @@ describe("alignSeries", () => {
     expect(aligned.labels).toEqual(["General", "Missions", "Building"]);
     expect(aligned.primary).toEqual([100, 40, 0]);
     expect(aligned.comparison).toEqual([80, 0, 25]);
+  });
+
+  it("aligns four series at once across time and dimensions", () => {
+    const time = alignMany(
+      result([["Jan 2026", 5], ["Feb 2026", 8]]),
+      [result([["Jan 2025", 3]]), result([["Jan 2024", 1], ["Feb 2024", 2]]), result([])],
+      "time",
+    );
+    expect(time.values).toEqual([
+      [5, 8],
+      [3, 0],
+      [1, 2],
+      [0, 0],
+    ]);
+
+    const dims = alignMany(
+      result([["General", 100]]),
+      [result([["Building", 25]]), result([["General", 10], ["Youth", 5]])],
+      "dimension",
+    );
+    expect(dims.labels).toEqual(["General", "Building", "Youth"]);
+    expect(dims.values).toEqual([
+      [100, 0, 0],
+      [0, 25, 0],
+      [10, 0, 5],
+    ]);
+  });
+});
+
+describe("compareCount validation and iterated shifts", () => {
+  it("defaults to 1, accepts up to 3, rejects beyond", () => {
+    const one = validateReportConfig(base({ compare: "previousYear" }), KEYS);
+    expect(one.ok && one.config.compareCount).toBe(1);
+    const three = validateReportConfig(base({ compare: "previousYear", compareCount: 3 }), KEYS);
+    expect(three.ok && three.config.compareCount).toBe(3);
+    expect(validateReportConfig(base({ compare: "previousYear", compareCount: 4 }), KEYS).ok).toBe(false);
+    expect(validateReportConfig(base({ compare: "previousYear", compareCount: 0 }), KEYS).ok).toBe(false);
+  });
+
+  it("shifts ranges repeatedly for deeper comparisons", () => {
+    let range = { from: "2026-01-01", to: "2026-12-31" };
+    range = shiftRange(range.from, range.to, "previousYear");
+    range = shiftRange(range.from, range.to, "previousYear");
+    expect(range).toEqual({ from: "2024-01-01", to: "2024-12-31" });
   });
 });

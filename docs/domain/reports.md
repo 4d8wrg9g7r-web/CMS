@@ -38,16 +38,19 @@ ranges: presets (this month/30/90/this year/last year/all time) or custom bounds
 - **SavedReport**: name + config JSON per org, re-validated on every use.
 
 ## Comparisons
-`compare: "previousYear" | "previousPeriod"` (explicit from/to required) runs the
-identical config over the shifted range (`shiftRange`, pure: previous-year keeps
+`compare: "previousYear" | "previousPeriod"` with `compareCount` 1–3 (explicit
+from/to required; up to 4 series total) runs the identical config over each
+successively shifted range (`shiftRange`, pure: previous-year keeps
 month/day with Feb-29 clamped; previous-period shifts back by the exact range
 length) and aligns the two runs (`alignSeries`, pure: time series positionally —
 "Jan 2026" pairs with "Jan 2025" — padded with zeros; dimensions by label with
 comparison-only labels appended). Color codes the period on every chart —
-series-1 blue = current, series-2 orange = comparison, never cycled — with a
-legend whenever two series render; the headline shows both totals and the change
-%; the table gains a per-group Change column; pie/donut comparisons render as
-side-by-side small multiples sharing one category-color mapping.
+the first four categorical slots in fixed order (blue = current, then orange,
+aqua, yellow), never cycled — with a legend whenever multiple series render; the
+headline shows every period's total and the change % vs the most recent prior
+period; the table gains a swatched column per period plus a Change column;
+pie/donut comparisons render as side-by-side small multiples sharing one
+category-color mapping.
 
 ## Charts
 Dependency-free (a chart library would need an ADR): horizontal bars and a line

@@ -28,7 +28,7 @@ export interface ReportAiMetadata {
 const CONFIG_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["source", "from", "to", "groupKind", "bucket", "field", "measure", "chart", "compare", "filters", "explanation"],
+  required: ["source", "from", "to", "groupKind", "bucket", "field", "measure", "chart", "compare", "compareCount", "filters", "explanation"],
   properties: {
     source: { type: "string", enum: ["people", "attendance", "giving"] },
     from: { type: ["string", "null"] },
@@ -39,6 +39,7 @@ const CONFIG_SCHEMA = {
     measure: { type: "string", enum: ["count", "uniquePeople", "sumAmount"] },
     chart: { type: "string", enum: ["bar", "line", "pie", "donut", "table"] },
     compare: { type: ["string", "null"], enum: ["previousPeriod", "previousYear", null] },
+    compareCount: { type: ["integer", "null"], minimum: 1, maximum: 3 },
     filters: {
       type: "object",
       additionalProperties: false,
@@ -64,7 +65,7 @@ Measures: people supports only count; attendance supports count and uniquePeople
 Grouping: groupKind "time" with bucket week/month/year (set field to null), or groupKind "dimension" with field set to one of: membershipStatus, campus, or "custom:<key>" for a listed custom field; attendance also allows "event"; giving also allows "fund" and "method" (set bucket to null).
 Filters: use ids from the provided lists for campusId/fundId/eventId; customFieldKey must be a listed key with customFieldValue set ("Yes"/"No" for yes-no fields).
 Charts: line for over-time questions, bar for category comparisons, pie or donut for share-of-total, table when the user asks for exact numbers.
-Compare: when the question compares two periods ("this year vs last year", "compared to the previous quarter"), set compare to "previousYear" or "previousPeriod" — from/to must then be explicit dates for the CURRENT period, never null. Otherwise compare is null.
+Compare: when the question compares periods ("this year vs last year", "compared to the previous quarter", "the last four years"), set compare to "previousYear" or "previousPeriod" with compareCount = how many PRIOR periods to overlay (1–3; "last four years" → previousYear, compareCount 3). from/to must then be explicit dates for the CURRENT period, never null. Otherwise compare and compareCount are null.
 Dates: from/to are YYYY-MM-DD or null (all time). Compute relative ranges ("last quarter", "this year") from the provided today's date.
 If the question is ambiguous, pick the most reasonable reading and state the assumption in the explanation. The explanation is one or two sentences, plain language, describing exactly what the report shows.
 If the question asks for something the report engine cannot express (per-person lists, predictions, comparisons of two measures at once), choose the nearest expressible report and say what you approximated in the explanation.`;
@@ -114,6 +115,7 @@ export async function askReportAssistant(input: {
     measure: string;
     chart: string;
     compare: string | null;
+    compareCount: number | null;
     filters: Record<string, string | null>;
     explanation: string;
   };
@@ -134,6 +136,7 @@ export async function askReportAssistant(input: {
     measure: raw.measure,
     chart: raw.chart,
     compare: raw.compare,
+    compareCount: raw.compareCount,
     filters: raw.filters,
   } as ReportConfig;
 

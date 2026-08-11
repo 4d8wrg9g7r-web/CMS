@@ -107,37 +107,58 @@ export interface AlignedSeries {
   comparison: number[];
 }
 
+export interface AlignedMany {
+  labels: string[];
+  /** values[0] is the primary; values[1..] are the comparisons, in order. */
+  values: number[][];
+}
+
 /**
- * Aligns a comparison run against the primary. Time series align positionally
- * (bucket 1 vs bucket 1 — "Jan 2026" pairs with "Jan 2025"), padded with zeros;
- * dimension series align by label, with comparison-only labels appended so nothing
- * silently disappears.
+ * Aligns any number of comparison runs against the primary. Time series align
+ * positionally (bucket 1 vs bucket 1 — "Jan 2026" pairs with "Jan 2025"), padded
+ * with zeros; dimension series align by label, with labels that only appear in a
+ * comparison appended so nothing silently disappears.
  */
+export function alignMany(
+  primary: ReportResult,
+  comparisons: ReportResult[],
+  kind: "time" | "dimension",
+): AlignedMany {
+  if (kind === "time") {
+    const labels = primary.groups.map((g) => g.label);
+    return {
+      labels,
+      values: [
+        primary.groups.map((g) => g.value),
+        ...comparisons.map((c) => labels.map((_, i) => c.groups[i]?.value ?? 0)),
+      ],
+    };
+  }
+  const seen = new Set(primary.groups.map((g) => g.label));
+  const labels = [...primary.groups.map((g) => g.label)];
+  for (const c of comparisons) {
+    for (const g of c.groups) {
+      if (!seen.has(g.label)) {
+        seen.add(g.label);
+        labels.push(g.label);
+      }
+    }
+  }
+  const byLabel = (r: ReportResult) => {
+    const map = new Map(r.groups.map((g) => [g.label, g.value]));
+    return labels.map((l) => map.get(l) ?? 0);
+  };
+  return { labels, values: [byLabel(primary), ...comparisons.map(byLabel)] };
+}
+
+/** Two-series convenience over alignMany (kept for callers and tests). */
 export function alignSeries(
   primary: ReportResult,
   comparison: ReportResult,
   kind: "time" | "dimension",
 ): AlignedSeries {
-  if (kind === "time") {
-    const labels = primary.groups.map((g) => g.label);
-    return {
-      labels,
-      primary: primary.groups.map((g) => g.value),
-      comparison: labels.map((_, i) => comparison.groups[i]?.value ?? 0),
-    };
-  }
-  const comparisonByLabel = new Map(comparison.groups.map((g) => [g.label, g.value]));
-  const primaryLabels = new Set(primary.groups.map((g) => g.label));
-  const labels = [
-    ...primary.groups.map((g) => g.label),
-    ...comparison.groups.filter((g) => !primaryLabels.has(g.label)).map((g) => g.label),
-  ];
-  const primaryByLabel = new Map(primary.groups.map((g) => [g.label, g.value]));
-  return {
-    labels,
-    primary: labels.map((l) => primaryByLabel.get(l) ?? 0),
-    comparison: labels.map((l) => comparisonByLabel.get(l) ?? 0),
-  };
+  const aligned = alignMany(primary, [comparison], kind);
+  return { labels: aligned.labels, primary: aligned.values[0]!, comparison: aligned.values[1]! };
 }
 
 export function aggregateReport(rows: ReportRow[], config: ReportConfig): ReportResult {

@@ -119,6 +119,7 @@ export function ReportBuilder({
   // Over-time reports read best as lines, so that's the default.
   const [chart, setChart] = useState<ReportChart>("line");
   const [compare, setCompare] = useState<CompareMode | "">("");
+  const [compareCount, setCompareCount] = useState(1);
   const [question, setQuestion] = useState("");
   const [asking, setAsking] = useState(false);
   const [aiAnswer, setAiAnswer] = useState<{ question: string; explanation: string } | null>(null);
@@ -150,6 +151,7 @@ export function ReportBuilder({
       measure,
       chart,
       compare: range.from && range.to && compare ? compare : null,
+      compareCount: range.from && range.to && compare ? compareCount : null,
       filters: {
         membershipStatus: status || null,
         campusId: campusId || null,
@@ -212,6 +214,7 @@ export function ReportBuilder({
     setCustomKey(c.filters?.customFieldKey ?? "");
     setCustomValue(c.filters?.customFieldValue ?? "");
     setCompare((c.compare as CompareMode | null) ?? "");
+    setCompareCount((c as { compareCount?: number | null }).compareCount ?? 1);
   }
 
   async function ask() {
@@ -387,10 +390,24 @@ export function ReportBuilder({
               title={preset === "all" ? "Comparisons need a bounded date range" : undefined}
             >
               <option value="">No comparison</option>
-              <option value="previousYear">vs same period last year</option>
-              <option value="previousPeriod">vs previous period</option>
+              <option value="previousYear">vs prior years</option>
+              <option value="previousPeriod">vs prior periods</option>
             </Select>
           </label>
+          {compare && preset !== "all" && (
+            <label className="text-sm text-ink-secondary">
+              Periods
+              <Select
+                value={String(compareCount + 1)}
+                onChange={(e) => setCompareCount(Number(e.target.value) - 1)}
+                className="mt-1 block w-24"
+              >
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+              </Select>
+            </label>
+          )}
         </div>
 
         <div className="flex flex-wrap items-end gap-3 border-t border-border pt-3">
@@ -535,15 +552,15 @@ export function ReportBuilder({
         )}
         {result?.ok &&
           (() => {
+            const comparisons = result.comparisons ?? [];
             const series: ChartSeries[] = [
               { label: result.primaryLabel ?? "Current", groups },
-              ...(result.comparison ? [{ label: result.comparison.label, groups: result.comparison.groups }] : []),
+              ...comparisons.map((c) => ({ label: c.label, groups: c.groups })),
             ];
-            const totals = [result.total ?? 0, ...(result.comparison ? [result.comparison.total] : [])];
+            const totals = [result.total ?? 0, ...comparisons.map((c) => c.total)];
+            const first = comparisons[0];
             const changePct =
-              result.comparison && result.comparison.total > 0
-                ? (((result.total ?? 0) - result.comparison.total) / result.comparison.total) * 100
-                : null;
+              first && first.total > 0 ? (((result.total ?? 0) - first.total) / first.total) * 100 : null;
             return (
               <>
                 <div className="mb-5 flex flex-wrap items-baseline gap-x-6 gap-y-1">
@@ -551,15 +568,20 @@ export function ReportBuilder({
                   <p className="text-sm text-ink-secondary">
                     {MEASURE_LABELS[result.measure ?? "count"]} · {result.rowCount?.toLocaleString("en-US")} records
                   </p>
-                  {result.comparison && (
+                  {first && (
                     <p className="text-sm text-ink-secondary">
-                      vs {result.comparison.label}: <span className="tabular-nums">{format(result.comparison.total)}</span>
+                      vs {first.label}: <span className="tabular-nums">{format(first.total)}</span>
                       {changePct !== null && (
                         <span className={`ml-1.5 font-semibold ${changePct >= 0 ? "text-success" : "text-danger"}`}>
                           {changePct >= 0 ? "+" : ""}
                           {changePct.toFixed(1)}%
                         </span>
                       )}
+                      {comparisons.slice(1).map((c) => (
+                        <span key={c.label} className="ml-3 text-ink-muted">
+                          {c.label}: <span className="tabular-nums">{format(c.total)}</span>
+                        </span>
+                      ))}
                     </p>
                   )}
                   {result.truncated && (
