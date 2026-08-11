@@ -21,6 +21,7 @@ import { disablePush, enablePush, isPushEnabled } from "../push";
 import type { AppPayload, AppTab } from "../contract";
 import { Feed, type FeedActions } from "../components/Feed";
 import { PageBlocks } from "../components/PageBlocks";
+import { GroupSpaceScreen } from "./GroupSpaceScreen";
 import { SignInScreen } from "./SignInScreen";
 
 /**
@@ -124,6 +125,7 @@ export function ChurchAppScreen({ publicAppId, onSwitchChurch }: { publicAppId: 
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const [pushOn, setPushOn] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushError, setPushError] = useState<string | null>(null);
@@ -380,19 +382,48 @@ export function ChurchAppScreen({ publicAppId, onSwitchChurch }: { publicAppId: 
             ))}
           </View>
         );
-      case "groups":
-        return content.groups.length === 0 ? (
-          <Text style={styles.empty}>No groups right now</Text>
-        ) : (
+      case "groups": {
+        const mine = member && token ? (myGroups ?? []) : [];
+        return (
           <View style={styles.column}>
-            {content.groups.map((group) => (
-              <Card key={group.id}>
-                <Text style={styles.itemTitle}>{group.name}</Text>
-                {group.description && <Text style={styles.itemMeta}>{group.description}</Text>}
-              </Card>
-            ))}
+            {mine.length > 0 && (
+              <View style={styles.column}>
+                <Text style={styles.sectionLabel}>MY GROUPS</Text>
+                {mine.map((group) => (
+                  <Pressable key={group.id} onPress={() => setOpenGroupId(group.id)}>
+                    <Card>
+                      <View style={styles.myGroupRow}>
+                        <Text style={styles.itemTitle}>👥 {group.name}</Text>
+                        <Text style={[styles.myGroupOpen, { color: accent }]}>Open ›</Text>
+                      </View>
+                    </Card>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+            {!member && (
+              <Pressable style={styles.signInBanner} onPress={() => setSigningIn(true)}>
+                <Text style={[styles.signInBannerText, { color: accent }]}>
+                  Sign in to chat with your groups →
+                </Text>
+              </Pressable>
+            )}
+            {content.groups.length === 0 ? (
+              mine.length === 0 && <Text style={styles.empty}>No groups right now</Text>
+            ) : (
+              <View style={styles.column}>
+                {mine.length > 0 && <Text style={styles.sectionLabel}>ALL GROUPS</Text>}
+                {content.groups.map((group) => (
+                  <Card key={group.id}>
+                    <Text style={styles.itemTitle}>{group.name}</Text>
+                    {group.description && <Text style={styles.itemMeta}>{group.description}</Text>}
+                  </Card>
+                ))}
+              </View>
+            )}
           </View>
         );
+      }
       case "forms":
         return content.forms.length === 0 ? (
           <Text style={styles.empty}>Nothing to fill out right now</Text>
@@ -463,6 +494,20 @@ export function ChurchAppScreen({ publicAppId, onSwitchChurch }: { publicAppId: 
 
   return (
     <View style={styles.screen}>
+      <Modal visible={openGroupId !== null} animationType="slide" onRequestClose={() => setOpenGroupId(null)}>
+        {openGroupId && token && (
+          <GroupSpaceScreen
+            publicAppId={publicAppId}
+            groupId={openGroupId}
+            token={token}
+            accent={accent}
+            onClose={() => {
+              setOpenGroupId(null);
+              void load();
+            }}
+          />
+        )}
+      </Modal>
       <Modal visible={signingIn} animationType="slide" onRequestClose={() => setSigningIn(false)}>
         <SignInScreen
           publicAppId={publicAppId}
@@ -584,6 +629,9 @@ const styles = StyleSheet.create({
   },
   draftPhotoRemoveText: { color: "#ffffff", fontSize: 12, fontWeight: "700" },
   card: { backgroundColor: "#ffffff", borderRadius: 12, borderWidth: 1, borderColor: "#e5e5e5", padding: 14, gap: 2 },
+  sectionLabel: { fontSize: 11, fontWeight: "800", color: "#a3a3a3", letterSpacing: 0.8 },
+  myGroupRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  myGroupOpen: { fontSize: 13, fontWeight: "700" },
   itemTitle: { fontSize: 15, fontWeight: "600", color: "#171717" },
   itemMeta: { fontSize: 13, color: "#737373" },
   link: { fontSize: 14, fontWeight: "700", marginTop: 6 },

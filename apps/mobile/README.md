@@ -46,12 +46,22 @@ APP_VARIANT=whitelabel CHURCH_APP_ID=... npx eas build          # white-label bu
 npx eas submit                     # store submission
 ```
 
+## Group spaces
+
+Signed-in members see **My groups** on the Groups tab; each opens the native
+group space (`GroupSpaceScreen`): chat/link/prayer stream with anonymous
+prayers and "I'm praying" toggles, group events with RSVP, and polls. Leaders
+also get moderation (hide/restore) plus new-event and new-poll forms on a Lead
+tab. Same Bearer API and rules as the PWA's `/a/<id>/group/<groupId>`.
+
 ## Deliberately not here yet
 
 - Store assets (icons/splash are Expo defaults until branding pass)
 - Remote push requires a physical device; in Expo Go remote push support
   varies by SDK — a development build (`eas build --profile development`) is
   the reliable way to test the "Notify me" flow end to end
+- Leader attendance sheets, member add/remove, and email-the-group — web
+  (PWA group space + dashboard) covers these; the native Lead tab links out
 
 Contract types live in `src/contract.ts` and mirror the API additively — the
 server never breaks them; never widen them here.

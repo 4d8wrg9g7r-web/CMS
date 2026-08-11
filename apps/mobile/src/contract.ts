@@ -118,6 +118,63 @@ export interface ApiMember {
   photo_url: string | null;
 }
 
+/**
+ * The group space payload (docs/domain/groups.md) — served by
+ * GET /api/app/v1/apps/[id]/groups/[groupId], camelCase like the feed since it
+ * serializes the canonical GroupSpace from packages/database.
+ */
+export interface GroupStreamItem {
+  id: string;
+  kind: "MESSAGE" | "LINK" | "PRAYER";
+  body: string;
+  url: string | null;
+  authorName: string | null;
+  authorAvatarUrl: string | null;
+  isStaff: boolean;
+  anonymous: boolean;
+  hidden: boolean;
+  prayingCount: number;
+  prayingByMe: boolean;
+  createdAt: string;
+}
+
+export interface GroupSpaceEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  startAt: string;
+  going: number;
+  maybe: number;
+  myRsvp: string | null;
+  attendance: { personId: string; name: string; attended: boolean | null; rsvp: string }[];
+}
+
+export interface GroupSpacePoll {
+  id: string;
+  question: string;
+  options: string[];
+  closed: boolean;
+  totalVotes: number;
+  counts: number[];
+  myVote: number | null;
+}
+
+export interface GroupSpace {
+  group: {
+    id: string;
+    name: string;
+    description: string | null;
+    meetingSchedule: string | null;
+    meetingLocation: string | null;
+  };
+  viewer: { personId: string | null; isLeader: boolean };
+  members: { personId: string; name: string; avatarUrl: string | null; role: string }[];
+  stream: GroupStreamItem[];
+  events: GroupSpaceEvent[];
+  polls: GroupSpacePoll[];
+}
+
 export interface AppPayload {
   public_app_id: string;
   organization_name: string;

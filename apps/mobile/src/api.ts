@@ -1,5 +1,5 @@
 import Constants from "expo-constants";
-import type { AppPayload, DirectoryEntry } from "./contract";
+import type { AppPayload, DirectoryEntry, GroupSpace } from "./contract";
 
 /**
  * Thin client for the CMS church-app content API (keyless, public content
@@ -91,6 +91,93 @@ export async function uploadPhoto(
 
 export async function setReaction(publicAppId: string, token: string, postId: string, emoji: string) {
   await postJson(appPath(publicAppId, `/posts/${encodeURIComponent(postId)}/reaction`), token, { emoji });
+}
+
+/* -- Group space (docs/domain/groups.md) — members only, leader writes gated server-side. -- */
+
+const groupPath = (publicAppId: string, groupId: string, rest = "") =>
+  appPath(publicAppId, `/groups/${encodeURIComponent(groupId)}${rest}`);
+
+export async function fetchGroupSpace(publicAppId: string, token: string, groupId: string): Promise<GroupSpace> {
+  const data = await getJson<{ data: GroupSpace }>(groupPath(publicAppId, groupId), token);
+  return data.data;
+}
+
+export async function postToGroup(
+  publicAppId: string,
+  token: string,
+  groupId: string,
+  input: { kind: "MESSAGE" | "LINK" | "PRAYER"; body: string; url?: string | null; anonymous?: boolean },
+) {
+  await postJson(groupPath(publicAppId, groupId, "/posts"), token, input);
+}
+
+export async function togglePraying(publicAppId: string, token: string, groupId: string, postId: string) {
+  await postJson(groupPath(publicAppId, groupId, `/posts/${encodeURIComponent(postId)}`), token, { action: "pray" });
+}
+
+export async function moderateGroupPost(
+  publicAppId: string,
+  token: string,
+  groupId: string,
+  postId: string,
+  hidden: boolean,
+) {
+  await postJson(groupPath(publicAppId, groupId, `/posts/${encodeURIComponent(postId)}`), token, {
+    action: hidden ? "hide" : "restore",
+  });
+}
+
+export async function rsvpGroupEvent(
+  publicAppId: string,
+  token: string,
+  groupId: string,
+  eventId: string,
+  status: "GOING" | "MAYBE" | "NO",
+) {
+  await postJson(groupPath(publicAppId, groupId, `/events/${encodeURIComponent(eventId)}`), token, {
+    action: "rsvp",
+    status,
+  });
+}
+
+export async function createGroupEvent(
+  publicAppId: string,
+  token: string,
+  groupId: string,
+  input: { title: string; location?: string | null; startAt: string },
+) {
+  await postJson(groupPath(publicAppId, groupId, "/events"), token, {
+    title: input.title,
+    location: input.location ?? null,
+    start_at: input.startAt,
+  });
+}
+
+export async function voteGroupPoll(
+  publicAppId: string,
+  token: string,
+  groupId: string,
+  pollId: string,
+  optionIndex: number,
+) {
+  await postJson(groupPath(publicAppId, groupId, `/polls/${encodeURIComponent(pollId)}`), token, {
+    action: "vote",
+    option_index: optionIndex,
+  });
+}
+
+export async function closeGroupPoll(publicAppId: string, token: string, groupId: string, pollId: string) {
+  await postJson(groupPath(publicAppId, groupId, `/polls/${encodeURIComponent(pollId)}`), token, { action: "close" });
+}
+
+export async function createGroupPoll(
+  publicAppId: string,
+  token: string,
+  groupId: string,
+  input: { question: string; options: string[] },
+) {
+  await postJson(groupPath(publicAppId, groupId, "/polls"), token, input);
 }
 
 export async function addComment(
