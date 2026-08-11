@@ -47,6 +47,18 @@ export * as volunteerService from "./services/volunteer-service";
 export * as givingService from "./services/giving-service";
 export * as reportingService from "./services/reporting-service";
 export * as dashboardService from "./services/dashboard-service";
+export * as sermonService from "./services/sermon-service";
+export * as appService from "./services/app-service";
+export * as appPermissions from "./authz/app-permissions";
+export type { AppAction } from "./authz/app-permissions";
+export {
+  validateAppManifest,
+  appTabLabel,
+  APP_TAB_KINDS,
+  DEFAULT_APP_MANIFEST,
+  MAX_APP_TABS,
+} from "./app/manifest";
+export type { AppManifest, AppTab, AppTabKind } from "./app/manifest";
 export { validateDashboardConfig, applyReportOrder, DASHBOARD_SECTIONS, EMPTY_DASHBOARD_CONFIG } from "./dashboard/config";
 export type { DashboardConfig, DashboardSection } from "./dashboard/config";
 export * as volunteerPermissions from "./authz/volunteer-permissions";

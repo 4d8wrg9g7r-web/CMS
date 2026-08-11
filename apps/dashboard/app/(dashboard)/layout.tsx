@@ -13,7 +13,9 @@ import {
   Mail,
   Map,
   PieChart,
+  Clapperboard,
   ScrollText,
+  Smartphone,
   Settings as SettingsIcon,
   Users,
   Users2,
@@ -83,6 +85,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <SidebarNavItem href="/workflows" label="Workflows" icon={<Workflow size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/tasks" label="Tasks" icon={<CheckSquare size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/messages" label="Messages" icon={<Mail size={17} strokeWidth={1.75} />} />
+        <SidebarNavItem href="/sermons" label="Sermons" icon={<Clapperboard size={17} strokeWidth={1.75} />} />
+        <SidebarNavItem href="/app-studio" label="App Studio" icon={<Smartphone size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/team" label="Team" icon={<Users size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/audit-log" label="Audit Log" icon={<ScrollText size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/developers" label="Developers" icon={<Code2 size={17} strokeWidth={1.75} />} />

@@ -91,6 +91,8 @@ model Organization {
   emailBlastAttachments  EmailBlastAttachment[]
   savedPersonFilters     SavedPersonFilter[]
   dashboardPreferences   DashboardPreference[]
+  sermons                Sermon[]
+  churchApp              ChurchApp?
   groups              Group[]
   groupMemberships    GroupMembership[]
   forms               FormDefinition[]
@@ -512,6 +514,48 @@ model SavedPersonFilter {
  * it never grants or hides data access, only arranges what the viewer's
  * permissions already allow.
  */
+/**
+ * Sermon library (docs/domain/app.md): the media content behind the church app's
+ * Sermons tab. v1 is metadata + an external video/audio URL (YouTube, Vimeo,
+ * podcast host) — CMS hosts no media bytes. Soft archival, ministry history kept.
+ */
+model Sermon {
+  id             String    @id @default(cuid())
+  organizationId String
+  title          String
+  speaker        String?
+  series         String?
+  passage        String?
+  description    String?
+  videoUrl       String?
+  preachedAt     DateTime
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, preachedAt])
+}
+
+/**
+ * The church's mobile app (docs/domain/app.md): one per organization. `config` is
+ * the validated app manifest (branding, tabs); `publicAppId` keys the public
+ * /a/<id> surface, live only while `enabled`. Same bootstrapping boundary as
+ * forms/events publicIds.
+ */
+model ChurchApp {
+  id             String   @id @default(cuid())
+  organizationId String   @unique
+  publicAppId    String   @unique @default(cuid())
+  enabled        Boolean  @default(false)
+  config         Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
 model DashboardPreference {
   id             String   @id @default(cuid())
   organizationId String
