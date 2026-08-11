@@ -9,12 +9,12 @@ import type { AppTab, AppTabKind } from "@cms/database";
  * so drift here can mislabel a button but never corrupt data.
  */
 
-export const APP_TAB_KINDS_UI = ["home", "events", "sermons", "groups", "forms"] as const satisfies readonly AppTabKind[];
+export const APP_TAB_KINDS_UI = ["home", "events", "sermons", "groups", "forms", "giving"] as const satisfies readonly AppTabKind[];
 
 /** Client-safe mirror of REACTION_EMOJIS (canonical list lives in app-feed-service). */
 export const REACTION_EMOJIS_UI = ["❤️", "🙏", "🙌", "🎉"] as const;
 
-export const MAX_APP_TABS_UI = 8;
+export const MAX_APP_TABS_UI = 5;
 
 export function appTabLabelUi(tab: AppTab): string {
   switch (tab.kind) {
@@ -23,12 +23,17 @@ export function appTabLabelUi(tab: AppTab): string {
     case "events":
       return "Events";
     case "sermons":
-      return "Sermons";
+      return "Media";
     case "groups":
       return "Groups";
     case "forms":
       return "Connect";
+    case "giving":
+      return "Give";
+    case "livestream":
+      return "Live";
     case "link":
+    case "page":
       return tab.label;
   }
 }

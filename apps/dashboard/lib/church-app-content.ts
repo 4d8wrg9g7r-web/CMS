@@ -1,4 +1,4 @@
-import { eventService, formService, groupService, sermonService, nextOccurrence } from "@cms/database";
+import { appPageService, eventService, formService, groupService, sermonService, nextOccurrence } from "@cms/database";
 import type { AppContent } from "../components/church-app/AppScreen";
 
 /**
@@ -8,11 +8,12 @@ import type { AppContent } from "../components/church-app/AppScreen";
  * forms, the event calendar, and the sermon library. No person data.
  */
 export async function buildAppContent(organizationId: string): Promise<AppContent> {
-  const [events, sermons, groups, forms] = await Promise.all([
+  const [events, sermons, groups, forms, pages] = await Promise.all([
     eventService.listEvents(organizationId),
     sermonService.listSermons(organizationId, { take: 20 }),
     groupService.listGroups(organizationId, { publishedOnly: true }),
     formService.listForms(organizationId),
+    appPageService.listActivePages(organizationId),
   ]);
 
   const now = new Date();
@@ -52,5 +53,6 @@ export async function buildAppContent(organizationId: string): Promise<AppConten
     forms: forms
       .filter((form) => form.status === "PUBLISHED")
       .map((form) => ({ id: form.id, title: form.title, href: `/f/${form.publicId}` })),
+    pages,
   };
 }

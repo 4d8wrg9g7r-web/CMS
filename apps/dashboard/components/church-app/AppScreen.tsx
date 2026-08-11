@@ -2,16 +2,19 @@ import {
   CalendarDays,
   Clapperboard,
   ExternalLink,
+  FileText,
   Heart,
   Home,
   Link as LinkIcon,
   MapPin,
   ClipboardList,
   PlayCircle,
+  Radio,
   Users2,
 } from "lucide-react";
-import type { AppManifest, AppTab } from "@cms/database";
+import type { AppLinkTarget, AppManifest, AppPageBlock, AppTab } from "@cms/database";
 import { appTabLabelUi as appTabLabel } from "../../lib/app-manifest-ui";
+import { PageBlocksView, type ResolvedLink } from "./PageBlocksView";
 
 /**
  * The church app's screen (docs/domain/app.md) — one pure component rendered in
@@ -46,11 +49,17 @@ export interface AppFormItem {
   title: string;
   href: string;
 }
+export interface AppPageItem {
+  id: string;
+  title: string;
+  blocks: AppPageBlock[];
+}
 export interface AppContent {
   events: AppEventItem[];
   sermons: AppSermonItem[];
   groups: AppGroupItem[];
   forms: AppFormItem[];
+  pages: AppPageItem[];
 }
 
 function tabIcon(tab: AppTab, size = 20) {
@@ -65,8 +74,46 @@ function tabIcon(tab: AppTab, size = 20) {
       return <Users2 size={size} />;
     case "forms":
       return <ClipboardList size={size} />;
+    case "giving":
+      return <Heart size={size} />;
+    case "livestream":
+      return <Radio size={size} />;
+    case "page":
+      return <FileText size={size} />;
     case "link":
       return <LinkIcon size={size} />;
+  }
+}
+
+/** Best-effort embed URL (mirror of the canonical helper in @cms/database). */
+function embedUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, "");
+    if (host === "youtu.be") {
+      const id = parsed.pathname.slice(1).split("/")[0];
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      if (parsed.pathname === "/watch") {
+        const id = parsed.searchParams.get("v");
+        return id ? `https://www.youtube.com/embed/${id}` : null;
+      }
+      if (parsed.pathname.startsWith("/embed/")) return url;
+      if (parsed.pathname.startsWith("/live/")) {
+        const id = parsed.pathname.split("/")[2];
+        return id ? `https://www.youtube.com/embed/${id}` : null;
+      }
+      return null;
+    }
+    if (host === "vimeo.com") {
+      const id = parsed.pathname.slice(1).split("/")[0] ?? "";
+      return /^\d+$/.test(id) ? `https://player.vimeo.com/video/${id}` : null;
+    }
+    if (host === "player.vimeo.com") return url;
+    return null;
+  } catch {
+    return null;
   }
 }
 
@@ -118,6 +165,22 @@ export function AppScreen({
 }) {
   const accent = manifest.themeColor;
   const active = manifest.tabs[activeIndex] ?? manifest.tabs[0]!;
+
+  // Custom-page link targets: `tab` switches the bottom bar (falls back to Home
+  // when the target tab isn't among the 5), `inapp` stays in this tab on web,
+  // `external` opens a new tab. Native shells map these to richer behaviors.
+  const resolvePageTarget = (target: AppLinkTarget): ResolvedLink => {
+    if (target.kind === "tab") {
+      const index = Math.max(
+        0,
+        manifest.tabs.findIndex((t) => t.kind === target.tab),
+      );
+      if (onSelectTab) return { onClick: () => onSelectTab(index) };
+      return tabHref ? { href: tabHref(index), newTab: false } : null;
+    }
+    if (onSelectTab) return null; // preview: never navigate the studio
+    return { href: target.url, newTab: target.kind === "external" };
+  };
 
   const body = (() => {
     switch (active.kind) {
@@ -220,6 +283,68 @@ export function AppScreen({
             ))}
           </div>
         );
+      case "giving":
+        return (
+          <div className="pt-8 text-center">
+            {manifest.givingUrl ? (
+              <>
+                <Heart size={34} className="mx-auto" style={{ color: accent }} />
+                <p className="mx-auto mt-3 max-w-[240px] text-sm text-neutral-600">
+                  Your generosity makes ministry happen. Thank you.
+                </p>
+                <a
+                  href={onSelectTab ? undefined : manifest.givingUrl}
+                  className="mt-4 inline-flex items-center gap-2 rounded-full px-8 py-3 font-semibold text-white"
+                  style={{ backgroundColor: accent }}
+                >
+                  <Heart size={15} /> Give now
+                </a>
+              </>
+            ) : (
+              <Empty label="Giving isn't set up yet — add a giving link in App Studio" />
+            )}
+          </div>
+        );
+      case "livestream": {
+        const embed = embedUrl(active.url);
+        return (
+          <div>
+            {embed ? (
+              <div className="overflow-hidden rounded-xl bg-black" style={{ aspectRatio: "16 / 9" }}>
+                <iframe
+                  src={embed}
+                  title="Livestream"
+                  className="h-full w-full"
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            ) : (
+              <div className="rounded-xl border border-neutral-200 bg-white p-6 text-center">
+                <Radio size={28} className="mx-auto" style={{ color: accent }} />
+                <p className="mt-2 text-sm text-neutral-600">Our livestream opens in the browser.</p>
+              </div>
+            )}
+            <a
+              href={onSelectTab ? undefined : active.url}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white py-2.5 text-sm font-semibold"
+              style={{ color: accent }}
+            >
+              Watch on the streaming site <ExternalLink size={14} />
+            </a>
+          </div>
+        );
+      }
+      case "page": {
+        const page = content.pages.find((p) => p.id === active.pageId);
+        return page && page.blocks.length > 0 ? (
+          <PageBlocksView blocks={page.blocks} accent={accent} resolveTarget={resolvePageTarget} />
+        ) : (
+          <Empty label="This page is being worked on — check back soon" />
+        );
+      }
       case "link":
         return (
           <div className="pt-8 text-center">

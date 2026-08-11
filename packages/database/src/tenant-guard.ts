@@ -34,6 +34,7 @@ export const TENANT_SCOPED_MODELS = new Set([
   "AppLoginCode",
   "AppSession",
   "AppPushSubscription",
+  "AppPage",
   "Group",
   "GroupMembership",
   "FormDefinition",

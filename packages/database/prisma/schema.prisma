@@ -99,6 +99,7 @@ model Organization {
   appSessions            AppSession[]
   appLoginCodes          AppLoginCode[]
   appPushSubscriptions   AppPushSubscription[]
+  appPages               AppPage[]
   groups              Group[]
   groupMemberships    GroupMembership[]
   forms               FormDefinition[]
@@ -667,6 +668,25 @@ model AppLoginCode {
   person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, personId])
+}
+
+/**
+ * A custom app page (docs/domain/app.md): church-designed screen made of
+ * validated blocks (graphics with links, headings, text, buttons). Referenced
+ * by `page` tabs in the app manifest; soft-archived, never deleted.
+ */
+model AppPage {
+  id             String    @id @default(cuid())
+  organizationId String
+  title          String
+  blocks         Json
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
 /**

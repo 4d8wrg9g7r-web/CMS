@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Check, Copy, Globe, Loader2, Plus, Rocket, Trash2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Copy, FileText, Globe, Loader2, Plus, Rocket, Trash2, Upload } from "lucide-react";
 import type { AppManifest, AppTab, AppTabKind } from "@cms/database";
 import { appTabLabelUi as appTabLabel, APP_TAB_KINDS_UI as APP_TAB_KINDS, MAX_APP_TABS_UI as MAX_APP_TABS } from "../lib/app-manifest-ui";
 import { buttonClasses } from "./ui/Button";
-import { Input, Textarea } from "./ui/Input";
+import { Input, Select, Textarea } from "./ui/Input";
 import { AppScreen, type AppContent } from "./church-app/AppScreen";
 import { AppFeed } from "./church-app/AppFeed";
 import type { FeedPost } from "@cms/database";
@@ -21,18 +21,27 @@ import { publishAppAction, saveAppAction, toggleAppListedAction, uploadAppLogoAc
  */
 
 const KIND_DESCRIPTIONS: Record<AppTabKind, string> = {
-  home: "Welcome, giving, and highlights",
+  home: "Community feed, welcome, and highlights",
   events: "Upcoming events from your calendar",
   sermons: "Your sermon library",
   groups: "Group finder",
   forms: "Public forms (connect cards, signups)",
+  giving: "A Give screen using your giving link",
 };
+
+function tabDetail(tab: AppTab, pages: { id: string; title: string }[]): string {
+  if (tab.kind === "link") return tab.url;
+  if (tab.kind === "livestream") return tab.url;
+  if (tab.kind === "page") return `Custom page: ${pages.find((p) => p.id === tab.pageId)?.title ?? "(deleted)"}`;
+  return KIND_DESCRIPTIONS[tab.kind];
+}
 
 export function AppStudio({
   initial,
   organizationName,
   content,
   feedPosts,
+  pages,
   enabled,
   listed,
   installUrl,
@@ -43,6 +52,8 @@ export function AppStudio({
   content: AppContent;
   /** Signed-out view of the community feed, for the preview's Home tab. */
   feedPosts: FeedPost[];
+  /** Active custom pages for the page-tab picker. */
+  pages: { id: string; title: string }[];
   enabled: boolean;
   listed: boolean;
   /** Absolute /a/<id> URL once the app row exists; null before first save. */
@@ -59,6 +70,8 @@ export function AppStudio({
   const [savedTick, setSavedTick] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [linkDraft, setLinkDraft] = useState({ label: "", url: "" });
+  const [livestreamDraft, setLivestreamDraft] = useState("");
+  const [pageDraft, setPageDraft] = useState({ pageId: "", label: "" });
   const [copied, setCopied] = useState(false);
   // Optimistic: flips immediately, reverts if the server rejects the change.
   const [isListed, setIsListed] = useState(listed);
@@ -210,16 +223,18 @@ export function AppStudio({
 
         <div>
           <p className="text-sm font-medium text-ink-secondary">
-            Tabs <span className="text-ink-muted">(what your congregation sees along the bottom)</span>
+            Tabs{" "}
+            <span className={manifest.tabs.length >= MAX_APP_TABS ? "font-semibold text-ink" : "text-ink-muted"}>
+              ({manifest.tabs.length} of {MAX_APP_TABS})
+            </span>{" "}
+            <span className="text-ink-muted">— pick up to {MAX_APP_TABS} for the bottom bar</span>
           </p>
           <div className="mt-1 flex flex-col gap-1.5">
             {manifest.tabs.map((tab, i) => (
               <div key={i} className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2">
                 <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                   {appTabLabel(tab)}
-                  <span className="ml-2 text-xs font-normal text-ink-muted">
-                    {tab.kind === "link" ? tab.url : KIND_DESCRIPTIONS[tab.kind]}
-                  </span>
+                  <span className="ml-2 text-xs font-normal text-ink-muted">{tabDetail(tab, pages)}</span>
                 </span>
                 <button type="button" aria-label={`Move ${appTabLabel(tab)} up`} disabled={i === 0} onClick={() => moveTab(i, -1)} className="rounded p-1 text-ink-muted hover:bg-surface-muted disabled:opacity-30">
                   <ArrowUp size={13} />
@@ -233,39 +248,106 @@ export function AppStudio({
               </div>
             ))}
           </div>
-          <div className="mt-2 flex flex-wrap items-end gap-2">
-            {addableKinds.map((kind) => (
-              <button key={kind} type="button" onClick={() => addTab({ kind })} className={buttonClasses("secondary", "sm")}>
-                <Plus size={13} /> {appTabLabel({ kind })}
-              </button>
-            ))}
-            <div className="flex items-end gap-1.5">
-              <Input
-                value={linkDraft.label}
-                onChange={(e) => setLinkDraft((d) => ({ ...d, label: e.target.value }))}
-                placeholder="Watch Live"
-                maxLength={20}
-                className="w-28"
-              />
-              <Input
-                value={linkDraft.url}
-                onChange={(e) => setLinkDraft((d) => ({ ...d, url: e.target.value }))}
-                placeholder="https://…"
-                className="w-44"
-              />
-              <button
-                type="button"
-                disabled={!linkDraft.label.trim() || !linkDraft.url.trim()}
-                onClick={() => {
-                  addTab({ kind: "link", label: linkDraft.label.trim(), url: linkDraft.url.trim() });
-                  setLinkDraft({ label: "", url: "" });
-                }}
-                className={buttonClasses("secondary", "sm")}
-              >
-                <Plus size={13} /> Link tab
-              </button>
+          {manifest.tabs.length >= MAX_APP_TABS ? (
+            <p className="mt-2 text-xs text-ink-muted">
+              The bottom bar is full — remove a tab to add a different one.
+            </p>
+          ) : (
+            <div className="mt-2 flex flex-col gap-2">
+              <div className="flex flex-wrap gap-2">
+                {addableKinds.map((kind) => (
+                  <button key={kind} type="button" onClick={() => addTab({ kind })} className={buttonClasses("secondary", "sm")} title={KIND_DESCRIPTIONS[kind]}>
+                    <Plus size={13} /> {appTabLabel({ kind })}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-end gap-1.5">
+                <Input
+                  value={livestreamDraft}
+                  onChange={(e) => setLivestreamDraft(e.target.value)}
+                  placeholder="https://youtube.com/watch?v=… (or Vimeo)"
+                  className="w-72"
+                />
+                <button
+                  type="button"
+                  disabled={!livestreamDraft.trim() || manifest.tabs.some((t) => t.kind === "livestream")}
+                  onClick={() => {
+                    addTab({ kind: "livestream", url: livestreamDraft.trim() });
+                    setLivestreamDraft("");
+                  }}
+                  className={buttonClasses("secondary", "sm")}
+                >
+                  <Plus size={13} /> Livestream tab
+                </button>
+              </div>
+              {pages.length > 0 && (
+                <div className="flex flex-wrap items-end gap-1.5">
+                  <Select
+                    value={pageDraft.pageId}
+                    onChange={(e) => {
+                      const page = pages.find((p) => p.id === e.target.value);
+                      setPageDraft({ pageId: e.target.value, label: page?.title.slice(0, 20) ?? "" });
+                    }}
+                    className="w-48"
+                  >
+                    <option value="">Choose a custom page…</option>
+                    {pages.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.title}
+                      </option>
+                    ))}
+                  </Select>
+                  <Input
+                    value={pageDraft.label}
+                    onChange={(e) => setPageDraft((d) => ({ ...d, label: e.target.value }))}
+                    placeholder="Tab label"
+                    maxLength={20}
+                    className="w-32"
+                  />
+                  <button
+                    type="button"
+                    disabled={!pageDraft.pageId || !pageDraft.label.trim()}
+                    onClick={() => {
+                      addTab({ kind: "page", pageId: pageDraft.pageId, label: pageDraft.label.trim() });
+                      setPageDraft({ pageId: "", label: "" });
+                    }}
+                    className={buttonClasses("secondary", "sm")}
+                  >
+                    <Plus size={13} /> Page tab
+                  </button>
+                </div>
+              )}
+              <div className="flex flex-wrap items-end gap-1.5">
+                <Input
+                  value={linkDraft.label}
+                  onChange={(e) => setLinkDraft((d) => ({ ...d, label: e.target.value }))}
+                  placeholder="Podcast"
+                  maxLength={20}
+                  className="w-28"
+                />
+                <Input
+                  value={linkDraft.url}
+                  onChange={(e) => setLinkDraft((d) => ({ ...d, url: e.target.value }))}
+                  placeholder="https://…"
+                  className="w-44"
+                />
+                <button
+                  type="button"
+                  disabled={!linkDraft.label.trim() || !linkDraft.url.trim()}
+                  onClick={() => {
+                    addTab({ kind: "link", label: linkDraft.label.trim(), url: linkDraft.url.trim() });
+                    setLinkDraft({ label: "", url: "" });
+                  }}
+                  className={buttonClasses("secondary", "sm")}
+                >
+                  <Plus size={13} /> Link tab
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+          <a href="/app-studio/pages" className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-accent hover:text-accent-dark">
+            <FileText size={12} /> Design custom pages →
+          </a>
         </div>
 
         {error && <p className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{error}</p>}

@@ -31,15 +31,15 @@ describe("validateAppManifest", () => {
     expect(validateAppManifest({ ...VALID, tabs: [{ kind: "events" }] }).ok).toBe(false);
   });
 
-  it("rejects bad tabs: unknown kinds, duplicates, oversized lists, bad links", () => {
+  it("rejects bad tabs: unknown kinds, duplicates, bad links; clamps oversized lists", () => {
     expect(validateAppManifest({ ...VALID, tabs: [{ kind: "home" }, { kind: "podcast" }] }).ok).toBe(false);
     expect(validateAppManifest({ ...VALID, tabs: [{ kind: "home" }, { kind: "home" }] }).ok).toBe(false);
-    expect(
-      validateAppManifest({
-        ...VALID,
-        tabs: [{ kind: "home" }, ...Array.from({ length: MAX_APP_TABS }, (_, i) => ({ kind: "link", label: `L${i}`, url: "https://x.org" }))],
-      }).ok,
-    ).toBe(false);
+    const clamped = validateAppManifest({
+      ...VALID,
+      tabs: [{ kind: "home" }, ...Array.from({ length: MAX_APP_TABS }, (_, i) => ({ kind: "link", label: `L${i}`, url: "https://x.org" }))],
+    });
+    expect(clamped.ok).toBe(true);
+    if (clamped.ok) expect(clamped.manifest.tabs).toHaveLength(MAX_APP_TABS);
     expect(validateAppManifest({ ...VALID, tabs: [{ kind: "home" }, { kind: "link", label: "Bad", url: "javascript:x" }] }).ok).toBe(false);
   });
 

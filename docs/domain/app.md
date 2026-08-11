@@ -114,3 +114,23 @@ attempt caps, blocked-words filters.
   hides. public/sw.js shows the notification and opens /a/&lt;id&gt; on tap. Works
   on installed PWAs (Android; iOS 16.4+); the native container will reuse the
   same subscription data.
+
+## Tabs v2: the 5-slot bottom bar + custom pages
+The bottom bar holds at most **5 tabs**, chosen in App Studio from the catalog:
+Home (required), Events, Media (sermons), Groups, Connect (forms), Give,
+**Livestream** (`{url}` — YouTube/Vimeo URLs auto-convert to embedded players
+via `toEmbedUrl`, anything else falls back to an open-in-browser button),
+**custom pages** (`{pageId, label}`), and link tabs. Manifests stored before
+the cap are CLAMPED to the first 5 at validation — never rejected — so no
+published app breaks; each built-in appears once and Home is mandatory.
+
+**Custom pages** (`AppPage`, soft-archived; blocks validated on save AND read):
+church-designed screens built in /app-studio/pages from graphics (optionally
+clickable), headings, text, buttons, dividers. Every link declares a target —
+`tab` (switch to a bottom-bar tab; falls back to Home if that tab isn't among
+the 5), `inapp` (web: same-tab; native later: in-app browser), `external`
+(web: new tab; native: system browser). The distinction is data, not
+presentation, so the native shells upgrade behavior without a migration.
+`PageBlocksView` renders pages identically in the studio preview, the public
+app, and (later) native. Content/API additively expose active pages. Audited:
+`app.page_created/updated/archived`.

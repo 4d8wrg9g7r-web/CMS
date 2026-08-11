@@ -6,10 +6,14 @@
  * and white-label builds, so nothing here is web-specific.
  */
 
-export const APP_TAB_KINDS = ["home", "events", "sermons", "groups", "forms"] as const;
+export const APP_TAB_KINDS = ["home", "events", "sermons", "groups", "forms", "giving"] as const;
 export type AppTabKind = (typeof APP_TAB_KINDS)[number];
 
-export type AppTab = { kind: AppTabKind } | { kind: "link"; label: string; url: string };
+export type AppTab =
+  | { kind: AppTabKind }
+  | { kind: "link"; label: string; url: string }
+  | { kind: "livestream"; url: string }
+  | { kind: "page"; pageId: string; label: string };
 
 export interface AppManifest {
   appName: string;
@@ -24,7 +28,8 @@ export interface AppManifest {
   tabs: AppTab[];
 }
 
-export const MAX_APP_TABS = 8;
+/** The bottom bar holds exactly up to 5 tabs — the mobile-navigation sweet spot. */
+export const MAX_APP_TABS = 5;
 
 export const DEFAULT_APP_MANIFEST: AppManifest = {
   appName: "",
@@ -65,17 +70,35 @@ export function validateAppManifest(input: unknown): ManifestValidation {
   }
 
   if (!Array.isArray(raw.tabs) || raw.tabs.length === 0) return { ok: false, error: "Choose at least one tab." };
-  if (raw.tabs.length > MAX_APP_TABS) return { ok: false, error: `At most ${MAX_APP_TABS} tabs.` };
   const tabs: AppTab[] = [];
   const seen = new Set<string>();
   for (const rawTab of raw.tabs) {
-    const tab = rawTab as { kind?: unknown; label?: unknown; url?: unknown };
+    // The bottom bar caps at 5: extra stored tabs are CLAMPED, never rejected —
+    // a manifest saved before the cap keeps its app live with the first 5.
+    if (tabs.length >= MAX_APP_TABS) break;
+    const tab = rawTab as { kind?: unknown; label?: unknown; url?: unknown; pageId?: unknown };
     if (tab?.kind === "link") {
       const label = typeof tab.label === "string" ? tab.label.trim() : "";
       const url = typeof tab.url === "string" ? tab.url.trim() : "";
       if (!label || label.length > 20) return { ok: false, error: "Link tabs need a short label (max 20 characters)." };
       if (!HTTP_URL.test(url)) return { ok: false, error: "Link tabs need an http(s) URL." };
       tabs.push({ kind: "link", label, url });
+      continue;
+    }
+    if (tab?.kind === "livestream") {
+      const url = typeof tab.url === "string" ? tab.url.trim() : "";
+      if (!HTTP_URL.test(url)) return { ok: false, error: "The livestream tab needs an http(s) URL." };
+      if (seen.has("livestream")) return { ok: false, error: "Only one livestream tab." };
+      seen.add("livestream");
+      tabs.push({ kind: "livestream", url });
+      continue;
+    }
+    if (tab?.kind === "page") {
+      const pageId = typeof tab.pageId === "string" ? tab.pageId.trim() : "";
+      const label = typeof tab.label === "string" ? tab.label.trim() : "";
+      if (!pageId) return { ok: false, error: "Page tabs need a page — create one in Custom pages first." };
+      if (!label || label.length > 20) return { ok: false, error: "Page tabs need a short label (max 20 characters)." };
+      tabs.push({ kind: "page", pageId, label });
       continue;
     }
     const kind = tab?.kind as string;
@@ -103,12 +126,17 @@ export function appTabLabel(tab: AppTab): string {
     case "events":
       return "Events";
     case "sermons":
-      return "Sermons";
+      return "Media";
     case "groups":
       return "Groups";
     case "forms":
       return "Connect";
+    case "giving":
+      return "Give";
+    case "livestream":
+      return "Live";
     case "link":
+    case "page":
       return tab.label;
   }
 }

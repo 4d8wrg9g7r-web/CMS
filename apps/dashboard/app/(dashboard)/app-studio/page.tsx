@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { Lock, Smartphone } from "lucide-react";
 import QRCode from "qrcode";
-import { appFeedService, appService, validateAppManifest, DEFAULT_APP_MANIFEST, type AppManifest } from "@cms/database";
+import { appFeedService, appPageService, appService, validateAppManifest, DEFAULT_APP_MANIFEST, type AppManifest } from "@cms/database";
 import { AppStudio } from "../../../components/AppStudio";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
@@ -21,11 +21,12 @@ export default async function AppStudioPage() {
     );
   }
 
-  const [app, content, feedPosts] = await Promise.all([
+  const [app, content, feedPosts, pages] = await Promise.all([
     appService.getChurchApp(organization.id),
     buildAppContent(organization.id),
     // Signed-out feed view (church posts only) — what the preview's Home shows.
     appFeedService.listFeed(organization.id, null),
+    appPageService.listActivePages(organization.id),
   ]);
 
   const stored = app ? validateAppManifest(app.config) : null;
@@ -62,6 +63,7 @@ export default async function AppStudioPage() {
         organizationName={organization.name}
         content={content}
         feedPosts={feedPosts}
+        pages={pages.map((p) => ({ id: p.id, title: p.title }))}
         enabled={app?.enabled ?? false}
         listed={app?.listedInDirectory ?? true}
         installUrl={installUrl}
