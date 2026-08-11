@@ -77,7 +77,10 @@ export default async function CommunityPage() {
                       </span>
                     </td>
                     <td className="max-w-md px-5 py-3 text-ink-secondary">
-                      <span className="line-clamp-2">{post.body}</span>
+                      <span className="line-clamp-2">
+                        {post.imageUrl && <span className="mr-1 text-ink-muted">[Photo]</span>}
+                        {post.body}
+                      </span>
                       {post.hiddenAt && (
                         <span className="mt-1 block">
                           <Badge variant="warning">Hidden</Badge>

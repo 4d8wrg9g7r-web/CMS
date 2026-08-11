@@ -1,13 +1,14 @@
 "use client";
 
 import { useActionState, useRef, useState, useTransition } from "react";
-import { Church, Heart, LogOut, MessageCircle, Send } from "lucide-react";
+import { Church, Heart, ImagePlus, Loader2, LogOut, MessageCircle, Send, X } from "lucide-react";
 import type { FeedPost } from "@cms/database";
 import {
   addAppCommentAction,
   createAppPostAction,
   signOutAppAction,
   toggleAppLikeAction,
+  uploadAppPhotoAction,
   type PostFormState,
 } from "../../app/a/[publicAppId]/actions";
 
@@ -35,46 +36,90 @@ function Composer({ publicAppId, groups, accent }: { publicAppId: string; groups
     { error: null },
   );
   const formRef = useRef<HTMLFormElement>(null);
+  const [photoUrl, setPhotoUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const attachPhoto = async (file: File) => {
+    setUploading(true);
+    setUploadError(null);
+    const fd = new FormData();
+    fd.set("file", file);
+    const result = await uploadAppPhotoAction(publicAppId, fd);
+    setUploading(false);
+    if ("error" in result) setUploadError(result.error);
+    else setPhotoUrl(result.url);
+  };
+
   return (
     <form
       ref={formRef}
       action={async (fd) => {
         formAction(fd);
         formRef.current?.reset();
+        setPhotoUrl("");
       }}
       className="rounded-xl border border-neutral-200 bg-white p-3"
     >
       <textarea
         name="body"
         rows={2}
-        required
+        required={!photoUrl}
         maxLength={1000}
         placeholder="Share something with your church family…"
         className="w-full resize-none border-0 text-sm text-neutral-900 outline-none placeholder:text-neutral-400"
       />
+      <input type="hidden" name="imageUrl" value={photoUrl} />
+      {photoUrl && (
+        <div className="relative mt-1">
+          {/* eslint-disable-next-line @next/next/no-img-element -- member-uploaded photo preview */}
+          <img src={photoUrl} alt="Attached" className="max-h-48 w-full rounded-lg object-cover" />
+          <button
+            type="button"
+            aria-label="Remove photo"
+            onClick={() => setPhotoUrl("")}
+            className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
       <div className="mt-2 flex items-center justify-between gap-2">
-        {groups.length > 0 ? (
-          <select name="groupId" className="rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-xs text-neutral-700">
-            <option value="">Everyone</option>
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <span />
-        )}
+        <div className="flex items-center gap-2">
+          <label className="cursor-pointer text-neutral-400 hover:text-neutral-700" aria-label="Attach a photo">
+            {uploading ? <Loader2 size={18} className="animate-spin" /> : <ImagePlus size={18} />}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void attachPhoto(file);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          {groups.length > 0 && (
+            <select name="groupId" className="rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-xs text-neutral-700">
+              <option value="">Everyone</option>
+              {groups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || uploading}
           className="inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold text-white disabled:opacity-60"
           style={{ backgroundColor: accent }}
         >
           <Send size={13} /> Post
         </button>
       </div>
-      {state.error && <p className="mt-2 text-xs text-red-600">{state.error}</p>}
+      {(state.error || uploadError) && <p className="mt-2 text-xs text-red-600">{state.error ?? uploadError}</p>}
     </form>
   );
 }
@@ -145,7 +190,11 @@ function PostCard({
         </div>
       </header>
 
-      <p className="whitespace-pre-wrap text-sm text-neutral-800">{post.body}</p>
+      {post.body && <p className="whitespace-pre-wrap text-sm text-neutral-800">{post.body}</p>}
+      {post.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element -- member/staff-uploaded photo
+        <img src={post.imageUrl} alt="" className="mt-2 max-h-80 w-full rounded-lg object-cover" />
+      )}
 
       <footer className="mt-3 flex items-center gap-4 text-xs text-neutral-500">
         <button

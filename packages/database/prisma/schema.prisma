@@ -592,6 +592,8 @@ model AppPost {
   personId       String?
   groupId        String?
   body           String
+  // Optional photo (public storage URL) — a post needs text or a photo.
+  imageUrl       String?
   hiddenAt       DateTime?
   createdAt      DateTime    @default(now())
 

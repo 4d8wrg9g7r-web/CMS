@@ -39,6 +39,7 @@ export interface FeedPost {
   authorName: string | null;
   groupName: string | null;
   body: string;
+  imageUrl: string | null;
   createdAt: string;
   likeCount: number;
   likedByMe: boolean;
@@ -88,6 +89,7 @@ export async function listFeed(organizationId: string, viewerPersonId: string | 
     authorName: post.person ? displayName(post.person) : null,
     groupName: post.group?.name ?? null,
     body: post.body,
+    imageUrl: post.imageUrl,
     createdAt: post.createdAt.toISOString(),
     likeCount: post._count.likes,
     likedByMe: myLikes.has(post.id),
@@ -97,19 +99,29 @@ export async function listFeed(organizationId: string, viewerPersonId: string | 
   }));
 }
 
-function cleanBody(body: string, max: number): string {
+function cleanBody(body: string, max: number, opts: { allowEmpty?: boolean } = {}): string {
   const cleaned = body.replace(/\s+/g, " ").trim();
-  if (!cleaned) throw new Error("Write something first.");
+  if (!cleaned && !opts.allowEmpty) throw new Error("Write something first.");
   if (cleaned.length > max) throw new Error(`Keep it under ${max} characters.`);
   return cleaned;
+}
+
+const IMAGE_URL = /^(https?:\/\/[^\s"'<>]+|\/[^\s"'<>]+)$/i;
+
+/** Photo posts: image URL from OUR upload actions only; a post needs text or a photo. */
+function cleanImageUrl(imageUrl: string | null | undefined): string | null {
+  const url = imageUrl?.trim() || null;
+  if (url && !IMAGE_URL.test(url)) throw new Error("The photo could not be attached — upload it again.");
+  return url;
 }
 
 export async function createMemberPost(
   organizationId: string,
   personId: string,
-  input: { body: string; groupId?: string | null },
+  input: { body: string; groupId?: string | null; imageUrl?: string | null },
 ) {
-  const body = cleanBody(input.body, POST_MAX_CHARS);
+  const imageUrl = cleanImageUrl(input.imageUrl);
+  const body = cleanBody(input.body, POST_MAX_CHARS, { allowEmpty: imageUrl !== null });
   const groupId = input.groupId || null;
   if (groupId) {
     const membership = await tenantDb.groupMembership.findFirst({
@@ -119,13 +131,17 @@ export async function createMemberPost(
     if (!membership) throw new Error("You can only share with groups you belong to.");
   }
   return tenantDb.appPost.create({
-    data: { organizationId, kind: "MEMBER", personId, groupId, body },
+    data: { organizationId, kind: "MEMBER", personId, groupId, body, imageUrl },
   });
 }
 
-export async function createChurchPost(organizationId: string, input: { body: string }) {
-  const body = cleanBody(input.body, POST_MAX_CHARS);
-  return tenantDb.appPost.create({ data: { organizationId, kind: "CHURCH", body } });
+export async function createChurchPost(
+  organizationId: string,
+  input: { body: string; imageUrl?: string | null },
+) {
+  const imageUrl = cleanImageUrl(input.imageUrl);
+  const body = cleanBody(input.body, POST_MAX_CHARS, { allowEmpty: imageUrl !== null });
+  return tenantDb.appPost.create({ data: { organizationId, kind: "CHURCH", body, imageUrl } });
 }
 
 /** Returns the new liked state. */

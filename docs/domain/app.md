@@ -73,6 +73,9 @@ posts only; signed-in → plus church-wide MEMBER posts and posts scoped to
 groups the viewer belongs to (composer offers Everyone / my groups; group
 membership verified server-side). Likes and comments per post; bodies are
 plain text (1000/300 chars), whitespace-collapsed, always rendered as text.
+Posts (member and announcement) can carry one photo: uploaded through gated
+actions (member session / app.manage) to PUBLIC storage, 4 MB, image types
+only; a post needs text or a photo. The moderation table marks photo posts.
 Moderation = `hiddenAt` (hide/restore on /community, audited; hidden posts
 leave the feed but are kept). `manifest.allowMemberPosts` (default true)
 switches the composer off without touching announcements.
@@ -86,6 +89,6 @@ matched (no enumeration). App Studio previews the feed signed-out via the same
 AppFeed component in previewMode; the keyless content API exposes only the
 signed-out feed view.
 
-**Deferred:** photo posts, reactions beyond ❤, threaded replies, member
+**Deferred:** reactions beyond ❤, threaded replies, member
 profiles, push notifications on new posts (Phase 2), rate limiting beyond
 attempt caps, blocked-words filters.

@@ -1,10 +1,12 @@
 "use server";
 
+import path from "node:path";
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { appFeedService, appMemberService, appService, messageService } from "@cms/database";
+import { getStorageProvider } from "@cms/storage";
 import { drainOutbox } from "../../../lib/outbox-worker";
 
 /**
@@ -17,6 +19,8 @@ import { drainOutbox } from "../../../lib/outbox-worker";
 
 const SESSION_COOKIE = (publicAppId: string) => `app_session_${publicAppId}`;
 const SESSION_MAX_AGE = 90 * 24 * 60 * 60;
+const PHOTO_MAX_BYTES = 4 * 1024 * 1024;
+const PHOTO_CONTENT_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 
 async function resolveApp(publicAppId: string) {
   const app = await appService.resolvePublicApp(publicAppId);
@@ -119,12 +123,48 @@ export async function createAppPostAction(
     await appFeedService.createMemberPost(app.organizationId, member.personId, {
       body: String(formData.get("body") ?? ""),
       groupId: String(formData.get("groupId") ?? "") || null,
+      imageUrl: String(formData.get("imageUrl") ?? "") || null,
     });
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Could not post" };
   }
   revalidatePath(`/a/${publicAppId}`);
   return { error: null };
+}
+
+/**
+ * Member photo upload for a feed post: session-gated, image-only, 4 MB cap,
+ * stored in PUBLIC storage (feed photos render for the whole congregation).
+ */
+export async function uploadAppPhotoAction(
+  publicAppId: string,
+  formData: FormData,
+): Promise<{ url: string } | { error: string }> {
+  const app = await resolveApp(publicAppId);
+  if (!app.manifest.allowMemberPosts) return { error: "Posting is turned off for this app." };
+  const member = await requireMember(publicAppId, app.organizationId).catch(() => null);
+  if (!member) return { error: "Sign in first." };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose a photo." };
+  if (!PHOTO_CONTENT_TYPES.has(file.type)) return { error: "Photos must be PNG, JPEG, WebP, or GIF." };
+  if (file.size > PHOTO_MAX_BYTES) return { error: "Photos are capped at 4 MB." };
+
+  const saved = await getStorageProvider(path.join(process.cwd(), "public")).saveFile({
+    organizationId: app.organizationId,
+    fileName: file.name,
+    contentType: file.type,
+    data: Buffer.from(await file.arrayBuffer()),
+  });
+
+  let url = saved.url;
+  if (url.startsWith("/")) {
+    const h = await headers();
+    const host = h.get("x-forwarded-host") ?? h.get("host");
+    if (!host) return { error: "Could not determine the site URL for the photo." };
+    url = `${h.get("x-forwarded-proto") ?? "http"}://${host}${url}`;
+  }
+  return { url };
 }
 
 export async function toggleAppLikeAction(publicAppId: string, postId: string): Promise<void> {
