@@ -79,6 +79,14 @@ export {
   ACH_FEE_CAP_CENTS,
 } from "./giving/stripe";
 export type { GiftInterval, GivePaymentMethod } from "./giving/stripe";
+export {
+  parseTextGift,
+  matchFundByKeyword,
+  normalizePhone,
+  verifyTwilioSignature,
+  twimlReply,
+  TEXT_GIVE_HELP,
+} from "./giving/text-give";
 export type { ActivePage } from "./services/app-page-service";
 export { validateAppPageBlocks, toEmbedUrl, MAX_PAGE_BLOCKS } from "./app/page-blocks";
 export type { AppPageBlock, AppLinkTarget } from "./app/page-blocks";

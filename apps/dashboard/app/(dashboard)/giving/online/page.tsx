@@ -75,6 +75,13 @@ export default async function OnlineGivingPage() {
                   Then paste the endpoint&apos;s signing secret (whsec_…) into the form above. Gifts appear in your
                   ledger automatically — matched to people by their receipt email.
                 </p>
+                <p className="mb-2 mt-4 text-xs text-ink-muted">
+                  <span className="font-semibold text-ink">Text-to-give</span> — in Twilio, set your phone
+                  number&apos;s incoming-message webhook (HTTP POST) to:
+                </p>
+                <code className="block break-all rounded-md bg-surface-muted p-2 text-xs text-ink">
+                  {`https://<your-dashboard-domain>/api/giving/text/${app.publicAppId}`}
+                </code>
               </>
             ) : (
               <p className="text-xs text-ink-muted">

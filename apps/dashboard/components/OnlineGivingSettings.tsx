@@ -56,6 +56,28 @@ export function OnlineGivingSettings({ config }: { config: MaskedGivingConfig })
         />
       </label>
 
+      <label className="flex items-start gap-2 text-sm text-ink">
+        <input type="checkbox" name="textGivingEnabled" defaultChecked={config.textGivingEnabled} className="mt-0.5 h-4 w-4" />
+        <span>
+          Text-to-give
+          <span className="block text-xs text-ink-muted">
+            Members text an amount (like &ldquo;50&rdquo; or &ldquo;50 Missions&rdquo;) to your Twilio number and get
+            a giving link back. Point the number&apos;s incoming-message webhook at the URL below.
+          </span>
+        </span>
+      </label>
+
+      <label className="text-xs text-ink-secondary">
+        Twilio auth token {config.hasTwilioToken && <span className="text-ink-muted">(saved)</span>}
+        <Input
+          name="twilioAuthToken"
+          type="password"
+          placeholder={config.hasTwilioToken ? "Leave blank to keep the saved token" : "From your Twilio console"}
+          autoComplete="off"
+          className="mt-1 block w-full text-sm"
+        />
+      </label>
+
       <label className="text-xs text-ink-secondary">
         Currency
         <Select name="currency" defaultValue={config.currency} className="mt-1 block w-40 text-sm">

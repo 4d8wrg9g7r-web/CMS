@@ -156,6 +156,11 @@ model OnlineGivingConfig {
   // Offer bank (ACH) giving — opt-in; the church must enable ACH debits on
   // its Stripe account first or Checkout will reject the session.
   achEnabled          Boolean  @default(false)
+  // Text-to-give: the church points a Twilio number's inbound-SMS webhook at
+  // /api/giving/text/<publicAppId>; the auth token verifies Twilio's
+  // signature (write-only in the UI, like the Stripe keys).
+  textGivingEnabled   Boolean  @default(false)
+  twilioAuthToken     String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

@@ -141,3 +141,15 @@ same idempotency key. A failed debit (`async_payment_failed`) records
 nothing. Money appears in the ledger only when it has actually settled.
 Recurring bank gifts need no special handling — `invoice.paid` already fires
 on settlement.
+
+## Text-to-give (ADR-016)
+
+Members text an amount to the church's Twilio number; we answer the inbound
+webhook (`/api/giving/text/<publicAppId>`, signature-verified with the
+church's own auth token) with TwiML containing a prefilled Stripe Checkout
+link — no outbound SMS API in the loop. `"50"` → default fund; `"50 Missions"`
+→ fuzzy fund match (exact → prefix → substring → default); anything else →
+help text. The sender's phone is matched to a Person (normalized last-10
+digits) and rides as metadata, so the recorded gift lands on their profile
+exactly like an in-app gift. Enable on /giving/online: toggle + Twilio auth
+token (write-only) + the webhook URL to paste into Twilio.

@@ -12,6 +12,8 @@ import { tenantDb } from "../client";
 export interface MaskedGivingConfig {
   enabled: boolean;
   achEnabled: boolean;
+  textGivingEnabled: boolean;
+  hasTwilioToken: boolean;
   currency: string;
   hasSecretKey: boolean;
   hasWebhookSecret: boolean;
@@ -29,6 +31,8 @@ export async function getMaskedConfig(organizationId: string): Promise<MaskedGiv
   return {
     enabled: config?.enabled ?? false,
     achEnabled: config?.achEnabled ?? false,
+    textGivingEnabled: config?.textGivingEnabled ?? false,
+    hasTwilioToken: Boolean(config?.twilioAuthToken),
     currency: config?.currency ?? "usd",
     hasSecretKey: Boolean(config?.stripeSecretKey),
     hasWebhookSecret: Boolean(config?.stripeWebhookSecret),
@@ -39,10 +43,12 @@ export async function getMaskedConfig(organizationId: string): Promise<MaskedGiv
 export interface SaveConfigInput {
   enabled: boolean;
   achEnabled?: boolean;
+  textGivingEnabled?: boolean;
   currency?: string;
   /** Empty/absent keeps the stored key; a value replaces it. */
   stripeSecretKey?: string | null;
   stripeWebhookSecret?: string | null;
+  twilioAuthToken?: string | null;
 }
 
 export async function saveConfig(organizationId: string, input: SaveConfigInput) {
@@ -63,9 +69,11 @@ export async function saveConfig(organizationId: string, input: SaveConfigInput)
       data: {
         enabled: input.enabled,
         ...(input.achEnabled === undefined ? {} : { achEnabled: input.achEnabled }),
+        ...(input.textGivingEnabled === undefined ? {} : { textGivingEnabled: input.textGivingEnabled }),
         currency,
         ...(secretKey ? { stripeSecretKey: secretKey } : {}),
         ...(webhookSecret ? { stripeWebhookSecret: webhookSecret } : {}),
+        ...(input.twilioAuthToken?.trim() ? { twilioAuthToken: input.twilioAuthToken.trim() } : {}),
       },
     });
     return;
@@ -75,9 +83,11 @@ export async function saveConfig(organizationId: string, input: SaveConfigInput)
       organizationId,
       enabled: input.enabled,
       achEnabled: input.achEnabled ?? false,
+      textGivingEnabled: input.textGivingEnabled ?? false,
       currency,
       stripeSecretKey: secretKey || null,
       stripeWebhookSecret: webhookSecret || null,
+      twilioAuthToken: input.twilioAuthToken?.trim() || null,
     },
   });
 }
@@ -261,4 +271,20 @@ export async function getRecurringGiftForPerson(organizationId: string, personId
     where: { organizationId, personId, subscriptionId },
     select: { id: true, subscriptionId: true, canceledAt: true },
   });
+}
+
+/**
+ * Match a donor by phone for text-to-give: compare normalized last-10 digits
+ * across freeform stored numbers. Bounded scan — fine at small-church scale.
+ */
+export async function findPersonByPhone(organizationId: string, phone: string) {
+  const { normalizePhone } = await import("../giving/text-give");
+  const target = normalizePhone(phone);
+  if (target.length < 7) return null;
+  const candidates = await tenantDb.person.findMany({
+    where: { organizationId, archivedAt: null, phone: { not: null } },
+    select: { id: true, phone: true },
+    take: 5000,
+  });
+  return candidates.find((p) => normalizePhone(p.phone ?? "") === target) ?? null;
 }
