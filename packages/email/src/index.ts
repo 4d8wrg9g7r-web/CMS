@@ -1,6 +1,7 @@
-export type { EmailProvider, SendEmailInput } from "./EmailProvider";
+export type { EmailAttachmentInput, EmailProvider, SendEmailInput } from "./EmailProvider";
 export { ConsoleEmailProvider } from "./ConsoleEmailProvider";
 export { ResendEmailProvider } from "./ResendEmailProvider";
+export { markdownToEmailBody, renderEmailHtml } from "./markdown";
 
 import type { EmailProvider } from "./EmailProvider";
 import { ConsoleEmailProvider } from "./ConsoleEmailProvider";

@@ -1,5 +1,6 @@
 import { formService, messageService, outboxService, type ClaimedEvent, type HandlerRegistry } from "@cms/database";
-import { getEmailProvider } from "@cms/email";
+import { getEmailProvider, renderEmailHtml, type EmailAttachmentInput } from "@cms/email";
+import { getPrivateStorageProvider } from "@cms/storage";
 import { workflowTriggerHandler } from "./workflow-runner";
 import { webhookDispatchHandler } from "./webhook-dispatcher";
 
@@ -57,7 +58,26 @@ const deliverMessage = {
     if (!message) return; // already handled (idempotency) or cancelled
 
     try {
-      await getEmailProvider().sendEmail({ to: message.toEmail, subject: message.subject, text: message.body });
+      // Blast messages render their markdown to email HTML and carry attachments
+      // (bytes fetched from private storage per send). Missing bytes throw, so the
+      // outbox retries and, at worst, the message dead-letters as FAILED — never a
+      // silent half-send.
+      let html: string | undefined;
+      let attachments: EmailAttachmentInput[] | undefined;
+      if (message.blast) {
+        html = renderEmailHtml(message.blast.bodyMarkdown, { organizationName: message.organization.name });
+        if (message.blast.attachments.length > 0) {
+          const storage = getPrivateStorageProvider();
+          attachments = await Promise.all(
+            message.blast.attachments.map(async (a) => {
+              const content = await storage.get(a.storageKey);
+              if (!content) throw new Error(`Attachment bytes missing from storage: ${a.fileName}`);
+              return { filename: a.fileName, content, contentType: a.contentType };
+            }),
+          );
+        }
+      }
+      await getEmailProvider().sendEmail({ to: message.toEmail, subject: message.subject, text: message.body, html, attachments });
       await messageService.markSent(event.organizationId, messageId);
     } catch (err) {
       const isFinalAttempt = event.attempts + 1 >= event.maxAttempts;

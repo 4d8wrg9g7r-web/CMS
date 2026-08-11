@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Lock, Mail, RotateCcw } from "lucide-react";
+import { Lock, Mail, PenSquare, RotateCcw } from "lucide-react";
 import { messageService, personDisplayName, type MessageStatus } from "@cms/database";
 import { Badge } from "../../../components/ui/Badge";
 import { buttonClasses } from "../../../components/ui/Button";
@@ -20,6 +20,7 @@ const SOURCE_LABELS: Record<string, string> = {
   workflow: "Workflow",
   form_notification: "Form notification",
   manual_resend: "Manual resend",
+  blast: "Email blast",
 };
 
 function statusTone(status: MessageStatus): "success" | "warning" | "danger" | "neutral" {
@@ -57,16 +58,57 @@ export default async function MessagesPage({
   const params = await searchParams;
   const status = (params.status as MessageStatus | undefined) || undefined;
   const source = params.source || undefined;
-  const messages = await messageService.listMessages(organization.id, { status, source });
+  const [messages, blasts] = await Promise.all([
+    messageService.listMessages(organization.id, { status, source }),
+    messageService.listEmailBlasts(organization.id, 10),
+  ]);
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Messages</h1>
-        <p className="text-sm text-ink-secondary">
-          Every email the platform sends — from workflows, form notifications, and resends — with delivery status.
-        </p>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Messages</h1>
+          <p className="text-sm text-ink-secondary">
+            Every email the platform sends — from workflows, form notifications, and resends — with delivery status.
+          </p>
+        </div>
+        {canManage && (
+          <Link href="/messages/new" className={buttonClasses("primary", "md")}>
+            <PenSquare size={15} /> New email
+          </Link>
+        )}
       </div>
+
+      {blasts.length > 0 && (
+        <Card padding="md" className="mb-4">
+          <h2 className="mb-3 text-sm font-semibold text-ink">Newsletters &amp; blasts</h2>
+          <ul className="divide-y divide-border text-sm">
+            {blasts.map((blast) => (
+              <li key={blast.id}>
+                <Link
+                  href={`/messages/blasts/${blast.id}`}
+                  className="flex flex-wrap items-center justify-between gap-2 py-2.5 hover:bg-surface-muted"
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-medium text-ink">{blast.subject}</span>
+                    {blast._count.attachments > 0 && (
+                      <span className="shrink-0 text-xs text-ink-muted">
+                        {blast._count.attachments} attachment{blast._count.attachments === 1 ? "" : "s"}
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-xs text-ink-secondary">
+                    {blast.sentCount} sent
+                    {blast.queuedCount > 0 && ` · ${blast.queuedCount} sending`}
+                    {blast.failedCount > 0 && ` · ${blast.failedCount} failed`}
+                    {blast.suppressedCount > 0 && ` · ${blast.suppressedCount} suppressed`}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <Card padding="sm" className="mb-4">
         <form method="get" className="flex flex-wrap items-end gap-3">

@@ -21,6 +21,16 @@ export class ResendEmailProvider implements EmailProvider {
       to: input.to,
       subject: input.subject,
       text: input.text,
+      ...(input.html ? { html: input.html } : {}),
+      ...(input.attachments && input.attachments.length > 0
+        ? {
+            attachments: input.attachments.map((a) => ({
+              filename: a.filename,
+              content: a.content,
+              ...(a.contentType ? { contentType: a.contentType } : {}),
+            })),
+          }
+        : {}),
     });
     if (error) {
       throw new Error(`Resend failed to send email to ${input.to}: ${error.message}`);

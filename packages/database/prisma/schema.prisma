@@ -38,6 +38,7 @@ model User {
   contributionBatches ContributionBatch[]  @relation("ContributionBatchCreatedBy")
   contributions       Contribution[]       @relation("ContributionCreatedBy")
   savedReports        SavedReport[]        @relation("SavedReportCreatedBy")
+  emailBlasts         EmailBlast[]         @relation("EmailBlastCreatedBy")
 }
 
 /** Single-use, short-lived; a fresh request invalidates prior unused tokens. */
@@ -84,6 +85,8 @@ model Organization {
   contributionBatches    ContributionBatch[]
   contributions          Contribution[]
   savedReports           SavedReport[]
+  emailBlasts            EmailBlast[]
+  emailBlastAttachments  EmailBlastAttachment[]
   groups              Group[]
   groupMemberships    GroupMembership[]
   forms               FormDefinition[]
@@ -975,6 +978,7 @@ model Message {
   status         MessageStatus  @default(QUEUED)
   source         String
   workflowRunId  String?
+  blastId        String?
   error          String?
   sentAt         DateTime?
   createdAt      DateTime @default(now())
@@ -983,10 +987,56 @@ model Message {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   toPerson     Person?      @relation(fields: [toPersonId], references: [id], onDelete: SetNull)
   workflowRun  WorkflowRun? @relation(fields: [workflowRunId], references: [id], onDelete: SetNull)
+  blast        EmailBlast?  @relation(fields: [blastId], references: [id], onDelete: SetNull)
 
   @@index([organizationId, status])
   @@index([organizationId, createdAt])
   @@index([toPersonId])
+  @@index([blastId])
+}
+
+/**
+ * A bulk email / newsletter (docs/domain/communications.md): one composed message
+ * fanned out to an audience as individual Message rows (consent enforced per
+ * recipient by queueMessage). Body is markdown, rendered to email HTML at send
+ * time; attachment bytes live in private storage, metadata here.
+ */
+model EmailBlast {
+  id              String   @id @default(cuid())
+  organizationId  String
+  subject         String
+  bodyMarkdown    String
+  audience        Json
+  recipientCount  Int      @default(0)
+  suppressedCount Int      @default(0)
+  noEmailCount    Int      @default(0)
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?                  @relation("EmailBlastCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  attachments  EmailBlastAttachment[]
+  messages     Message[]
+
+  @@index([organizationId, createdAt])
+}
+
+model EmailBlastAttachment {
+  id             String   @id @default(cuid())
+  organizationId String
+  blastId        String
+  fileName       String
+  contentType    String
+  sizeBytes      Int
+  storageKey     String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  blast        EmailBlast   @relation(fields: [blastId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([blastId])
 }
 
 // ---------------------------------------------------------------------------

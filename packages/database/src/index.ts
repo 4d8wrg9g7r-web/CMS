@@ -138,6 +138,9 @@ export {
 } from "./giving/helpers";
 export type { AnnualStatement, BatchTotals, ContributionImportRow, StatementLine } from "./giving/helpers";
 
+export { describeAudience, validateBlastAudience, MAX_PICKED_PEOPLE } from "./messaging/audience";
+export type { BlastAudience } from "./messaging/audience";
+
 export {
   dimensionsForSource,
   measuresForSource,

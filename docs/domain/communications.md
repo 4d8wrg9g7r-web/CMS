@@ -95,3 +95,20 @@ Additive migration `add_messages` — Message table + enums + `Person.emailOpted
   signed public unsubscribe flow.
 - **Delivery status fidelity** — SENT means "provider accepted"; bounce ingestion (§19
   "bounce/failure handling") needs provider webhooks, deferred with the adapter work.
+
+## Email blasts / newsletters
+`EmailBlast` is one composed email fanned out to an audience as individual
+consent-checked Message rows (source `blast`, FK `blastId`) — delivery, retries,
+and failure surfacing all inherit the existing outbox pipeline. Audiences
+(`messaging/audience.ts`, pure + validated): everyone with an email, a filter
+(status/campus/tag), a group, or hand-picked people (capped at 500); recipients
+dedupe case-insensitively by email, people without an email are counted and
+skipped, and queueMessage records opt-out suppressions as visible FAILED rows.
+Bodies are markdown rendered to email HTML at send time by the escaping renderer
+in @cms/email (raw HTML can never survive; links restricted to http(s)/mailto).
+Attachments (≤5 files, ≤8 MB total) store bytes in private storage with metadata
+on `EmailBlastAttachment`; the worker fetches bytes per send and passes them to
+the provider (Resend supports html + attachments; the console stub logs them).
+Composer at /messages/new (live preview via the same renderer), history + counts
+on /messages with per-blast detail (sent/sending/failed/suppressed/no-email,
+failure list). Audited as `message.blast_sent`.
