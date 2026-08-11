@@ -151,6 +151,7 @@ export function AppScreen({
   onSelectTab,
   tabHref,
   homeFeed,
+  myGroupsNav,
 }: {
   manifest: AppManifest;
   organizationName: string;
@@ -162,6 +163,8 @@ export function AppScreen({
   tabHref?: (index: number) => string;
   /** Community feed for the Home tab; when set it replaces the static highlights. */
   homeFeed?: React.ReactNode;
+  /** Signed-in member's group spaces, rendered above the group directory on the Groups tab. */
+  myGroupsNav?: React.ReactNode;
 }) {
   const accent = manifest.themeColor;
   const active = manifest.tabs[activeIndex] ?? manifest.tabs[0]!;
@@ -252,16 +255,26 @@ export function AppScreen({
           </div>
         );
       case "groups":
-        return content.groups.length === 0 ? (
-          <Empty label="No groups right now" />
-        ) : (
-          <div className="flex flex-col gap-2">
-            {content.groups.map((group) => (
-              <div key={group.id} className="rounded-xl border border-neutral-200 bg-white p-4">
-                <p className="font-semibold text-neutral-900">{group.name}</p>
-                {group.description && <p className="text-sm text-neutral-600">{group.description}</p>}
+        return (
+          <div className="flex flex-col gap-4">
+            {myGroupsNav}
+            {content.groups.length === 0 ? (
+              <Empty label="No groups right now" />
+            ) : (
+              <div>
+                {myGroupsNav && (
+                  <p className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-500">All groups</p>
+                )}
+                <div className="flex flex-col gap-2">
+                  {content.groups.map((group) => (
+                    <div key={group.id} className="rounded-xl border border-neutral-200 bg-white p-4">
+                      <p className="font-semibold text-neutral-900">{group.name}</p>
+                      {group.description && <p className="text-sm text-neutral-600">{group.description}</p>}
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
+            )}
           </div>
         );
       case "forms":

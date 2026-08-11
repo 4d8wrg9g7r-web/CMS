@@ -44,6 +44,7 @@ export interface AudiencePrefill {
   tag?: string;
   customFieldKey?: string;
   customFieldValue?: string;
+  groupId?: string;
 }
 
 const STATUSES = ["VISITOR", "ATTENDER", "MEMBER", "INACTIVE"];
@@ -212,7 +213,7 @@ export function BlastComposer({
         {audienceKind === "group" && (
           <label className="text-sm text-ink-secondary">
             Group
-            <Select name="groupId" className="mt-1 block w-full" defaultValue="">
+            <Select name="groupId" className="mt-1 block w-full" defaultValue={prefill?.groupId ?? ""}>
               <option value="">Choose a group…</option>
               {groups.map((g) => (
                 <option key={g.id} value={g.id}>

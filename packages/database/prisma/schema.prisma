@@ -41,6 +41,7 @@ model User {
   emailBlasts         EmailBlast[]         @relation("EmailBlastCreatedBy")
   savedPersonFilters  SavedPersonFilter[]  @relation("SavedPersonFilterCreatedBy")
   dashboardPreferences DashboardPreference[] @relation("DashboardPreferenceUser")
+  groupPosts           GroupPost[]           @relation("GroupPostAuthorUser")
 }
 
 /** Single-use, short-lived; a fresh request invalidates prior unused tokens. */
@@ -100,6 +101,12 @@ model Organization {
   appLoginCodes          AppLoginCode[]
   appPushSubscriptions   AppPushSubscription[]
   appPages               AppPage[]
+  groupPosts             GroupPost[]
+  groupPostPrayers       GroupPostPrayer[]
+  groupEvents            GroupEvent[]
+  groupEventRsvps        GroupEventRsvp[]
+  groupPolls             GroupPoll[]
+  groupPollVotes         GroupPollVote[]
   groups              Group[]
   groupMemberships    GroupMembership[]
   forms               FormDefinition[]
@@ -341,6 +348,10 @@ model Person {
   appSessions       AppSession[]
   appLoginCodes     AppLoginCode[]
   appPushSubscriptions AppPushSubscription[]
+  groupPosts        GroupPost[]
+  groupPostPrayers  GroupPostPrayer[]
+  groupEventRsvps   GroupEventRsvp[]
+  groupPollVotes    GroupPollVote[]
 
   @@index([organizationId])
   @@index([organizationId, lastName])
@@ -784,6 +795,9 @@ model Group {
   campus       Campus?           @relation(fields: [campusId], references: [id], onDelete: SetNull)
   memberships  GroupMembership[]
   appPosts     AppPost[]
+  groupPosts   GroupPost[]
+  groupEvents  GroupEvent[]
+  groupPolls   GroupPoll[]
 
   @@index([organizationId])
   @@index([organizationId, type])
@@ -807,6 +821,147 @@ model GroupMembership {
   @@index([organizationId])
   @@index([groupId])
   @@index([personId])
+}
+
+// ---------------------------------------------------------------------------
+// Group space (docs/domain/groups.md): chat, links, prayer, events, polls
+// ---------------------------------------------------------------------------
+
+enum GroupPostKind {
+  MESSAGE
+  LINK
+  PRAYER
+}
+
+/**
+ * One entry in a group's stream: chat message, shared link, or prayer request.
+ * Authored by a member (personId) or by staff from the dashboard (authorUserId,
+ * shown as the church). Prayer requests may be anonymous (author stored for
+ * moderation, hidden in rendering). hiddenAt = leader/staff moderation.
+ */
+model GroupPost {
+  id             String        @id @default(cuid())
+  organizationId String
+  groupId        String
+  kind           GroupPostKind
+  personId       String?
+  authorUserId   String?
+  body           String
+  url            String?
+  anonymous      Boolean       @default(false)
+  hiddenAt       DateTime?
+  createdAt      DateTime      @default(now())
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  group        Group             @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  person       Person?           @relation(fields: [personId], references: [id], onDelete: Cascade)
+  authorUser   User?             @relation("GroupPostAuthorUser", fields: [authorUserId], references: [id], onDelete: SetNull)
+  prayers      GroupPostPrayer[]
+
+  @@index([groupId, createdAt])
+  @@index([organizationId])
+}
+
+/** "I'm praying" responses on PRAYER posts — one per member. */
+model GroupPostPrayer {
+  id             String   @id @default(cuid())
+  organizationId String
+  postId         String
+  personId       String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  post         GroupPost    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, personId])
+  @@index([organizationId])
+}
+
+/**
+ * Group-only events — deliberately separate from the church Event model.
+ * RSVP + leader-marked attendance live on GroupEventRsvp.
+ */
+model GroupEvent {
+  id             String    @id @default(cuid())
+  organizationId String
+  groupId        String
+  title          String
+  description    String?
+  location       String?
+  startAt        DateTime
+  endAt          DateTime?
+  createdByPersonId String?
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  group        Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  rsvps        GroupEventRsvp[]
+
+  @@index([groupId, startAt])
+  @@index([organizationId])
+}
+
+enum GroupRsvpStatus {
+  GOING
+  MAYBE
+  NO
+}
+
+/** One row per member per group event: their RSVP, and (after the event) whether a leader marked them present. */
+model GroupEventRsvp {
+  id             String          @id @default(cuid())
+  organizationId String
+  groupEventId   String
+  personId       String
+  status         GroupRsvpStatus @default(GOING)
+  attended       Boolean?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  groupEvent   GroupEvent   @relation(fields: [groupEventId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([groupEventId, personId])
+  @@index([organizationId])
+}
+
+/** A group poll ("where should we meet?"): 2-10 options, one vote per member, closeable by leaders. */
+model GroupPoll {
+  id             String    @id @default(cuid())
+  organizationId String
+  groupId        String
+  question       String
+  options        Json
+  createdByPersonId String?
+  closedAt       DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  group        Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  votes        GroupPollVote[]
+
+  @@index([groupId, createdAt])
+  @@index([organizationId])
+}
+
+model GroupPollVote {
+  id             String   @id @default(cuid())
+  organizationId String
+  pollId         String
+  personId       String
+  optionIndex    Int
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  poll         GroupPoll    @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, personId])
+  @@index([organizationId])
 }
 
 // ---------------------------------------------------------------------------

@@ -17,6 +17,7 @@ export default async function NewBlastPage({
     tag?: string;
     customFieldKey?: string;
     customFieldValue?: string;
+    groupId?: string;
   }>;
 }) {
   const organization = await getCurrentOrganization();
@@ -48,6 +49,7 @@ export default async function NewBlastPage({
     tag: params.tag,
     customFieldKey: params.customFieldKey,
     customFieldValue: params.customFieldValue,
+    groupId: params.groupId,
   };
 
   return (

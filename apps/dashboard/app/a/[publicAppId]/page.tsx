@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import { ChevronRight, Users2 } from "lucide-react";
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { appFeedService, appMemberService, appService, groupService } from "@cms/database";
 import { AppFeed } from "../../../components/church-app/AppFeed";
@@ -60,6 +62,34 @@ export default async function PublicAppPage({ params, searchParams }: Props) {
   const requested = Number.parseInt(tab ?? "0", 10);
   const activeIndex = Number.isFinite(requested) ? Math.min(Math.max(requested, 0), app.manifest.tabs.length - 1) : 0;
 
+  // Signed-in members get direct entry into their group spaces from the Groups tab.
+  const myGroupsNav =
+    myGroups.length > 0 ? (
+      <div>
+        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-neutral-500">My groups</p>
+        <div className="flex flex-col gap-2">
+          {myGroups.map((membership) => (
+            <Link
+              key={membership.group.id}
+              href={`/a/${publicAppId}/group/${membership.group.id}`}
+              className="flex items-center justify-between rounded-xl border border-neutral-200 bg-white p-4"
+            >
+              <span className="flex items-center gap-2.5">
+                <Users2 size={18} style={{ color: app.manifest.themeColor }} />
+                <span className="font-semibold text-neutral-900">{membership.group.name}</span>
+                {membership.role !== "MEMBER" && (
+                  <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+                    Leader
+                  </span>
+                )}
+              </span>
+              <ChevronRight size={16} className="text-neutral-400" />
+            </Link>
+          ))}
+        </div>
+      </div>
+    ) : undefined;
+
   return (
     <div className="mx-auto h-dvh max-w-md" style={{ backgroundColor: app.manifest.themeColor }}>
       <AppScreen
@@ -68,6 +98,7 @@ export default async function PublicAppPage({ params, searchParams }: Props) {
         content={content}
         activeIndex={activeIndex}
         tabHref={(i) => `/a/${publicAppId}?tab=${i}`}
+        myGroupsNav={myGroupsNav}
         homeFeed={
           <AppFeed
             publicAppId={publicAppId}

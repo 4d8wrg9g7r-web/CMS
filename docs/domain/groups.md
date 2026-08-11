@@ -107,3 +107,72 @@ changed, so backward-safe for rolling deploys.
 - **Capacity race** — capacity is enforced with a read-then-write in the service; under
   concurrent adds a group could momentarily exceed capacity. Acceptable for v1's scale; a
   DB constraint or transactional count belongs with attendance work if it becomes real.
+
+---
+
+# Group space (v2)
+
+The group space turns each group into a place its members live in — chat, prayer, events,
+polls — surfaced identically in three places: the church app's PWA
+(`/a/<publicAppId>/group/<groupId>`), the native app (Bearer API, same JSON), and the
+dashboard's staff view on `/groups/<groupId>`. One service
+(`group-space-service.ts`) produces one serializable payload (`GroupSpace`) for all three.
+
+## Concepts
+
+- **Stream** — `GroupPost` with `kind` MESSAGE | LINK | PRAYER. Links require an http(s)
+  URL. Prayer posts can be `anonymous`: members (and other leaders) see "Anonymous", but
+  the **dashboard staff view always sees the author** — moderation needs authorship.
+  `GroupPostPrayer` rows are "I'm praying" toggles (one per person, with a count).
+  Leaders can hide/restore posts (`hiddenAt`); hidden posts vanish for members but stay
+  visible (dimmed) to leaders and staff. Staff can post as the church
+  (`authorUserId` set, `personId` null → rendered under the church's name).
+- **Group events** — `GroupEvent` + `GroupEventRsvp`, completely separate from the
+  church-wide `Event` model (no registration forms, no public calendar). Members RSVP
+  GOING | MAYBE | NO; leaders mark attendance (`attended` tri-state on the RSVP row —
+  walk-ins get a NO-status row created at marking time). Archivable, not deletable.
+- **Polls** — `GroupPoll` (2–10 options as JSON) + one changeable `GroupPollVote` per
+  member until the poll is closed (`closedAt`). Results show per-option counts.
+- **Member management** — leaders add by email (matches an existing Person
+  case-insensitively, or creates a lightweight VISITOR Person — first/last name required
+  for new people), remove members (never themselves), and email the whole group through
+  the blast pipeline (`createEmailBlast` group audience → consent-checked, logged
+  Messages). The dashboard's "Email the group" button deep-links the full block composer
+  prefilled with the group audience.
+
+## Authorization
+
+Two ladders, one per surface:
+- **App (member identity):** `requireMember` gates reading the space and posting;
+  `requireLeader` (role ≠ MEMBER, i.e. LEADER or CO_LEADER) gates moderation, events,
+  attendance, polls admin, member management, and email.
+- **Dashboard (staff identity):** `group.view` to see the space, `group.manage` for all
+  writes — staff view calls `getGroupSpace(orgId, groupId, null)`; the null viewer means
+  "staff": hidden posts included, anonymous prayer authors revealed, `isLeader: true`.
+
+## API (additive, under /api/app/v1/apps/[publicAppId]/groups)
+
+`GET /groups` (my memberships with `is_leader`), `GET /groups/[id]` (space payload),
+`POST /groups/[id]/posts` and `/posts/[postId]` (`pray` | `hide` | `restore`),
+`/events` and `/events/[id]` (`rsvp` | `attendance` | `archive`), `/polls` and
+`/polls/[id]` (`vote` | `close`), `/members` (`add` | `remove`), `/email`.
+All Bearer-authenticated, `cache-control: no-store`.
+
+## Audit (staff actions)
+
+`group.post_created`, `group.post_hidden`, `group.post_restored`, `group.event_created`,
+`group.event_archived`, `group.attendance_marked`, `group.poll_created`,
+`group.poll_closed` — actor, group target, safe metadata.
+
+## Migration
+
+Additive migration `add_group_space` — `GroupPost`, `GroupPostPrayer`, `GroupEvent`,
+`GroupEventRsvp`, `GroupPoll`, `GroupPollVote` (+ enums); all registered in the tenant
+guard; no existing tables changed.
+
+## Profile sync
+
+App members **are** dashboard Person records (email-code sign-in resolves to the Person
+by email), so everything in the group space writes to the same rows staff see: RSVPs,
+attendance, prayer posts, poll votes all hang off `personId`, and group membership is the
+same `GroupMembership` row managed on the dashboard group page.

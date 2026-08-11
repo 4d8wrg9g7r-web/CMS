@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import {
   auditService,
   groupService,
+  groupSpaceService,
   type GroupEnrollment,
   type GroupMembershipRole,
   type GroupType,
@@ -177,6 +178,179 @@ export async function updateGroupMemberRoleAction(groupId: string, personId: str
     targetType: "Group",
     targetId: groupId,
     metadata: { personId, role },
+  });
+
+  revalidatePath(`/groups/${groupId}`);
+}
+
+/* ---------------------------------------------------------------- *
+ * Group space (docs/domain/groups.md): staff-side stream, events,
+ * polls, and moderation over the same payload the app renders.
+ * ---------------------------------------------------------------- */
+
+export async function postToGroupAsChurchAction(groupId: string, formData: FormData) {
+  const organization = await requireOrg();
+  await requireGroups(organization.id, "group.manage");
+  const body = str(formData, "body");
+  if (!body) throw new Error("Write a message first.");
+
+  const actor = await getCurrentUser();
+  const post = await groupSpaceService.createGroupPost(organization.id, groupId, {
+    kind: "MESSAGE",
+    body,
+    authorUserId: actor?.id ?? null,
+  });
+
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: "group.post_created",
+    targetType: "Group",
+    targetId: groupId,
+    metadata: { postId: post.id },
+  });
+
+  revalidatePath(`/groups/${groupId}`);
+}
+
+export async function moderateGroupPostAction(groupId: string, postId: string, hidden: boolean) {
+  const organization = await requireOrg();
+  await requireGroups(organization.id, "group.manage");
+  await groupSpaceService.setGroupPostHidden(organization.id, postId, hidden);
+
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: hidden ? "group.post_hidden" : "group.post_restored",
+    targetType: "Group",
+    targetId: groupId,
+    metadata: { postId },
+  });
+
+  revalidatePath(`/groups/${groupId}`);
+}
+
+export async function createGroupEventStaffAction(groupId: string, formData: FormData) {
+  const organization = await requireOrg();
+  await requireGroups(organization.id, "group.manage");
+
+  const title = str(formData, "title");
+  const startAtRaw = str(formData, "startAt");
+  if (!title) throw new Error("Event title is required.");
+  const startAt = new Date(startAtRaw);
+  if (!startAtRaw || Number.isNaN(startAt.getTime())) throw new Error("Pick a valid start time.");
+
+  const event = await groupSpaceService.createGroupEvent(organization.id, groupId, {
+    title,
+    description: optionalStr(formData, "description"),
+    location: optionalStr(formData, "location"),
+    startAt,
+    createdByPersonId: null,
+  });
+
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: "group.event_created",
+    targetType: "Group",
+    targetId: groupId,
+    metadata: { eventId: event.id, title },
+  });
+
+  revalidatePath(`/groups/${groupId}`);
+}
+
+export async function archiveGroupEventStaffAction(groupId: string, eventId: string) {
+  const organization = await requireOrg();
+  await requireGroups(organization.id, "group.manage");
+  await groupSpaceService.archiveGroupEvent(organization.id, eventId);
+
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: "group.event_archived",
+    targetType: "Group",
+    targetId: groupId,
+    metadata: { eventId },
+  });
+
+  revalidatePath(`/groups/${groupId}`);
+}
+
+/**
+ * Attendance form: a hidden `personIds` roster plus one `attended:<personId>`
+ * checkbox per row — unchecked boxes don't submit, so the roster tells us who
+ * to mark absent.
+ */
+export async function markGroupAttendanceStaffAction(groupId: string, eventId: string, formData: FormData) {
+  const organization = await requireOrg();
+  await requireGroups(organization.id, "group.manage");
+
+  const roster = str(formData, "personIds").split(",").filter(Boolean);
+  const entries = roster.map((personId) => ({
+    personId,
+    attended: formData.get(`attended:${personId}`) === "on",
+  }));
+  await groupSpaceService.markAttendance(organization.id, eventId, entries);
+
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: "group.attendance_marked",
+    targetType: "Group",
+    targetId: groupId,
+    metadata: { eventId, present: entries.filter((e) => e.attended).length, total: entries.length },
+  });
+
+  revalidatePath(`/groups/${groupId}`);
+}
+
+export async function createGroupPollStaffAction(groupId: string, formData: FormData) {
+  const organization = await requireOrg();
+  await requireGroups(organization.id, "group.manage");
+
+  const question = str(formData, "question");
+  const options = str(formData, "options")
+    .split("\n")
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  const poll = await groupSpaceService.createGroupPoll(organization.id, groupId, {
+    question,
+    options,
+    createdByPersonId: null,
+  });
+
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: "group.poll_created",
+    targetType: "Group",
+    targetId: groupId,
+    metadata: { pollId: poll.id, question },
+  });
+
+  revalidatePath(`/groups/${groupId}`);
+}
+
+export async function closeGroupPollStaffAction(groupId: string, pollId: string) {
+  const organization = await requireOrg();
+  await requireGroups(organization.id, "group.manage");
+  await groupSpaceService.closeGroupPoll(organization.id, pollId);
+
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: "group.poll_closed",
+    targetType: "Group",
+    targetId: groupId,
+    metadata: { pollId },
   });
 
   revalidatePath(`/groups/${groupId}`);

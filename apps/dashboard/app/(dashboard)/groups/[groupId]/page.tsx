@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MapPin, CalendarClock, Trash2, Undo2, UserPlus, X } from "lucide-react";
-import { groupService, peopleService, personDisplayName } from "@cms/database";
+import { groupService, groupSpaceService, peopleService, personDisplayName } from "@cms/database";
 import { campusService } from "@cms/database";
+import { GroupSpaceStaffPanel } from "../../../../components/GroupSpaceStaffPanel";
 import { AutoSubmitSelect } from "../../../../components/AutoSubmitSelect";
 import { Badge } from "../../../../components/ui/Badge";
 import { buttonClasses } from "../../../../components/ui/Button";
@@ -36,9 +37,11 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
   const group = await groupService.getGroup(organization.id, groupId);
   if (!group) notFound();
 
-  const [campuses, allPeople] = await Promise.all([
+  const [campuses, allPeople, space] = await Promise.all([
     campusService.listCampuses(organization.id),
     peopleService.listPeople(organization.id, { take: 200 }),
+    // Staff view (null viewer): full stream including hidden posts + prayer authors.
+    groupSpaceService.getGroupSpace(organization.id, groupId, null),
   ]);
   const memberIds = new Set(group.memberships.map((m) => m.personId));
   const addablePeople = allPeople.filter((p) => !memberIds.has(p.id));
@@ -214,6 +217,8 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
           )}
         </div>
       </div>
+
+      {space && <GroupSpaceStaffPanel space={space} churchName={organization.name} canManage={canManage} />}
     </div>
   );
 }
