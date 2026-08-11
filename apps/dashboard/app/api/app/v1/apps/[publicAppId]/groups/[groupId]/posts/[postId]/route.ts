@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import { groupSpaceService } from "@cms/database";
 import { resolveAppRequest } from "../../../../../../../../../../lib/app-api-auth";
+import { notifyPraying } from "../../../../../../../../../../lib/group-push";
 
 export const runtime = "nodejs";
 
@@ -20,6 +22,8 @@ export async function POST(
     if (json.action === "pray") {
       await groupSpaceService.requireMember(orgId, groupId, resolved.member.personId);
       const praying = await groupSpaceService.togglePraying(orgId, postId, resolved.member.personId);
+      const prayingPersonId = resolved.member.personId;
+      if (praying) after(() => notifyPraying(orgId, postId, prayingPersonId));
       return NextResponse.json({ ok: true, praying }, { headers: { "cache-control": "no-store" } });
     }
     if (json.action === "hide" || json.action === "restore") {

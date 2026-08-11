@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { groupSpaceService } from "@cms/database";
+import { after } from "next/server";
+import { groupSpaceService, personDisplayName } from "@cms/database";
 import { resolveAppRequest } from "../../../../../../../../../lib/app-api-auth";
+import { notifyGroupPost } from "../../../../../../../../../lib/group-push";
 
 export const runtime = "nodejs";
 
@@ -22,6 +24,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ publicA
       anonymous: json.anonymous === true,
       personId: resolved.member.personId,
     });
+    const orgId = resolved.app.organizationId;
+    after(() =>
+      notifyGroupPost(orgId, groupId, {
+        kind,
+        body: post.body,
+        anonymous: post.anonymous,
+        authorPersonId: post.personId,
+        authorName: post.person ? personDisplayName(post.person) : null,
+      }),
+    );
     return NextResponse.json({ ok: true, post_id: post.id }, { headers: { "cache-control": "no-store" } });
   } catch (err) {
     return NextResponse.json(

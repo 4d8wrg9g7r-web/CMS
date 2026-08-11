@@ -71,6 +71,15 @@ export async function listSubscriptions(organizationId: string) {
   });
 }
 
+/** Subscriptions for a specific set of people — targeted sends (e.g. one group). */
+export async function listSubscriptionsForPeople(organizationId: string, personIds: string[]) {
+  if (personIds.length === 0) return [];
+  return tenantDb.appPushSubscription.findMany({
+    where: { organizationId, personId: { in: personIds } },
+    select: { id: true, kind: true, endpoint: true, p256dh: true, auth: true },
+  });
+}
+
 export async function hasSubscription(organizationId: string, personId: string): Promise<boolean> {
   const row = await tenantDb.appPushSubscription.findFirst({
     where: { organizationId, personId },

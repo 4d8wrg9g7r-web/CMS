@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import {
   auditService,
   groupService,
@@ -10,6 +11,7 @@ import {
   type GroupMembershipRole,
   type GroupType,
 } from "@cms/database";
+import { notifyGroupEvent, notifyGroupPoll, notifyGroupPost } from "../../../lib/group-push";
 import { getCurrentOrganization, getCurrentUser } from "../../../lib/session";
 import { requireGroups } from "../../../lib/groups-access";
 
@@ -210,6 +212,17 @@ export async function postToGroupAsChurchAction(groupId: string, formData: FormD
     metadata: { postId: post.id },
   });
 
+  const orgId = organization.id;
+  after(() =>
+    notifyGroupPost(orgId, groupId, {
+      kind: "MESSAGE",
+      body: post.body,
+      anonymous: false,
+      authorPersonId: null,
+      authorName: null,
+    }),
+  );
+
   revalidatePath(`/groups/${groupId}`);
 }
 
@@ -258,6 +271,9 @@ export async function createGroupEventStaffAction(groupId: string, formData: For
     targetId: groupId,
     metadata: { eventId: event.id, title },
   });
+
+  const orgId = organization.id;
+  after(() => notifyGroupEvent(orgId, groupId, { title: event.title, createdByPersonId: null }));
 
   revalidatePath(`/groups/${groupId}`);
 }
@@ -334,6 +350,9 @@ export async function createGroupPollStaffAction(groupId: string, formData: Form
     targetId: groupId,
     metadata: { pollId: poll.id, question },
   });
+
+  const orgId = organization.id;
+  after(() => notifyGroupPoll(orgId, groupId, { question: poll.question, createdByPersonId: null }));
 
   revalidatePath(`/groups/${groupId}`);
 }

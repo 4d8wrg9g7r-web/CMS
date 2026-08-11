@@ -176,3 +176,13 @@ App members **are** dashboard Person records (email-code sign-in resolves to the
 by email), so everything in the group space writes to the same rows staff see: RSVPs,
 attendance, prayer posts, poll votes all hang off `personId`, and group membership is the
 same `GroupMembership` row managed on the dashboard group page.
+
+## Push notifications
+
+Group activity fans out targeted push (web + native, `lib/group-push.ts`) —
+never org-wide: new posts/links/prayer requests, new events, and new polls
+notify the group's members (author excluded); tapping "I'm praying" notifies
+the request's author only ("Someone from your group is praying…" — never who).
+Anonymous prayer pushes carry no author name, matching the in-app rule. All
+sends run in `after()` and swallow their own errors — push can never fail the
+member's action. Deep link: the group space URL.

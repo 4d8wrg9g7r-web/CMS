@@ -56,12 +56,40 @@ export async function requestLoginCode(organizationId: string, email: string): P
   return { personId: person.id, email: person.email, firstName: person.preferredName || person.firstName, code };
 }
 
+/**
+ * App Store review mode (docs/mobile-store-submission.md): reviewers can't
+ * receive our sign-in emails, so a static demo login is accepted when BOTH
+ * env vars are set. Containment:
+ *   - Off by default — absent/empty env vars disable it entirely.
+ *   - Codes shorter than 8 chars are refused (no "123456" configs).
+ *   - The email must still match an existing, unarchived Person in the org
+ *     being signed into — the operator opts a church in by creating the demo
+ *     member there; every other org is untouched.
+ *   - The resulting session is an ordinary member session (same TTL, same
+ *     permissions) — nothing is elevated.
+ */
+export function isReviewLogin(
+  email: string,
+  code: string,
+  env: { reviewEmail?: string | null; reviewCode?: string | null } = {
+    reviewEmail: process.env.REVIEW_DEMO_EMAIL,
+    reviewCode: process.env.REVIEW_DEMO_CODE,
+  },
+): boolean {
+  const reviewEmail = env.reviewEmail?.trim().toLowerCase();
+  const reviewCode = env.reviewCode?.trim();
+  if (!reviewEmail || !reviewCode || reviewCode.length < 8) return false;
+  return email.trim().toLowerCase() === reviewEmail && code.trim() === reviewCode;
+}
+
 export type VerifyResult = { ok: true; token: string; personId: string } | { ok: false; error: string };
 
 export async function verifyLoginCode(organizationId: string, email: string, code: string): Promise<VerifyResult> {
   const person = await findPersonByEmail(organizationId, email);
   const generic = { ok: false as const, error: "That code didn't work. Check it and try again." };
   if (!person) return generic;
+
+  if (isReviewLogin(email, code)) return createSession(organizationId, person.id);
 
   const row = await tenantDb.appLoginCode.findFirst({
     where: { organizationId, personId: person.id },
@@ -80,16 +108,20 @@ export async function verifyLoginCode(organizationId: string, email: string, cod
   }
 
   await tenantDb.appLoginCode.deleteMany({ where: { organizationId, personId: person.id } });
+  return createSession(organizationId, person.id);
+}
+
+async function createSession(organizationId: string, personId: string): Promise<VerifyResult> {
   const token = randomBytes(32).toString("hex");
   await tenantDb.appSession.create({
     data: {
       organizationId,
-      personId: person.id,
+      personId,
       tokenHash: sha256(token),
       expiresAt: new Date(Date.now() + SESSION_TTL_MS),
     },
   });
-  return { ok: true, token, personId: person.id };
+  return { ok: true, token, personId };
 }
 
 export interface AppMember {

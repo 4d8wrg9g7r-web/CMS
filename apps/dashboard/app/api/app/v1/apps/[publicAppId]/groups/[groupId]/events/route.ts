@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import { groupSpaceService } from "@cms/database";
 import { resolveAppRequest } from "../../../../../../../../../lib/app-api-auth";
+import { notifyGroupEvent } from "../../../../../../../../../lib/group-push";
 
 export const runtime = "nodejs";
 
@@ -28,6 +30,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ publicA
       endAt: typeof json.end_at === "string" && json.end_at ? new Date(json.end_at) : null,
       createdByPersonId: resolved.member.personId,
     });
+    const orgId = resolved.app.organizationId;
+    after(() => notifyGroupEvent(orgId, groupId, { title: event.title, createdByPersonId: event.createdByPersonId }));
     return NextResponse.json({ ok: true, event_id: event.id }, { headers: { "cache-control": "no-store" } });
   } catch (err) {
     return NextResponse.json(

@@ -118,10 +118,18 @@ per-church assets folder — extend the config when the first real church ships)
    dedicated "Demo Community Church" org, not a real congregation), and a demo
    member whose email inbox the review team can't access — so instead state:
    *"Sign-in codes are emailed. For review, use demo@…; the code for this
-   account is fixed to 000000 in review mode"* — which requires a small
-   server-side allowance: a `REVIEW_DEMO_EMAIL` + `REVIEW_DEMO_CODE` env pair
-   accepted by `verifyLoginCode` **only for that email**. Build this before
-   first submission; a reviewer who can't sign in files a 2.1 rejection.
+   account is `<your REVIEW_DEMO_CODE>`"*.
+
+   **Implemented** (`isReviewLogin` in `app-member-service.ts`): set
+   `REVIEW_DEMO_EMAIL` + `REVIEW_DEMO_CODE` on the deployment and
+   `verifyLoginCode` accepts that static code **for that email only**.
+   Containment: off unless both vars are set; codes under 8 characters are
+   refused; the email must match an existing Person in the org being signed
+   into (create the demo member **only** in the demo church — every other
+   church is unaffected); the resulting session is an ordinary member session.
+   Setup: create the demo org + demo member (with the review email), set the
+   two env vars, redeploy, and put the email + code in the review notes.
+   A reviewer who can't sign in files a 2.1 rejection.
 6. Submit for review. Typical turnaround: 1–3 days.
 
 ### Android

@@ -82,6 +82,16 @@ export async function createGroupPost(organizationId: string, groupId: string, i
       personId: input.personId ?? null,
       authorUserId: input.authorUserId ?? null,
     },
+    // Author name rides along so callers can build push copy without a re-fetch.
+    include: { person: { select: { firstName: true, lastName: true, preferredName: true } } },
+  });
+}
+
+/** Minimal post lookup for notifications (e.g. "someone is praying"). */
+export async function getGroupPost(organizationId: string, postId: string) {
+  return tenantDb.groupPost.findFirst({
+    where: { id: postId, organizationId },
+    select: { id: true, groupId: true, kind: true, personId: true, anonymous: true, hiddenAt: true },
   });
 }
 

@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { after } from "next/server";
-import { appMemberService, appService, groupSpaceService } from "@cms/database";
+import { appMemberService, appService, groupSpaceService, personDisplayName } from "@cms/database";
+import { notifyGroupEvent, notifyGroupPoll, notifyGroupPost, notifyPraying } from "../../../../lib/group-push";
 import { drainOutbox } from "../../../../lib/outbox-worker";
 
 /**
@@ -43,7 +44,20 @@ export async function postToGroupAction(
   return run(publicAppId, groupId, async () => {
     const { app, member } = await ctx(publicAppId);
     await groupSpaceService.requireMember(app.organizationId, groupId, member.personId);
-    await groupSpaceService.createGroupPost(app.organizationId, groupId, { ...input, personId: member.personId });
+    const post = await groupSpaceService.createGroupPost(app.organizationId, groupId, {
+      ...input,
+      personId: member.personId,
+    });
+    const orgId = app.organizationId;
+    after(() =>
+      notifyGroupPost(orgId, groupId, {
+        kind: input.kind,
+        body: post.body,
+        anonymous: post.anonymous,
+        authorPersonId: post.personId,
+        authorName: post.person ? personDisplayName(post.person) : null,
+      }),
+    );
   });
 }
 
@@ -51,7 +65,10 @@ export async function prayAction(publicAppId: string, groupId: string, postId: s
   return run(publicAppId, groupId, async () => {
     const { app, member } = await ctx(publicAppId);
     await groupSpaceService.requireMember(app.organizationId, groupId, member.personId);
-    await groupSpaceService.togglePraying(app.organizationId, postId, member.personId);
+    const praying = await groupSpaceService.togglePraying(app.organizationId, postId, member.personId);
+    const orgId = app.organizationId;
+    const prayingPersonId = member.personId;
+    if (praying) after(() => notifyPraying(orgId, postId, prayingPersonId));
   });
 }
 
@@ -84,13 +101,15 @@ export async function createGroupEventAction(
   return run(publicAppId, groupId, async () => {
     const { app, member } = await ctx(publicAppId);
     await groupSpaceService.requireLeader(app.organizationId, groupId, member.personId);
-    await groupSpaceService.createGroupEvent(app.organizationId, groupId, {
+    const event = await groupSpaceService.createGroupEvent(app.organizationId, groupId, {
       title: input.title,
       description: input.description ?? null,
       location: input.location ?? null,
       startAt: new Date(input.startAt),
       createdByPersonId: member.personId,
     });
+    const orgId = app.organizationId;
+    after(() => notifyGroupEvent(orgId, groupId, { title: event.title, createdByPersonId: event.createdByPersonId }));
   });
 }
 
@@ -115,10 +134,12 @@ export async function createGroupPollAction(
   return run(publicAppId, groupId, async () => {
     const { app, member } = await ctx(publicAppId);
     await groupSpaceService.requireLeader(app.organizationId, groupId, member.personId);
-    await groupSpaceService.createGroupPoll(app.organizationId, groupId, {
+    const poll = await groupSpaceService.createGroupPoll(app.organizationId, groupId, {
       ...input,
       createdByPersonId: member.personId,
     });
+    const orgId = app.organizationId;
+    after(() => notifyGroupPoll(orgId, groupId, { question: poll.question, createdByPersonId: poll.createdByPersonId }));
   });
 }
 

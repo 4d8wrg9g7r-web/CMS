@@ -97,13 +97,26 @@ async function sendExpoPush(subscriptions: Subscription[], payload: AppPushPaylo
   return dead;
 }
 
-export async function sendAppPush(organizationId: string, payload: AppPushPayload): Promise<void> {
-  const subscriptions = await appPushService.listSubscriptions(organizationId);
+async function fanOut(organizationId: string, subscriptions: Subscription[], payload: AppPushPayload): Promise<void> {
   if (subscriptions.length === 0) return;
-
   const [deadWeb, deadExpo] = await Promise.all([
     sendWebPush(subscriptions.filter((s) => s.kind === "webpush"), payload),
     sendExpoPush(subscriptions.filter((s) => s.kind === "expo"), payload),
   ]);
   await appPushService.deleteByEndpoints(organizationId, [...deadWeb, ...deadExpo]);
+}
+
+/** Push to every subscribed member of the org (church-wide announcements). */
+export async function sendAppPush(organizationId: string, payload: AppPushPayload): Promise<void> {
+  await fanOut(organizationId, await appPushService.listSubscriptions(organizationId), payload);
+}
+
+/** Push to specific people only (e.g. one group's members). */
+export async function sendAppPushToPeople(
+  organizationId: string,
+  personIds: string[],
+  payload: AppPushPayload,
+): Promise<void> {
+  if (personIds.length === 0) return;
+  await fanOut(organizationId, await appPushService.listSubscriptionsForPeople(organizationId, personIds), payload);
 }
