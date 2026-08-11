@@ -4,7 +4,7 @@ import { resolveAppRequest } from "../../../../../../../lib/app-api-auth";
 
 export const runtime = "nodejs";
 
-/** Create a member post (native composer). Text-only in native v1 — photo posts come with the image-picker pass. */
+/** Create a member post (native composer): text, optional image_url from the photos endpoint, optional group audience. */
 export async function POST(req: Request, { params }: { params: Promise<{ publicAppId: string }> }) {
   const { publicAppId } = await params;
   const resolved = await resolveAppRequest(req, publicAppId);
@@ -16,10 +16,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ publicA
 
   let body = "";
   let groupId: string | null = null;
+  let imageUrl: string | null = null;
   try {
-    const json = (await req.json()) as { body?: unknown; group_id?: unknown };
+    const json = (await req.json()) as { body?: unknown; group_id?: unknown; image_url?: unknown };
     body = typeof json.body === "string" ? json.body : "";
     groupId = typeof json.group_id === "string" && json.group_id ? json.group_id : null;
+    imageUrl = typeof json.image_url === "string" && json.image_url ? json.image_url : null;
   } catch {
     /* fall through */
   }
@@ -28,6 +30,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ publicA
     const post = await appFeedService.createMemberPost(resolved.app.organizationId, resolved.member.personId, {
       body,
       groupId,
+      imageUrl,
     });
     return NextResponse.json({ ok: true, post_id: post.id }, { headers: { "cache-control": "no-store" } });
   } catch (err) {

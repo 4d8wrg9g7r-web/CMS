@@ -48,10 +48,7 @@ npx eas submit                     # store submission
 
 ## Deliberately not here yet
 
-- Member sign-in (feed is the signed-out view; token-based auth mirrors the
-  web email-code flow next)
-- Push registration (server + subscription storage already exist; native
-  registration lands with auth)
+- Push registration (server + subscription storage already exist)
 - Store assets (icons/splash are Expo defaults until branding pass)
 
 Contract types live in `src/contract.ts` and mirror the API additively — the

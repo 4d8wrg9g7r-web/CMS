@@ -162,8 +162,9 @@ the message pipeline, opt-out-proof), `POST auth/verify {email, code}` →
 `Authorization: Bearer <token>`, `GET apps/<id>` personalizes: feed gains
 member posts + the viewer's group posts, and `member`/`my_groups` appear
 (response flips to no-store; anonymous responses stay cacheable with
-`Vary: Authorization`). Member writes: `POST posts` (text; photos come with
-the native image-picker pass), `POST posts/<id>/reaction` (whitelist),
+`Vary: Authorization`). Member writes: `POST posts` (text + optional image_url), `POST photos`
+(Bearer multipart, 4 MB, image types, public storage — the native composer's
+attach flow), `POST posts/<id>/reaction` (whitelist),
 `POST posts/<id>/comments` (+`parent_comment_id`). The Expo app stores the
 token per church in AsyncStorage (src/auth.ts), clears it when the server
 stops recognizing it, and drives SignInScreen + the interactive native feed

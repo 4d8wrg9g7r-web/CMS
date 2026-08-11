@@ -56,8 +56,37 @@ export async function fetchApp(publicAppId: string, token?: string | null): Prom
 
 const appPath = (publicAppId: string, rest: string) => `/api/app/v1/apps/${encodeURIComponent(publicAppId)}${rest}`;
 
-export async function createPost(publicAppId: string, token: string, input: { body: string; groupId?: string | null }) {
-  await postJson(appPath(publicAppId, "/posts"), token, { body: input.body, group_id: input.groupId ?? null });
+export async function createPost(
+  publicAppId: string,
+  token: string,
+  input: { body: string; groupId?: string | null; imageUrl?: string | null },
+) {
+  await postJson(appPath(publicAppId, "/posts"), token, {
+    body: input.body,
+    group_id: input.groupId ?? null,
+    image_url: input.imageUrl ?? null,
+  });
+}
+
+/** Upload a photo for a post (React Native multipart: {uri, name, type}). Returns its public URL. */
+export async function uploadPhoto(
+  publicAppId: string,
+  token: string,
+  asset: { uri: string; mimeType?: string | null; fileName?: string | null },
+): Promise<string> {
+  const form = new FormData();
+  const type = asset.mimeType ?? "image/jpeg";
+  const name = asset.fileName ?? `photo.${type.split("/")[1] ?? "jpg"}`;
+  // React Native's fetch accepts {uri, name, type} file descriptors in FormData.
+  form.append("file", { uri: asset.uri, name, type } as unknown as Blob);
+  const res = await fetch(`${apiBase()}${appPath(publicAppId, "/photos")}`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}` },
+    body: form,
+  });
+  const json = (await res.json().catch(() => ({}))) as { url?: string; message?: string };
+  if (!res.ok || !json.url) throw new Error(json.message ?? "Could not upload the photo.");
+  return json.url;
 }
 
 export async function setReaction(publicAppId: string, token: string, postId: string, emoji: string) {

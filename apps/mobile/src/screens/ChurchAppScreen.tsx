@@ -12,9 +12,10 @@ import {
   TextInput,
   View,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 import { WebView } from "react-native-webview";
-import { addComment, createPost, fetchApp, resolveUrl, setReaction } from "../api";
+import { addComment, createPost, fetchApp, resolveUrl, setReaction, uploadPhoto } from "../api";
 import { clearToken, getToken, signOut } from "../auth";
 import type { AppPayload, AppTab } from "../contract";
 import { Feed, type FeedActions } from "../components/Feed";
@@ -117,6 +118,8 @@ export function ChurchAppScreen({ publicAppId, onSwitchChurch }: { publicAppId: 
   const [signingIn, setSigningIn] = useState(false);
   const [draft, setDraft] = useState("");
   const [draftGroupId, setDraftGroupId] = useState<string | null>(null);
+  const [draftPhotoUrl, setDraftPhotoUrl] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -175,14 +178,35 @@ export function ChurchAppScreen({ publicAppId, onSwitchChurch }: { publicAppId: 
         }
       : null;
 
+  const attachPhoto = async () => {
+    if (!token) return;
+    setPostError(null);
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: "images",
+      quality: 0.8,
+      allowsEditing: false,
+    });
+    const asset = picked.assets?.[0];
+    if (picked.canceled || !asset) return;
+    setUploadingPhoto(true);
+    try {
+      const url = await uploadPhoto(publicAppId, token, asset);
+      setDraftPhotoUrl(url);
+    } catch (err) {
+      setPostError(err instanceof Error ? err.message : "Could not upload the photo");
+    }
+    setUploadingPhoto(false);
+  };
+
   const submitPost = async () => {
-    if (!token || !draft.trim()) return;
+    if (!token || (!draft.trim() && !draftPhotoUrl)) return;
     setPosting(true);
     setPostError(null);
     try {
-      await createPost(publicAppId, token, { body: draft.trim(), groupId: draftGroupId });
+      await createPost(publicAppId, token, { body: draft.trim(), groupId: draftGroupId, imageUrl: draftPhotoUrl });
       setDraft("");
       setDraftGroupId(null);
+      setDraftPhotoUrl(null);
       await load();
     } catch (err) {
       setPostError(err instanceof Error ? err.message : "Could not post");
@@ -239,7 +263,18 @@ export function ChurchAppScreen({ publicAppId, onSwitchChurch }: { publicAppId: 
                   maxLength={1000}
                   style={styles.composerInput}
                 />
+                {draftPhotoUrl && (
+                  <View>
+                    <Image source={{ uri: draftPhotoUrl }} style={styles.draftPhoto} resizeMode="cover" />
+                    <Pressable style={styles.draftPhotoRemove} onPress={() => setDraftPhotoUrl(null)} hitSlop={8}>
+                      <Text style={styles.draftPhotoRemoveText}>✕</Text>
+                    </Pressable>
+                  </View>
+                )}
                 <View style={styles.composerRow}>
+                  <Pressable onPress={() => void attachPhoto()} disabled={uploadingPhoto} hitSlop={6}>
+                    <Text style={styles.attachPhoto}>{uploadingPhoto ? "⏳" : "📷"}</Text>
+                  </Pressable>
                   {(myGroups ?? []).length > 0 ? (
                     <View style={styles.audienceRow}>
                       <Pressable onPress={() => setDraftGroupId(null)} style={[styles.audienceChip, draftGroupId === null && { borderColor: accent }]}>
@@ -256,8 +291,11 @@ export function ChurchAppScreen({ publicAppId, onSwitchChurch }: { publicAppId: 
                   )}
                   <Pressable
                     onPress={() => void submitPost()}
-                    disabled={posting || !draft.trim()}
-                    style={[styles.postButton, { backgroundColor: accent, opacity: posting || !draft.trim() ? 0.5 : 1 }]}
+                    disabled={posting || uploadingPhoto || (!draft.trim() && !draftPhotoUrl)}
+                    style={[
+                      styles.postButton,
+                      { backgroundColor: accent, opacity: posting || uploadingPhoto || (!draft.trim() && !draftPhotoUrl) ? 0.5 : 1 },
+                    ]}
                   >
                     <Text style={styles.postButtonText}>Post</Text>
                   </Pressable>
@@ -493,6 +531,20 @@ const styles = StyleSheet.create({
   postButton: { borderRadius: 18, paddingHorizontal: 20, paddingVertical: 9 },
   postButtonText: { color: "#ffffff", fontSize: 13, fontWeight: "700" },
   postError: { color: "#b91c1c", fontSize: 12 },
+  attachPhoto: { fontSize: 20 },
+  draftPhoto: { width: "100%", aspectRatio: 4 / 3, borderRadius: 10, backgroundColor: "#e5e5e2" },
+  draftPhotoRemove: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  draftPhotoRemoveText: { color: "#ffffff", fontSize: 12, fontWeight: "700" },
   card: { backgroundColor: "#ffffff", borderRadius: 12, borderWidth: 1, borderColor: "#e5e5e5", padding: 14, gap: 2 },
   itemTitle: { fontSize: 15, fontWeight: "600", color: "#171717" },
   itemMeta: { fontSize: 13, color: "#737373" },
