@@ -46,6 +46,9 @@ export type { AttendanceRow, WeekBucket, EventAttendanceSummary } from "./checki
 export * as volunteerService from "./services/volunteer-service";
 export * as givingService from "./services/giving-service";
 export * as reportingService from "./services/reporting-service";
+export * as dashboardService from "./services/dashboard-service";
+export { validateDashboardConfig, applyReportOrder, DASHBOARD_SECTIONS, EMPTY_DASHBOARD_CONFIG } from "./dashboard/config";
+export type { DashboardConfig, DashboardSection } from "./dashboard/config";
 export * as volunteerPermissions from "./authz/volunteer-permissions";
 export type { VolunteerAction } from "./authz/volunteer-permissions";
 export { isEligible } from "./volunteers/helpers";

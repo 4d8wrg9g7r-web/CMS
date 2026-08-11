@@ -93,3 +93,13 @@ access to a pinned report's source simply doesn't see that card (pinning grants
 nothing). Charts render with the same components as the builder. The builder also
 offers "Email this audience": the report's person-side filters (status, campus,
 custom field) carry into the blast composer as a prefilled audience.
+
+## Dashboard layout (edit mode)
+`DashboardPreference` (one row per member per org, config Json) stores the
+viewer's personal Overview arrangement: pinned-report order and hidden sections
+(metrics / pinned filters / pinned reports / upcoming events / recent activity).
+"Edit dashboard" mode offers drag-and-drop plus keyboard arrow buttons for card
+order and eye toggles per section; Done persists via saveDashboardLayoutAction.
+Layout is presentation only — validateDashboardConfig drops unknown keys, stale
+report ids append at the end (applyReportOrder), and hiding a section never
+affects data access, which is enforced where data is fetched.

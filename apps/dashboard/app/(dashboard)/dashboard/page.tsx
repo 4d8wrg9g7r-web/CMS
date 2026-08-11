@@ -8,9 +8,10 @@ import {
   Sparkles,
   Users2,
 } from "lucide-react";
-import { auditService, eventService, groupService, peopleService, reportingService, taskService, nextOccurrence, type MembershipStatus } from "@cms/database";
+import { applyReportOrder, auditService, dashboardService, eventService, groupService, peopleService, reportingService, taskService, nextOccurrence, type MembershipStatus } from "@cms/database";
 import { runReportAction } from "../reports/actions";
 import { PinnedReportCard } from "../../../components/PinnedReportCard";
+import { DashboardCustomizer, type CustomizerSection } from "../../../components/DashboardCustomizer";
 import type { ChartSeries } from "../../../components/report-charts";
 import { canPeople } from "../../../lib/people-access";
 import { MetricCard } from "../../../components/ui/MetricCard";
@@ -33,7 +34,7 @@ export default async function OverviewPage() {
   const user = await getCurrentUser();
   if (!organization) return null;
 
-  const [peopleCount, groupCount, events, openTaskCount, activity, pinnedReports, pinnedFilters, peopleOk] =
+  const [peopleCount, groupCount, events, openTaskCount, activity, pinnedReports, pinnedFilters, peopleOk, layout] =
     await Promise.all([
       peopleService.countPeople(organization.id),
       groupService.countGroups(organization.id),
@@ -43,7 +44,9 @@ export default async function OverviewPage() {
       reportingService.listPinnedReports(organization.id),
       peopleService.listPinnedPersonFilters(organization.id),
       canPeople(organization.id, "person.view"),
+      user ? dashboardService.getDashboardConfig(organization.id, user.id) : null,
     ]);
+  const config = layout ?? { reportOrder: [], hiddenSections: [] };
 
   // Pinned reports re-run live for THIS viewer — runReportAction re-checks source
   // and person permissions per run, so a card the viewer can't see simply drops out.
@@ -90,65 +93,68 @@ export default async function OverviewPage() {
     .slice(0, 5);
   const firstName = (user?.name || user?.email || "there").split(" ")[0]?.split("@")[0];
 
-  return (
-    <div>
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">
-            {greetingForHour(new Date().getHours())}, {firstName}
-          </h1>
-          <p className="mt-1 text-sm text-ink-secondary">Here&rsquo;s what&rsquo;s happening at {organization.name}.</p>
-        </div>
-        <Link href="/people/new" className={buttonClasses("primary", "md")}>
-          <PlusCircle size={16} /> Add Person
-        </Link>
-      </div>
+  const orderedCharts = applyReportOrder(pinnedCharts, config.reportOrder);
 
-      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <MetricCard label="People" value={peopleCount} helperText="Active profiles" icon={<Contact size={16} />} />
-        <MetricCard label="Groups" value={groupCount} helperText="Active groups" icon={<Users2 size={16} />} />
-        <MetricCard
-          label="Upcoming Events"
-          value={upcoming.length}
-          helperText={upcoming[0] ? `Next: ${upcoming[0].event.title}` : "Nothing scheduled"}
-          icon={<CalendarDays size={16} />}
+  const sectionsBefore: CustomizerSection[] = [
+    {
+      key: "metrics",
+      label: "Key numbers",
+      node: (
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <MetricCard label="People" value={peopleCount} helperText="Active profiles" icon={<Contact size={16} />} />
+          <MetricCard label="Groups" value={groupCount} helperText="Active groups" icon={<Users2 size={16} />} />
+          <MetricCard
+            label="Upcoming Events"
+            value={upcoming.length}
+            helperText={upcoming[0] ? `Next: ${upcoming[0].event.title}` : "Nothing scheduled"}
+            icon={<CalendarDays size={16} />}
+          />
+          <MetricCard label="Open Tasks" value={openTaskCount} helperText="Open or in progress" icon={<CheckSquare size={16} />} />
+        </div>
+      ),
+    },
+    ...(filterCards.length > 0
+      ? [
+          {
+            key: "pinnedFilters" as const,
+            label: "Pinned filters",
+            node: (
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                {filterCards.map((card) => (
+                  <Link key={card.id} href={card.href} className="block">
+                    <MetricCard
+                      label={card.name}
+                      value={card.count}
+                      helperText="Pinned filter · live count"
+                      icon={<Contact size={16} />}
+                    />
+                  </Link>
+                ))}
+              </div>
+            ),
+          },
+        ]
+      : []),
+  ];
+
+  const reportCards = orderedCharts.map((card) => ({
+    id: card.id,
+    name: card.name,
+    node: (
+      <Card>
+        <PinnedReportCard
+          name={card.name}
+          chart={card.chart}
+          measure={card.measure}
+          series={card.series}
+          totals={card.totals}
         />
-        <MetricCard label="Open Tasks" value={openTaskCount} helperText="Open or in progress" icon={<CheckSquare size={16} />} />
-      </div>
+      </Card>
+    ),
+  }));
 
-      {filterCards.length > 0 && (
-        <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {filterCards.map((card) => (
-            <Link key={card.id} href={card.href} className="block">
-              <MetricCard
-                label={card.name}
-                value={card.count}
-                helperText="Pinned filter · live count"
-                icon={<Contact size={16} />}
-              />
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {pinnedCharts.length > 0 && (
-        <div className="mb-8 grid gap-6 lg:grid-cols-2">
-          {pinnedCharts.map((card) => (
-            <Card key={card.id}>
-              <PinnedReportCard
-                name={card.name}
-                chart={card.chart}
-                measure={card.measure}
-                series={card.series}
-                totals={card.totals}
-              />
-            </Card>
-          ))}
-        </div>
-      )}
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
+  const eventsNode = (
+    <Card>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-ink">Upcoming Events</h2>
             <Link
@@ -186,9 +192,11 @@ export default async function OverviewPage() {
               ))}
             </ul>
           )}
-        </Card>
+    </Card>
+  );
 
-        <Card>
+  const activityNode = (
+    <Card>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-ink">Recent Activity</h2>
             <Link
@@ -215,8 +223,33 @@ export default async function OverviewPage() {
               ))}
             </ul>
           )}
-        </Card>
+    </Card>
+  );
+
+  return (
+    <div>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">
+            {greetingForHour(new Date().getHours())}, {firstName}
+          </h1>
+          <p className="mt-1 text-sm text-ink-secondary">Here&rsquo;s what&rsquo;s happening at {organization.name}.</p>
+        </div>
+        <Link href="/people/new" className={buttonClasses("primary", "md")}>
+          <PlusCircle size={16} /> Add Person
+        </Link>
       </div>
+
+      <DashboardCustomizer
+        initialConfig={config}
+        sectionsBefore={sectionsBefore}
+        sectionsAfter={[
+          { key: "upcomingEvents", label: "Upcoming events", node: eventsNode },
+          { key: "recentActivity", label: "Recent activity", node: activityNode },
+        ]}
+        reportCards={reportCards}
+        hasPinnedReports={reportCards.length > 0}
+      />
     </div>
   );
 }

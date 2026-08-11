@@ -40,6 +40,7 @@ model User {
   savedReports        SavedReport[]        @relation("SavedReportCreatedBy")
   emailBlasts         EmailBlast[]         @relation("EmailBlastCreatedBy")
   savedPersonFilters  SavedPersonFilter[]  @relation("SavedPersonFilterCreatedBy")
+  dashboardPreferences DashboardPreference[] @relation("DashboardPreferenceUser")
 }
 
 /** Single-use, short-lived; a fresh request invalidates prior unused tokens. */
@@ -89,6 +90,7 @@ model Organization {
   emailBlasts            EmailBlast[]
   emailBlastAttachments  EmailBlastAttachment[]
   savedPersonFilters     SavedPersonFilter[]
+  dashboardPreferences   DashboardPreference[]
   groups              Group[]
   groupMemberships    GroupMembership[]
   forms               FormDefinition[]
@@ -502,6 +504,26 @@ model SavedPersonFilter {
   createdBy    User?        @relation("SavedPersonFilterCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([organizationId])
+}
+
+/**
+ * Per-user dashboard Overview layout (docs/domain/reports.md): pinned-report
+ * order, hidden sections. Personal preference, one row per member per org —
+ * it never grants or hides data access, only arranges what the viewer's
+ * permissions already allow.
+ */
+model DashboardPreference {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  config         Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation("DashboardPreferenceUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
 }
 
 // ---------------------------------------------------------------------------
