@@ -3,10 +3,13 @@
 import { revalidatePath } from "next/cache";
 import {
   aggregateReport,
+  alignSeries,
   auditService,
   peopleService,
+  periodLabel,
   reportingService,
   reportUsesPersonData,
+  shiftRange,
   validateReportConfig,
   type ReportConfig,
   type ReportGroup,
@@ -56,6 +59,9 @@ export interface RunReportResult {
   rowCount?: number;
   truncated?: boolean;
   measure?: ReportMeasure;
+  /** Set when the config compares two periods: aligned to the same labels as groups. */
+  primaryLabel?: string;
+  comparison?: { label: string; groups: ReportGroup[]; total: number };
 }
 
 export async function runReportAction(input: { config: unknown }): Promise<RunReportResult> {
@@ -70,13 +76,39 @@ export async function runReportAction(input: { config: unknown }): Promise<RunRe
 
     const { rows, truncated } = await reportingService.fetchReportRows(organization.id, validated.config);
     const result = aggregateReport(rows, validated.config);
+
+    if (!validated.config.compare || !validated.config.from || !validated.config.to) {
+      return {
+        ok: true,
+        groups: result.groups,
+        total: result.total,
+        rowCount: result.rowCount,
+        truncated,
+        measure: result.measure,
+      };
+    }
+
+    // Comparison run: identical config over the shifted range, aligned to the
+    // primary series so every chart gets two same-length, same-label series.
+    const shifted = shiftRange(validated.config.from, validated.config.to, validated.config.compare);
+    const compareConfig: ReportConfig = { ...validated.config, from: shifted.from, to: shifted.to, compare: null };
+    const compareFetch = await reportingService.fetchReportRows(organization.id, compareConfig);
+    const compareResult = aggregateReport(compareFetch.rows, compareConfig);
+    const aligned = alignSeries(result, compareResult, validated.config.groupBy.kind);
+
     return {
       ok: true,
-      groups: result.groups,
+      groups: aligned.labels.map((label, i) => ({ label, value: aligned.primary[i] ?? 0 })),
       total: result.total,
       rowCount: result.rowCount,
-      truncated,
+      truncated: truncated || compareFetch.truncated,
       measure: result.measure,
+      primaryLabel: periodLabel(validated.config.from, validated.config.to),
+      comparison: {
+        label: periodLabel(shifted.from, shifted.to),
+        groups: aligned.labels.map((label, i) => ({ label, value: aligned.comparison[i] ?? 0 })),
+        total: compareResult.total,
+      },
     };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Could not run the report" };

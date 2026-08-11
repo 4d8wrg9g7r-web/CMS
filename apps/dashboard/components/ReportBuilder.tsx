@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { BookmarkPlus, FileDown, Loader2, Sparkles, Trash2 } from "lucide-react";
 import { buttonClasses } from "./ui/Button";
 import { Input, Select } from "./ui/Input";
-import { ReportBarChart, ReportDonutChart, ReportLineChart, ReportTable } from "./report-charts";
-import type { ReportChart, ReportMeasure, ReportSource } from "@cms/database";
+import { ReportBarChart, ReportLineChart, ReportRoundChart, ReportTable, type ChartSeries } from "./report-charts";
+import type { CompareMode, ReportChart, ReportMeasure, ReportSource } from "@cms/database";
 import {
   askReportAiAction,
   deleteSavedReportAction,
@@ -118,6 +118,7 @@ export function ReportBuilder({
   const [measure, setMeasure] = useState<ReportMeasure>("count");
   // Over-time reports read best as lines, so that's the default.
   const [chart, setChart] = useState<ReportChart>("line");
+  const [compare, setCompare] = useState<CompareMode | "">("");
   const [question, setQuestion] = useState("");
   const [asking, setAsking] = useState(false);
   const [aiAnswer, setAiAnswer] = useState<{ question: string; explanation: string } | null>(null);
@@ -148,6 +149,7 @@ export function ReportBuilder({
         : { kind: "dimension", field: group.slice(4) },
       measure,
       chart,
+      compare: range.from && range.to && compare ? compare : null,
       filters: {
         membershipStatus: status || null,
         campusId: campusId || null,
@@ -209,6 +211,7 @@ export function ReportBuilder({
     setEventId(c.filters?.eventId ?? "");
     setCustomKey(c.filters?.customFieldKey ?? "");
     setCustomValue(c.filters?.customFieldValue ?? "");
+    setCompare((c.compare as CompareMode | null) ?? "");
   }
 
   async function ask() {
@@ -369,8 +372,23 @@ export function ReportBuilder({
             <Select value={chart} onChange={(e) => setChart(e.target.value as ReportChart)} className="mt-1 block w-32">
               <option value="bar">Bars</option>
               <option value="line">Line</option>
+              <option value="pie">Pie</option>
               <option value="donut">Donut</option>
               <option value="table">Table only</option>
+            </Select>
+          </label>
+          <label className="text-sm text-ink-secondary">
+            Compare
+            <Select
+              value={preset === "all" ? "" : compare}
+              onChange={(e) => setCompare(e.target.value as CompareMode | "")}
+              disabled={preset === "all"}
+              className="mt-1 block w-44"
+              title={preset === "all" ? "Comparisons need a bounded date range" : undefined}
+            >
+              <option value="">No comparison</option>
+              <option value="previousYear">vs same period last year</option>
+              <option value="previousPeriod">vs previous period</option>
             </Select>
           </label>
         </div>
@@ -515,30 +533,55 @@ export function ReportBuilder({
         {result && !result.ok && (
           <p className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{result.error}</p>
         )}
-        {result?.ok && (
-          <>
-            <div className="mb-5 flex flex-wrap items-baseline gap-x-6 gap-y-1">
-              <p className="text-3xl font-bold tracking-tight text-ink">{format(result.total ?? 0)}</p>
-              <p className="text-sm text-ink-secondary">
-                {MEASURE_LABELS[result.measure ?? "count"]} · {result.rowCount?.toLocaleString("en-US")} records
-              </p>
-              {result.truncated && (
-                <p className="text-sm text-danger">Capped at 25,000 records — narrow the date range for exact numbers.</p>
-              )}
-            </div>
-            {groups.length === 0 ? (
-              <p className="text-sm text-ink-muted">No data for this combination — widen the dates or loosen a filter.</p>
-            ) : (
+        {result?.ok &&
+          (() => {
+            const series: ChartSeries[] = [
+              { label: result.primaryLabel ?? "Current", groups },
+              ...(result.comparison ? [{ label: result.comparison.label, groups: result.comparison.groups }] : []),
+            ];
+            const totals = [result.total ?? 0, ...(result.comparison ? [result.comparison.total] : [])];
+            const changePct =
+              result.comparison && result.comparison.total > 0
+                ? (((result.total ?? 0) - result.comparison.total) / result.comparison.total) * 100
+                : null;
+            return (
               <>
-                {chart === "bar" && <ReportBarChart groups={groups} format={format} />}
-                {chart === "line" && <ReportLineChart groups={groups} format={format} />}
-                {chart === "donut" && <ReportDonutChart groups={groups} format={format} />}
-                {chart !== "table" && <div className="mt-6 border-t border-border pt-4" />}
-                <ReportTable groups={groups} total={result.total ?? 0} format={format} />
+                <div className="mb-5 flex flex-wrap items-baseline gap-x-6 gap-y-1">
+                  <p className="text-3xl font-bold tracking-tight text-ink">{format(result.total ?? 0)}</p>
+                  <p className="text-sm text-ink-secondary">
+                    {MEASURE_LABELS[result.measure ?? "count"]} · {result.rowCount?.toLocaleString("en-US")} records
+                  </p>
+                  {result.comparison && (
+                    <p className="text-sm text-ink-secondary">
+                      vs {result.comparison.label}: <span className="tabular-nums">{format(result.comparison.total)}</span>
+                      {changePct !== null && (
+                        <span className={`ml-1.5 font-semibold ${changePct >= 0 ? "text-success" : "text-danger"}`}>
+                          {changePct >= 0 ? "+" : ""}
+                          {changePct.toFixed(1)}%
+                        </span>
+                      )}
+                    </p>
+                  )}
+                  {result.truncated && (
+                    <p className="text-sm text-danger">Capped at 25,000 records — narrow the date range for exact numbers.</p>
+                  )}
+                </div>
+                {groups.length === 0 ? (
+                  <p className="text-sm text-ink-muted">No data for this combination — widen the dates or loosen a filter.</p>
+                ) : (
+                  <>
+                    {chart === "bar" && <ReportBarChart series={series} format={format} />}
+                    {chart === "line" && <ReportLineChart series={series} format={format} />}
+                    {(chart === "pie" || chart === "donut") && (
+                      <ReportRoundChart series={series} format={format} hole={chart === "donut"} />
+                    )}
+                    {chart !== "table" && <div className="mt-6 border-t border-border pt-4" />}
+                    <ReportTable series={series} totals={totals} format={format} />
+                  </>
+                )}
               </>
-            )}
-          </>
-        )}
+            );
+          })()}
       </div>
     </div>
   );

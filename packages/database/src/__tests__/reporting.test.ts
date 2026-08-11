@@ -6,7 +6,14 @@ import {
   validateReportConfig,
   type ReportConfig,
 } from "../reporting/config";
-import { aggregateReport, MAX_TIME_BUCKETS, type ReportRow } from "../reporting/aggregate";
+import {
+  aggregateReport,
+  alignSeries,
+  periodLabel,
+  shiftRange,
+  MAX_TIME_BUCKETS,
+  type ReportRow,
+} from "../reporting/aggregate";
 
 const KEYS = ["veteran", "ministry-team"];
 
@@ -131,5 +138,66 @@ describe("aggregateReport", () => {
     const result = aggregateReport([], base({ from: null, to: null, groupBy: { kind: "time", bucket: "month" } }));
     expect(result.groups).toEqual([]);
     expect(result.total).toBe(0);
+  });
+});
+
+describe("compare config validation", () => {
+  it("accepts compare with explicit dates and rejects it without", () => {
+    expect(validateReportConfig(base({ compare: "previousYear" }), KEYS).ok).toBe(true);
+    expect(validateReportConfig(base({ compare: "previousYear", from: null }), KEYS).ok).toBe(false);
+    expect(validateReportConfig(base({ compare: "sideways" as never }), KEYS).ok).toBe(false);
+  });
+  it("accepts the pie chart type", () => {
+    expect(validateReportConfig(base({ chart: "pie" }), KEYS).ok).toBe(true);
+  });
+});
+
+describe("shiftRange", () => {
+  it("shifts previousYear keeping month/day, clamping Feb 29", () => {
+    expect(shiftRange("2026-01-01", "2026-12-31", "previousYear")).toEqual({ from: "2025-01-01", to: "2025-12-31" });
+    expect(shiftRange("2024-02-29", "2024-02-29", "previousYear")).toEqual({ from: "2023-02-28", to: "2023-02-28" });
+  });
+  it("shifts previousPeriod back by the exact range length", () => {
+    expect(shiftRange("2026-03-01", "2026-03-31", "previousPeriod")).toEqual({ from: "2026-01-29", to: "2026-02-28" });
+    expect(shiftRange("2026-01-08", "2026-01-14", "previousPeriod")).toEqual({ from: "2026-01-01", to: "2026-01-07" });
+  });
+});
+
+describe("periodLabel", () => {
+  it("names full years, open ranges, and arbitrary ranges", () => {
+    expect(periodLabel("2026-01-01", "2026-12-31")).toBe("2026");
+    expect(periodLabel(null, null)).toBe("All time");
+    expect(periodLabel("2026-01-01", "2026-03-31")).toBe("2026-01-01 → 2026-03-31");
+  });
+});
+
+describe("alignSeries", () => {
+  const result = (values: [string, number][]) => ({
+    groups: values.map(([label, value]) => ({ label, value })),
+    total: values.reduce((s, [, v]) => s + v, 0),
+    rowCount: 0,
+    measure: "count" as const,
+  });
+
+  it("aligns time series positionally and pads the shorter run", () => {
+    const aligned = alignSeries(
+      result([["Jan 2026", 5], ["Feb 2026", 8], ["Mar 2026", 2]]),
+      result([["Jan 2025", 3]]),
+      "time",
+    );
+    expect(aligned.labels).toEqual(["Jan 2026", "Feb 2026", "Mar 2026"]);
+    expect(aligned.primary).toEqual([5, 8, 2]);
+    expect(aligned.comparison).toEqual([3, 0, 0]);
+  });
+
+  it("aligns dimensions by label and appends comparison-only labels", () => {
+    const aligned = alignSeries(
+      result([["General", 100], ["Missions", 40]]),
+      result([["General", 80], ["Building", 25]]),
+      "dimension",
+    );
+    expect(aligned.labels).toEqual(["General", "Missions", "Building"]);
+    expect(aligned.primary).toEqual([100, 40, 0]);
+    expect(aligned.comparison).toEqual([80, 0, 25]);
   });
 });

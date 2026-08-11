@@ -1,4 +1,4 @@
-import type { ReportConfig, ReportMeasure } from "./config";
+import type { CompareMode, ReportConfig, ReportMeasure } from "./config";
 
 /**
  * Pure aggregation for the report builder (docs/domain/reports.md). The service
@@ -70,6 +70,74 @@ function measureValue(rows: ReportRow[], measure: ReportMeasure): number {
   if (measure === "sumAmount") return rows.reduce((sum, r) => sum + (r.amountCents ?? 0), 0);
   if (measure === "uniquePeople") return new Set(rows.map((r) => r.personId).filter(Boolean)).size;
   return rows.length;
+}
+
+/** Shifts an explicit date range back for comparison overlays. */
+export function shiftRange(from: string, to: string, mode: CompareMode): { from: string; to: string } {
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const parse = (s: string) => new Date(`${s}T00:00:00Z`);
+  if (mode === "previousYear") {
+    const shift = (s: string) => {
+      const [y, m, d] = s.split("-").map(Number);
+      const shifted = new Date(Date.UTC(y! - 1, m! - 1, d!));
+      // Feb 29 → Mar 1 rollover: clamp back to the month's last day.
+      if (shifted.getUTCMonth() !== m! - 1) shifted.setUTCDate(0);
+      return iso(shifted);
+    };
+    return { from: shift(from), to: shift(to) };
+  }
+  const lengthDays = Math.round((parse(to).getTime() - parse(from).getTime()) / 86400000) + 1;
+  const newTo = new Date(parse(from).getTime() - 86400000);
+  const newFrom = new Date(newTo.getTime() - (lengthDays - 1) * 86400000);
+  return { from: iso(newFrom), to: iso(newTo) };
+}
+
+/** "2025-01-01".."2025-12-31" → "2025"; open ranges → "All time"; else from → to. */
+export function periodLabel(from: string | null, to: string | null): string {
+  if (!from || !to) return "All time";
+  const [fy] = from.split("-");
+  const [ty] = to.split("-");
+  if (fy === ty && from.endsWith("-01-01") && to.endsWith("-12-31")) return fy!;
+  return `${from} → ${to}`;
+}
+
+export interface AlignedSeries {
+  labels: string[];
+  primary: number[];
+  comparison: number[];
+}
+
+/**
+ * Aligns a comparison run against the primary. Time series align positionally
+ * (bucket 1 vs bucket 1 — "Jan 2026" pairs with "Jan 2025"), padded with zeros;
+ * dimension series align by label, with comparison-only labels appended so nothing
+ * silently disappears.
+ */
+export function alignSeries(
+  primary: ReportResult,
+  comparison: ReportResult,
+  kind: "time" | "dimension",
+): AlignedSeries {
+  if (kind === "time") {
+    const labels = primary.groups.map((g) => g.label);
+    return {
+      labels,
+      primary: primary.groups.map((g) => g.value),
+      comparison: labels.map((_, i) => comparison.groups[i]?.value ?? 0),
+    };
+  }
+  const comparisonByLabel = new Map(comparison.groups.map((g) => [g.label, g.value]));
+  const primaryLabels = new Set(primary.groups.map((g) => g.label));
+  const labels = [
+    ...primary.groups.map((g) => g.label),
+    ...comparison.groups.filter((g) => !primaryLabels.has(g.label)).map((g) => g.label),
+  ];
+  const primaryByLabel = new Map(primary.groups.map((g) => [g.label, g.value]));
+  return {
+    labels,
+    primary: labels.map((l) => primaryByLabel.get(l) ?? 0),
+    comparison: labels.map((l) => comparisonByLabel.get(l) ?? 0),
+  };
 }
 
 export function aggregateReport(rows: ReportRow[], config: ReportConfig): ReportResult {

@@ -28,7 +28,7 @@ export interface ReportAiMetadata {
 const CONFIG_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["source", "from", "to", "groupKind", "bucket", "field", "measure", "chart", "filters", "explanation"],
+  required: ["source", "from", "to", "groupKind", "bucket", "field", "measure", "chart", "compare", "filters", "explanation"],
   properties: {
     source: { type: "string", enum: ["people", "attendance", "giving"] },
     from: { type: ["string", "null"] },
@@ -37,7 +37,8 @@ const CONFIG_SCHEMA = {
     bucket: { type: ["string", "null"], enum: ["week", "month", "year", null] },
     field: { type: ["string", "null"] },
     measure: { type: "string", enum: ["count", "uniquePeople", "sumAmount"] },
-    chart: { type: "string", enum: ["bar", "line", "donut", "table"] },
+    chart: { type: "string", enum: ["bar", "line", "pie", "donut", "table"] },
+    compare: { type: ["string", "null"], enum: ["previousPeriod", "previousYear", null] },
     filters: {
       type: "object",
       additionalProperties: false,
@@ -62,7 +63,8 @@ Sources and their date fields: "people" (date a person was added), "attendance" 
 Measures: people supports only count; attendance supports count and uniquePeople; giving supports sumAmount (default for money questions), count, and uniquePeople.
 Grouping: groupKind "time" with bucket week/month/year (set field to null), or groupKind "dimension" with field set to one of: membershipStatus, campus, or "custom:<key>" for a listed custom field; attendance also allows "event"; giving also allows "fund" and "method" (set bucket to null).
 Filters: use ids from the provided lists for campusId/fundId/eventId; customFieldKey must be a listed key with customFieldValue set ("Yes"/"No" for yes-no fields).
-Charts: line for over-time questions, bar for category comparisons, donut for share-of-total, table when the user asks for exact numbers.
+Charts: line for over-time questions, bar for category comparisons, pie or donut for share-of-total, table when the user asks for exact numbers.
+Compare: when the question compares two periods ("this year vs last year", "compared to the previous quarter"), set compare to "previousYear" or "previousPeriod" — from/to must then be explicit dates for the CURRENT period, never null. Otherwise compare is null.
 Dates: from/to are YYYY-MM-DD or null (all time). Compute relative ranges ("last quarter", "this year") from the provided today's date.
 If the question is ambiguous, pick the most reasonable reading and state the assumption in the explanation. The explanation is one or two sentences, plain language, describing exactly what the report shows.
 If the question asks for something the report engine cannot express (per-person lists, predictions, comparisons of two measures at once), choose the nearest expressible report and say what you approximated in the explanation.`;
@@ -111,6 +113,7 @@ export async function askReportAssistant(input: {
     field: string | null;
     measure: string;
     chart: string;
+    compare: string | null;
     filters: Record<string, string | null>;
     explanation: string;
   };
@@ -130,6 +133,7 @@ export async function askReportAssistant(input: {
         : { kind: "dimension" as const, field: raw.field ?? "membershipStatus" },
     measure: raw.measure,
     chart: raw.chart,
+    compare: raw.compare,
     filters: raw.filters,
   } as ReportConfig;
 

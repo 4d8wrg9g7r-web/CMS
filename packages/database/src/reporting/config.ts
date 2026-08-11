@@ -11,8 +11,11 @@ export type ReportSource = (typeof REPORT_SOURCES)[number];
 export const TIME_BUCKETS = ["week", "month", "year"] as const;
 export type TimeBucket = (typeof TIME_BUCKETS)[number];
 
-export const REPORT_CHARTS = ["bar", "line", "donut", "table"] as const;
+export const REPORT_CHARTS = ["bar", "line", "pie", "donut", "table"] as const;
 export type ReportChart = (typeof REPORT_CHARTS)[number];
+
+export const COMPARE_MODES = ["previousPeriod", "previousYear"] as const;
+export type CompareMode = (typeof COMPARE_MODES)[number];
 
 export type ReportMeasure = "count" | "uniquePeople" | "sumAmount";
 
@@ -39,6 +42,8 @@ export interface ReportConfig {
   measure: ReportMeasure;
   chart: ReportChart;
   filters: ReportFilters;
+  /** Overlay a second color-coded period (e.g. this year vs last year). */
+  compare?: CompareMode | null;
 }
 
 /** Person-attribute dimensions available on every source (rows join to a Person). */
@@ -126,6 +131,17 @@ export function validateReportConfig(input: unknown, customFieldKeys: string[]):
     errors.push("Choose a value for the custom-field filter.");
   }
 
+  let compare: CompareMode | null = null;
+  if (raw.compare !== undefined && raw.compare !== null) {
+    if (!COMPARE_MODES.includes(raw.compare as CompareMode)) {
+      errors.push("Unknown comparison mode.");
+    } else if (!from || !to) {
+      errors.push("Comparisons need explicit start and end dates.");
+    } else {
+      compare = raw.compare as CompareMode;
+    }
+  }
+
   if (errors.length > 0) return { ok: false, errors };
-  return { ok: true, config: { source, from, to, groupBy, measure, chart, filters } };
+  return { ok: true, config: { source, from, to, groupBy, measure, chart, filters, compare } };
 }

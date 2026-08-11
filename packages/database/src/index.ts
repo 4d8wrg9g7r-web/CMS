@@ -156,8 +156,10 @@ export type {
   ReportSource,
   TimeBucket,
 } from "./reporting/config";
-export { aggregateReport, MAX_TIME_BUCKETS } from "./reporting/aggregate";
-export type { ReportGroup, ReportResult, ReportRow } from "./reporting/aggregate";
+export { aggregateReport, alignSeries, periodLabel, shiftRange, MAX_TIME_BUCKETS } from "./reporting/aggregate";
+export type { AlignedSeries, ReportGroup, ReportResult, ReportRow } from "./reporting/aggregate";
+export { COMPARE_MODES } from "./reporting/config";
+export type { CompareMode } from "./reporting/config";
 
 export * as groupPermissions from "./authz/group-permissions";
 export type { GroupAction } from "./authz/group-permissions";
