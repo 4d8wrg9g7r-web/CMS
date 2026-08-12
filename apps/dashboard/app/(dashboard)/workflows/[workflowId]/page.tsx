@@ -99,6 +99,7 @@ export default async function WorkflowDetailPage({ params }: { params: Promise<{
                   members={members.map((m) => ({ userId: m.userId, label: m.user.name || m.user.email }))}
                   journeys={journeys.map((j) => ({ id: j.id, name: j.name }))}
                   contextHint={contextHint}
+                  triggerTitle={triggerLabel(workflow.trigger)}
                 />
                 <p className="mt-3 text-xs text-ink-muted">
                   Saving updates the draft. Changes take effect for new runs only when you publish; runs already in
