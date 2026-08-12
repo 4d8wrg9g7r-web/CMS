@@ -71,6 +71,15 @@ Title (display scale), one line of context, primary actions right-aligned,
 optional back link. Detail pages share one structure: identity → metadata →
 actions → tabs → content.
 
+## Inspector (`components/ui/Inspector.tsx`)
+
+The slide-over side panel for contextual micro-edits: inspect or act on a
+row without leaving the page (rule 2 below). 400px, slides from the right in
+200ms (reduced-motion aware), backdrop + Escape close, header + scrollable
+body. First use: event registration rows (`EventRegistrationList`) — details,
+view profile, email, cancel — all through the same permission-gated server
+actions as before. Full pages remain the answer for complex editing.
+
 ## Workspaces
 
 **Communicate** (`/communicate`) ties the reach-people tools into one landing:

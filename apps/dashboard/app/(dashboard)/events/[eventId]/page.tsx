@@ -1,24 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { ArrowLeft, CalendarClock, ExternalLink, Eye, EyeOff, MapPin, Trash2, Undo2, UserCheck, X } from "lucide-react";
+import { ArrowLeft, CalendarClock, ExternalLink, Eye, EyeOff, MapPin, Trash2, Undo2, UserCheck } from "lucide-react";
 import { checkinService, eventService, expandOccurrences, personDisplayName } from "@cms/database";
 import { campusService } from "@cms/database";
 import { Badge } from "../../../../components/ui/Badge";
 import { buttonClasses } from "../../../../components/ui/Button";
 import { Card } from "../../../../components/ui/Card";
 import { EventForm } from "../../../../components/EventForm";
+import { EventRegistrationList } from "../../../../components/EventRegistrationList";
 import { formatEventDate, recurrenceLabel } from "../../../../lib/events-format";
 import { canEvents, requireEvents } from "../../../../lib/events-access";
 import { canCheckin } from "../../../../lib/checkin-access";
 import { getCurrentOrganization } from "../../../../lib/session";
-import {
-  archiveEventAction,
-  cancelRegistrationAction,
-  restoreEventAction,
-  setEventPublishedAction,
-  updateEventAction,
-} from "../actions";
+import { archiveEventAction, restoreEventAction, setEventPublishedAction, updateEventAction } from "../actions";
 
 /**
  * Event detail (docs/design-system.md "Detail pages"): identity header with
@@ -194,42 +189,18 @@ export default async function EventDetailPage({
               {event.isPublished ? "Share the public page to collect them." : "Publish the event to open registration."}
             </p>
           ) : (
-            <ul className="divide-y divide-border">
-              {registrations.map((registration) => (
-                <li key={registration.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                  <div>
-                    {registration.person ? (
-                      <Link href={`/people/${registration.person.id}`} className="font-medium text-ink hover:text-accent">
-                        {personDisplayName(registration.person)}
-                      </Link>
-                    ) : (
-                      <span className="font-medium text-ink">{registration.name}</span>
-                    )}
-                    <span className="block text-xs text-ink-muted">
-                      {registration.email ?? "no email"} · {new Date(registration.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {registration.status === "CANCELLED" ? (
-                      <Badge variant="warning">Cancelled</Badge>
-                    ) : (
-                      <>
-                        <Badge variant="success">Registered</Badge>
-                        <form action={cancelRegistrationAction.bind(null, event.id, registration.id)}>
-                          <button
-                            type="submit"
-                            aria-label="Cancel registration"
-                            className="rounded-sm p-1 text-ink-muted hover:bg-surface-muted hover:text-danger"
-                          >
-                            <X size={14} />
-                          </button>
-                        </form>
-                      </>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <EventRegistrationList
+              eventId={event.id}
+              eventTitle={event.title}
+              rows={registrations.map((registration) => ({
+                id: registration.id,
+                personId: registration.person?.id ?? null,
+                displayName: registration.person ? personDisplayName(registration.person) : registration.name,
+                email: registration.email,
+                status: registration.status,
+                createdAt: registration.createdAt.toISOString(),
+              }))}
+            />
           )}
         </Card>
       )}
