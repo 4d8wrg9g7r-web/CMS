@@ -139,6 +139,8 @@ model Organization {
   recurringGifts      RecurringGift[]
   campaigns           Campaign[]
   pledges             Pledge[]
+  site                Site?
+  sitePages           SitePage[]
 }
 
 /**
@@ -167,6 +169,48 @@ model OnlineGivingConfig {
   updatedAt           DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+/**
+ * The church's public website (docs/domain/website.md): a section-based site
+ * built in the dashboard's Website studio and served at /w/<publicSiteKey>.
+ * One Site per org; theme + contact + service times live in `config`
+ * (validated by src/site/site-config.ts). Pages hold ordered section blocks.
+ */
+model Site {
+  id             String   @id @default(cuid())
+  organizationId String   @unique
+  /** Public URL key — /w/<publicSiteKey>; unguessable, like publicAppId. */
+  publicSiteKey  String   @unique @default(cuid())
+  published      Boolean  @default(false)
+  config         Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  pages        SitePage[]
+}
+
+model SitePage {
+  id             String   @id @default(cuid())
+  organizationId String
+  siteId         String
+  /** URL segment; "home" is the root page. */
+  slug           String
+  title          String
+  /** Ordered section blocks (validated by src/site/site-sections.ts). */
+  sections       Json
+  /** Show in the site's nav (home is always the logo link). */
+  inNav          Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  site         Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, slug])
+  @@index([organizationId])
 }
 
 /**
