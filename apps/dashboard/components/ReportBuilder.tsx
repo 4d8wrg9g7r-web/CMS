@@ -199,6 +199,31 @@ export function ReportBuilder({
     if (chart === "line" || chart === "bar") setChart(next.startsWith("time:") ? "line" : "bar");
   }
 
+  // "Start with a question" — canned configs loaded through the same
+  // applyConfig path as saved reports; advanced controls stay right below.
+  function templateConfigs() {
+    const year = new Date().getFullYear();
+    const jan1 = `${year}-01-01`;
+    const today = new Date().toISOString().slice(0, 10);
+    const filters = {
+      membershipStatus: null,
+      campusId: null,
+      fundId: null,
+      method: null,
+      eventId: null,
+      customFieldKey: null,
+      customFieldValue: null,
+    };
+    const base = { from: jan1, to: today, compare: null, compareCount: null, filters };
+    return [
+      { key: "attendance", label: "Sunday attendance", config: { source: "attendance", groupBy: { kind: "time", bucket: "week" }, measure: "count", chart: "line", ...base } },
+      { key: "giving-trend", label: "Giving trend", config: { source: "giving", groupBy: { kind: "time", bucket: "month" }, measure: "sumAmount", chart: "line", ...base } },
+      { key: "new-people", label: "New people", config: { source: "people", groupBy: { kind: "time", bucket: "month" }, measure: "count", chart: "bar", ...base } },
+      { key: "membership-mix", label: "Membership mix", config: { source: "people", groupBy: { kind: "dimension", field: "membershipStatus" }, measure: "count", chart: "donut", ...base } },
+      { key: "giving-by-fund", label: "Giving by fund", config: { source: "giving", groupBy: { kind: "dimension", field: "fund" }, measure: "sumAmount", chart: "bar", ...base } },
+    ].filter((t) => allowedSources.includes(t.config.source as ReportSource));
+  }
+
   function applyConfig(config: unknown) {
     const c = config as ReturnType<typeof buildConfig>;
     if (!c || typeof c !== "object") return;
@@ -254,6 +279,19 @@ export function ReportBuilder({
 
   return (
     <div>
+      <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden" data-section="report-templates">
+        <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Start with a question</span>
+        {templateConfigs().map((t) => (
+          <button
+            key={t.key}
+            onClick={() => applyConfig(t.config)}
+            className="rounded-full border border-border bg-surface px-3 py-1 text-sm font-medium text-ink transition-colors duration-150 hover:border-accent hover:text-accent"
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       {savedReports.length > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
           <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Saved</span>

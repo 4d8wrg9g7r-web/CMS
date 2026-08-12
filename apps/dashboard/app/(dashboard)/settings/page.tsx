@@ -211,7 +211,27 @@ export default async function SettingsPage({
   return (
     <div>
       <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Settings</h1>
-      <p className="mb-8 text-sm text-ink-secondary">Organization profile and preferences.</p>
+      <p className="mb-6 text-sm text-ink-secondary">Organization profile and preferences.</p>
+
+      {/* Category map: settings that live in their own modules are one click
+          away instead of buried — reduce settings anxiety (design-system.md). */}
+      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5" data-section="settings-map">
+        {[
+          { label: "Giving & Stripe", href: "/giving/online" },
+          { label: "Church App", href: "/app-studio" },
+          { label: "Website", href: "/website" },
+          { label: "Team & roles", href: "/team" },
+          { label: "API & webhooks", href: "/developers" },
+        ].map((item) => (
+          <a
+            key={item.href}
+            href={item.href}
+            className="rounded-md border border-border bg-surface px-4 py-3 text-sm font-medium text-ink shadow-panel transition-colors duration-150 hover:border-accent hover:text-accent"
+          >
+            {item.label}
+          </a>
+        ))}
+      </div>
 
       <Card padding="md" className="mb-6">
         <h2 className="mb-4 text-sm font-semibold text-ink">Organization</h2>
