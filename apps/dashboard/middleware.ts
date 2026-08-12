@@ -40,6 +40,7 @@ export const config = {
     "/workflows/:path*",
     "/tasks/:path*",
     "/messages/:path*",
+    "/communicate",
     "/website/:path*",
     "/team",
     "/audit-log",

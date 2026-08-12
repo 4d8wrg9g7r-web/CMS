@@ -74,8 +74,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <SidebarNavGroup
           label="Communicate"
           icon={<Send size={17} strokeWidth={1.75} />}
-          childHrefs={["/messages", "/forms", "/workflows", "/journeys", "/tasks"]}
+          childHrefs={["/communicate", "/messages", "/forms", "/workflows", "/journeys", "/tasks"]}
         >
+          <SidebarNavItem nested href="/communicate" label="Overview" icon={null} />
           <SidebarNavItem nested href="/messages" label="Messages" icon={null} />
           <SidebarNavItem nested href="/forms" label="Forms" icon={null} />
           <SidebarNavItem nested href="/workflows" label="Automations" icon={null} />

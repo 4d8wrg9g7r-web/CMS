@@ -71,6 +71,16 @@ Title (display scale), one line of context, primary actions right-aligned,
 optional back link. Detail pages share one structure: identity → metadata →
 actions → tabs → content.
 
+## Workspaces
+
+**Communicate** (`/communicate`) ties the reach-people tools into one landing:
+role-aware create tiles (message, form, automation, journey), recently sent
+blasts, automation list, and the follow-up tasks they produce. **Giving**
+pages share `GivingSectionNav` (Overview / Campaigns / Online giving / Funds /
+Statements) and lead with one hero number; campaign detail draws the ledger
+large. Detail pages (person, group, event) share the identity-header + stat
+strip + tabs structure.
+
 ## Rules
 
 1. UI work goes through the established service layer — the design system
