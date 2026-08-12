@@ -32,8 +32,21 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   "account.updated": "Account details updated",
 };
 
+const AUDIT_SUBJECT_LABELS: Record<string, string> = {
+  site: "Website",
+  app: "Church app",
+  workflow: "Automation",
+};
+
 export function auditActionLabel(action: string): string {
-  return AUDIT_ACTION_LABELS[action] ?? action;
+  const known = AUDIT_ACTION_LABELS[action];
+  if (known) return known;
+  // Humanize unknown actions ("site.page_updated" -> "Website page updated") so
+  // the activity feed never leaks raw event codes into the UI.
+  const [subject = "", verb = ""] = action.split(".");
+  if (!verb) return action;
+  const subjectLabel = AUDIT_SUBJECT_LABELS[subject] ?? subject.charAt(0).toUpperCase() + subject.slice(1);
+  return `${subjectLabel} ${verb.replaceAll("_", " ")}`;
 }
 
 export type BadgeTone = "success" | "warning" | "danger" | "neutral";
