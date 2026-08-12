@@ -50,28 +50,32 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
       </Link>
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">{campaign.name}</h1>
+        <h1 className="text-display text-[28px] leading-tight text-ink">{campaign.name}</h1>
         <Badge variant="info">{campaign.fund.name}</Badge>
         {campaign.archivedAt && <Badge variant="warning">Archived</Badge>}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 flex flex-col gap-6">
-          <Card padding="md" data-section="campaign-progress">
-            <div className="mb-1 flex items-baseline justify-between">
-              <p className="text-3xl font-bold text-ink">{formatCents(progress.raisedCents)}</p>
-              <p className="text-sm text-ink-secondary">
-                of {formatCents(campaign.goalCents)} · <span className="font-semibold text-ink">{pct}%</span>
-              </p>
+          {/* The campaign presentation: one big honest thermometer — the ledger, drawn large. */}
+          <Card padding="none" data-section="campaign-progress" className="p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">{campaign.fund.name}</p>
+            <div className="mt-3 flex flex-wrap items-baseline gap-x-3">
+              <p className="text-metric text-[44px] leading-none text-ink">{formatCents(progress.raisedCents)}</p>
+              <p className="text-[15px] text-ink-secondary">of {formatCents(campaign.goalCents)}</p>
             </div>
-            <div className="h-4 w-full overflow-hidden rounded-full bg-surface-muted">
+            <div className="mt-5 h-3 w-full overflow-hidden rounded-full bg-surface-muted">
               <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
             </div>
-            <p className="mt-2 text-xs text-ink-muted">
-              {progress.giftCount} gifts · {formatCents(progress.pledgedCents)} pledged ({pledgedPct}% of goal) by{" "}
-              {progress.pledgeCount} {progress.pledgeCount === 1 ? "person" : "people"} · {dateRange}
-            </p>
-            {campaign.description && <p className="mt-2 text-sm text-ink-secondary">{campaign.description}</p>}
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-ink-secondary">
+              <span className="font-semibold text-ink">{pct}% of goal</span>
+              <span>
+                {progress.giftCount} gifts · {formatCents(progress.pledgedCents)} pledged ({pledgedPct}%) by{" "}
+                {progress.pledgeCount} {progress.pledgeCount === 1 ? "person" : "people"}
+              </span>
+            </div>
+            <p className="mt-1.5 text-xs text-ink-muted">{dateRange}</p>
+            {campaign.description && <p className="mt-3 text-sm text-ink-secondary">{campaign.description}</p>}
           </Card>
 
           <Card padding="md" data-section="campaign-pledges">

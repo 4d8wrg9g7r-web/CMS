@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, Lock, ReceiptText } from "lucide-react";
 import { formatCents, givingService, peopleService, personDisplayName } from "@cms/database";
 import { Card } from "../../../../components/ui/Card";
+import { GivingSectionNav } from "../../../../components/GivingSectionNav";
 import { EmptyState } from "../../../../components/ui/EmptyState";
 import { Select } from "../../../../components/ui/Input";
 import { buttonClasses } from "../../../../components/ui/Button";
@@ -40,17 +41,14 @@ export default async function StatementsPage({
 
   return (
     <div>
-      <Link
-        href="/giving"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-secondary hover:text-ink print:hidden"
-      >
-        <ArrowLeft size={14} /> Back to Giving
-      </Link>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink print:hidden">Giving statements</h1>
+      <h1 className="text-display mb-1 text-[28px] leading-tight text-ink print:hidden">Giving statements</h1>
       <p className="mb-6 text-sm text-ink-secondary print:hidden">
         Year-end contribution statements for donors. Non-tax-deductible payments (books, trips) appear as a separate
         informational line, never in the deductible total. Use your browser&rsquo;s Print for a mailable copy.
       </p>
+      <div className="print:hidden">
+        <GivingSectionNav active="/giving/statements" />
+      </div>
 
       <Card padding="md" className="mb-6 print:hidden">
         <form method="get" className="flex flex-wrap items-end gap-3">

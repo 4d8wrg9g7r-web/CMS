@@ -1,16 +1,23 @@
 import Link from "next/link";
-import { Globe, HandCoins, Landmark, Lock, Plus, ReceiptText, Target } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, HandCoins, Lock, Plus, ReceiptText, Target } from "lucide-react";
 import { formatCents, givingService } from "@cms/database";
 import { Badge } from "../../../components/ui/Badge";
 import { buttonClasses } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Input } from "../../../components/ui/Input";
+import { GivingSectionNav } from "../../../components/GivingSectionNav";
 import { canGiving } from "../../../lib/giving-access";
 import { givingDate, todayInputValue } from "../../../lib/giving-format";
 import { getCurrentOrganization } from "../../../lib/session";
 import { createBatchAction } from "./actions";
 
+/**
+ * Giving overview (docs/design-system.md): premium financial software, not a
+ * ledger dump. One hero number — this month, against last month — then the
+ * year by fund, the batch workflow, and quiet section navigation. Money is
+ * only ever computed from the contribution ledger.
+ */
 export default async function GivingPage() {
   const organization = await getCurrentOrganization();
   if (!organization) return null;
@@ -18,8 +25,8 @@ export default async function GivingPage() {
   if (!(await canGiving(organization.id, "giving.view"))) {
     return (
       <div>
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Giving</h1>
-        <Card padding="md" className="mt-6">
+        <h1 className="text-display mb-6 text-[32px] text-ink">Giving</h1>
+        <Card padding="md">
           <EmptyState
             icon={<Lock size={22} />}
             title="You don't have access to Giving"
@@ -32,65 +39,89 @@ export default async function GivingPage() {
 
   const now = new Date();
   const yearStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
-  const [summaries, batches] = await Promise.all([
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  const [summaries, monthSummaries, lastMonthSummaries, batches] = await Promise.all([
     givingService.fundSummaries(organization.id, yearStart, now),
-    givingService.listBatches(organization.id, 12),
+    givingService.fundSummaries(organization.id, monthStart, now),
+    givingService.fundSummaries(organization.id, lastMonthStart, monthStart),
+    givingService.listBatches(organization.id, 8),
   ]);
   const ytdTotal = summaries.reduce((sum, s) => sum + s.totalCents, 0);
+  const monthTotal = monthSummaries.reduce((sum, s) => sum + s.totalCents, 0);
+  const lastMonthTotal = lastMonthSummaries.reduce((sum, s) => sum + s.totalCents, 0);
+  const monthGiftCount = monthSummaries.reduce((sum, s) => sum + s.count, 0);
+  const deltaPct = lastMonthTotal > 0 ? Math.round(((monthTotal - lastMonthTotal) / lastMonthTotal) * 100) : null;
+  const maxFund = Math.max(1, ...summaries.map((s) => s.totalCents));
 
   return (
-    <div>
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div className="mx-auto max-w-5xl">
+      {/* Hero: the number that matters, said once, said big. */}
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-6 pt-2" data-section="giving-hero">
         <div>
-          <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Giving</h1>
-          <p className="text-sm text-ink-secondary">
-            Record cash, checks, and scanner batches — and take gifts in your church app through your own Stripe
-            account. No card data ever lives here.
+          <h1 className="text-display text-[32px] leading-tight text-ink">Giving</h1>
+          <p className="text-metric mt-4 text-[48px] leading-none text-ink">{formatCents(monthTotal)}</p>
+          <p className="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-ink-secondary">
+            <span>
+              This month · {monthGiftCount} {monthGiftCount === 1 ? "gift" : "gifts"}
+            </span>
+            {deltaPct !== null && deltaPct !== 0 && (
+              <span className={`inline-flex items-center gap-0.5 font-semibold ${deltaPct > 0 ? "text-success" : "text-danger"}`}>
+                {deltaPct > 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                {Math.abs(deltaPct)}% from last month
+              </span>
+            )}
+            <span className="text-ink-muted">· {formatCents(ytdTotal)} this year</span>
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link href="/giving/campaigns" className={buttonClasses("secondary", "sm")}>
-            <Target size={15} /> Campaigns
-          </Link>
-          <Link href="/giving/online" className={buttonClasses("secondary", "sm")}>
-            <Globe size={15} /> Online giving
-          </Link>
-          <Link href="/giving/funds" className={buttonClasses("secondary", "sm")}>
-            <Landmark size={15} /> Funds
-          </Link>
+        <div className="flex flex-wrap items-center gap-2 pb-1">
           <Link href="/giving/statements" className={buttonClasses("secondary", "sm")}>
-            <ReceiptText size={15} /> Statements
+            <ReceiptText size={15} /> Generate statements
+          </Link>
+          <Link href="/giving/campaigns" className={buttonClasses("secondary", "sm")}>
+            <Target size={15} /> Create campaign
           </Link>
         </div>
       </div>
 
-      <div className="mb-6 grid gap-6 lg:grid-cols-3">
-        <Card padding="md" className="lg:col-span-2">
-          <h2 className="mb-3 text-sm font-semibold text-ink">This year by fund</h2>
+      <GivingSectionNav active="/giving" />
+
+      <div className="mb-6 grid gap-5 lg:grid-cols-3">
+        <Card padding="md" className="lg:col-span-2" data-section="giving-by-fund">
+          <h2 className="mb-4 text-sm font-semibold text-ink">This year by fund</h2>
           {summaries.length === 0 ? (
-            <p className="text-sm text-ink-muted">No funds yet — create one under Funds to start recording.</p>
+            <p className="text-sm text-ink-muted">
+              No funds yet —{" "}
+              <Link href="/giving/funds" className="font-medium text-accent">
+                create one
+              </Link>{" "}
+              to start recording.
+            </p>
           ) : (
-            <>
-              <p className="mb-3 text-2xl font-bold text-ink">{formatCents(ytdTotal)}</p>
-              <ul className="divide-y divide-border text-sm">
-                {summaries.map((s) => (
-                  <li key={s.fund.id} className="flex items-center justify-between gap-2 py-2">
+            <ul className="space-y-4 text-sm">
+              {summaries.map((s) => (
+                <li key={s.fund.id}>
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
                     <span className="flex items-center gap-2">
                       <span className="font-medium text-ink">{s.fund.name}</span>
                       {!s.fund.taxDeductible && <Badge variant="warning">Not tax-deductible</Badge>}
                       {s.fund.archivedAt && <Badge variant="neutral">Archived</Badge>}
                     </span>
-                    <span className="text-ink-secondary">
-                      {formatCents(s.totalCents)} <span className="text-xs text-ink-muted">· {s.count} gifts</span>
+                    <span className="text-metric text-[15px] text-ink">
+                      {formatCents(s.totalCents)} <span className="text-xs font-normal text-ink-muted">· {s.count} gifts</span>
                     </span>
-                  </li>
-                ))}
-              </ul>
-            </>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
+                    <div className="h-full rounded-full bg-accent/70" style={{ width: `${Math.round((s.totalCents / maxFund) * 100)}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
         </Card>
 
-        <Card padding="md">
+        <Card padding="md" className="h-fit">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
             <Plus size={15} /> New batch
           </h2>
@@ -118,19 +149,19 @@ export default async function GivingPage() {
         </Card>
       </div>
 
-      <Card padding="md">
-        <h2 className="mb-3 text-sm font-semibold text-ink">Recent batches</h2>
+      <Card padding="none">
+        <h2 className="px-6 pb-1 pt-5 text-sm font-semibold text-ink">Recent batches</h2>
         {batches.length === 0 ? (
-          <p className="text-sm text-ink-muted">No batches yet.</p>
+          <p className="px-6 pb-5 pt-2 text-sm text-ink-muted">No batches yet — start one to record Sunday&rsquo;s offering.</p>
         ) : (
           <ul className="divide-y divide-border text-sm">
             {batches.map((batch) => (
               <li key={batch.id}>
                 <Link
                   href={`/giving/batches/${batch.id}`}
-                  className="flex flex-wrap items-center justify-between gap-2 py-2.5 hover:bg-surface-muted"
+                  className="flex flex-wrap items-center justify-between gap-2 px-6 py-3 transition-colors duration-180 hover:bg-surface-muted"
                 >
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-2.5">
                     <span className="font-medium text-ink">{batch.name}</span>
                     <Badge variant={batch.status === "OPEN" ? "info" : "success"}>
                       {batch.status === "OPEN" ? "Open" : "Closed"}
@@ -138,7 +169,7 @@ export default async function GivingPage() {
                   </span>
                   <span className="text-ink-secondary">
                     {givingDate(batch.batchDate)} · {batch._count.contributions} entries ·{" "}
-                    {formatCents(batch.totalCents)}
+                    <span className="text-metric text-ink">{formatCents(batch.totalCents)}</span>
                   </span>
                 </Link>
               </li>

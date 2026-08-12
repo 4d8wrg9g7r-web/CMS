@@ -3,6 +3,7 @@ import { ArrowLeft, Lock, Target } from "lucide-react";
 import { campaignService, formatCents, givingService } from "@cms/database";
 import { campaignPercent } from "@cms/database";
 import { Badge } from "../../../../components/ui/Badge";
+import { GivingSectionNav } from "../../../../components/GivingSectionNav";
 import { buttonClasses } from "../../../../components/ui/Button";
 import { Card } from "../../../../components/ui/Card";
 import { EmptyState } from "../../../../components/ui/EmptyState";
@@ -33,14 +34,13 @@ export default async function CampaignsPage() {
 
   return (
     <div>
-      <Link href="/giving" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-secondary hover:text-ink">
-        <ArrowLeft size={15} /> Back to Giving
-      </Link>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Pledge campaigns</h1>
-      <p className="mb-6 text-sm text-ink-secondary">
+      <h1 className="text-display mb-1 text-[28px] leading-tight text-ink">Campaigns</h1>
+      <p className="mb-5 text-sm text-ink-secondary">
         A goal, a fund, and a window. Every gift to the fund in the window counts toward the thermometer —
         Sunday checks and app gifts alike — and members can pledge from the church app.
       </p>
+
+      <GivingSectionNav active="/giving/campaigns" />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 flex flex-col gap-4">

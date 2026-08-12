@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, Lock } from "lucide-react";
 import { givingService } from "@cms/database";
 import { Badge } from "../../../../components/ui/Badge";
+import { GivingSectionNav } from "../../../../components/GivingSectionNav";
 import { buttonClasses } from "../../../../components/ui/Button";
 import { Card } from "../../../../components/ui/Card";
 import { EmptyState } from "../../../../components/ui/EmptyState";
@@ -26,14 +27,13 @@ export default async function FundsPage() {
 
   return (
     <div>
-      <Link href="/giving" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-secondary hover:text-ink">
-        <ArrowLeft size={14} /> Back to Giving
-      </Link>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Funds</h1>
-      <p className="mb-6 text-sm text-ink-secondary">
+      <h1 className="text-display mb-1 text-[28px] leading-tight text-ink">Funds</h1>
+      <p className="mb-5 text-sm text-ink-secondary">
         Where money is designated. Uncheck &ldquo;tax-deductible&rdquo; for payments for goods and services — book
         sales, trip fees, event payments — so they stay off year-end giving statements.
       </p>
+
+      <GivingSectionNav active="/giving/funds" />
 
       <Card padding="md" className="mb-6">
         <form action={createFundAction} className="flex flex-wrap items-end gap-3">

@@ -3,6 +3,7 @@ import { ArrowLeft, Globe, Lock } from "lucide-react";
 import { appService, givingService, onlineGivingService } from "@cms/database";
 import { OnlineGivingSettings } from "../../../../components/OnlineGivingSettings";
 import { Badge } from "../../../../components/ui/Badge";
+import { GivingSectionNav } from "../../../../components/GivingSectionNav";
 import { Card } from "../../../../components/ui/Card";
 import { EmptyState } from "../../../../components/ui/EmptyState";
 import { canGiving } from "../../../../lib/giving-access";
@@ -37,14 +38,12 @@ export default async function OnlineGivingPage() {
 
   return (
     <div>
-      <Link href="/giving" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-secondary hover:text-ink">
-        <ArrowLeft size={15} /> Back to Giving
-      </Link>
-
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Online giving</h1>
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <h1 className="text-display text-[28px] leading-tight text-ink">Online giving</h1>
         {live && onlineFundCount > 0 ? <Badge variant="success">Live in the app</Badge> : <Badge>Not live yet</Badge>}
       </div>
+
+      <GivingSectionNav active="/giving/online" />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="flex flex-col gap-6">
