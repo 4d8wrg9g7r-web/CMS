@@ -35,6 +35,8 @@ export interface ListPeopleOptions {
   householdId?: string;
   campusId?: string;
   includeArchived?: boolean;
+  /** Only people added within the last N days (the People list's "New" tab). */
+  createdWithinDays?: number;
   skip?: number;
   take?: number;
 }
@@ -45,6 +47,9 @@ function peopleWhere(organizationId: string, opts: ListPeopleOptions): Prisma.Pe
   if (opts.status) where.membershipStatus = opts.status;
   if (opts.householdId) where.householdId = opts.householdId;
   if (opts.campusId) where.campusId = opts.campusId;
+  if (opts.createdWithinDays) {
+    where.createdAt = { gte: new Date(Date.now() - opts.createdWithinDays * 24 * 60 * 60 * 1000) };
+  }
   const search = opts.search?.trim();
   if (search) {
     where.OR = [
