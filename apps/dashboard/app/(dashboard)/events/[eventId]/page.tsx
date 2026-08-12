@@ -163,7 +163,7 @@ export default async function EventDetailPage({
         </Card>
       </div>
 
-      <nav className="mb-8 flex items-center gap-1 border-b border-border" aria-label="Event sections">
+      <nav className="mb-8 flex items-center gap-1 overflow-x-auto border-b border-border" aria-label="Event sections">
         {TABS.filter((t) => t.show).map((t) => (
           <Link
             key={t.key}

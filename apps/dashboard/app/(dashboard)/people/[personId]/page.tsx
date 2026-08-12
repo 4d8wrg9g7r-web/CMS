@@ -221,7 +221,7 @@ export default async function PersonDetailPage({
               .join(" · ")}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex basis-full items-center gap-2 sm:basis-auto">
           {person.email && (
             <a href={`mailto:${person.email}`} className={buttonClasses("secondary", "sm")}>
               <Mail size={15} /> Email
@@ -235,7 +235,7 @@ export default async function PersonDetailPage({
         </div>
       </div>
 
-      <nav className="mb-8 flex items-center gap-1 border-b border-border" aria-label="Profile sections">
+      <nav className="mb-8 flex items-center gap-1 overflow-x-auto border-b border-border" aria-label="Profile sections">
         {TABS.filter((t) => t.show).map((t) => (
           <Link
             key={t.key}

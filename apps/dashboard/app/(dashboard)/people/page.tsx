@@ -150,7 +150,7 @@ export default async function PeoplePage({
       </form>
 
       <div className="mb-5 flex flex-wrap items-center gap-x-1 gap-y-3">
-        <div className="flex items-center gap-1" role="tablist" aria-label="People views">
+        <div className="flex max-w-full items-center gap-1 overflow-x-auto" role="tablist" aria-label="People views">
           {TABS.map((tab) => (
             <Link
               key={tab.key}

@@ -238,7 +238,7 @@ export function BlastComposer({
       <ol className="mb-8 flex items-center gap-2" data-section="composer-steps">
         {STEPS.map((s, i) => (
           <li key={s.n} className="flex items-center gap-2">
-            {i > 0 && <span className="h-px w-8 bg-border-strong" />}
+            {i > 0 && <span className="h-px w-4 bg-border-strong sm:w-8" />}
             <button
               type="button"
               disabled={s.n > step}
@@ -259,7 +259,8 @@ export function BlastComposer({
               >
                 {s.n < step ? <Check size={13} /> : s.n}
               </span>
-              {s.label}
+              {/* On phones only the current step keeps its label — the numbered dots carry the rest. */}
+              <span className={s.n === step ? "whitespace-nowrap" : "hidden whitespace-nowrap sm:inline"}>{s.label}</span>
             </button>
           </li>
         ))}
