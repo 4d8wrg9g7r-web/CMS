@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, Copy, ExternalLink, ImagePlus, Loader2, Plus, Trash2 } from "lucide-react";
 import type { SiteSection, SiteSectionKind } from "@cms/database";
@@ -352,35 +352,74 @@ export function WebsiteSectionEditor({ pageId, pageTitle, previewUrl, initialSec
   const [dirty, setDirty] = useState(false);
   const [previewNonce, setPreviewNonce] = useState(0);
 
-  // The live preview is the real public page in studio mode: clicking a
-  // section there posts its index back up, selecting it in the inspector.
+  // The listener below lives outside React's render cycle; refs keep it on
+  // the latest state and callbacks without re-subscribing.
+  const sectionsRef = useRef(sections);
+  sectionsRef.current = sections;
+  const persistRef = useRef<(next: SiteSection[], successMsg: string) => void>(() => {});
+
+  // Fields the canvas may edit in place — single-line text only; everything
+  // else edits in the inspector. Save still re-validates server-side.
+  const EDITABLE_FIELDS = useMemo(() => new Set(["headline", "subheadline", "title"]), []);
+
+  // The live preview is the real public page in studio mode. It posts back:
+  // clicks (select in the inspector), drag-drops (reorder — persisted right
+  // away so the canvas can reload in the new order), and in-place text edits
+  // (mirror into state; Save persists).
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
-      const data = e.data as { type?: string; index?: number };
+      const data = e.data as { type?: string; index?: number; from?: number; to?: number; field?: string; value?: string };
       if (data?.type === "cms:select-section" && typeof data.index === "number") {
         setSelected(data.index);
+      }
+      if (data?.type === "cms:reorder-section" && typeof data.from === "number" && typeof data.to === "number") {
+        const current = sectionsRef.current;
+        const { from, to } = data;
+        if (from < 0 || from >= current.length || to < 0 || to >= current.length || from === to) return;
+        const next = [...current];
+        const [item] = next.splice(from, 1);
+        next.splice(to, 0, item!);
+        setSections(next);
+        setSelected(to);
+        persistRef.current(next, "Order updated");
+      }
+      if (
+        data?.type === "cms:edit-text" &&
+        typeof data.index === "number" &&
+        typeof data.field === "string" &&
+        typeof data.value === "string"
+      ) {
+        const { index, field, value } = data;
+        if (!EDITABLE_FIELDS.has(field)) return;
+        setSections((s) => s.map((sec, i) => (i === index && field in sec ? { ...sec, [field]: value.slice(0, 300) } : sec)));
+        setDirty(true);
       }
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, []);
+  }, [EDITABLE_FIELDS]);
 
   const update = (index: number, section: SiteSection) => {
     setSections((s) => s.map((x, i) => (i === index ? section : x)));
     setDirty(true);
   };
-  const move = (index: number, direction: -1 | 1) => {
+  const moveTo = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0) return;
     setSections((s) => {
+      if (from >= s.length || to >= s.length) return s;
       const next = [...s];
-      const target = index + direction;
-      if (target < 0 || target >= next.length) return s;
-      const [item] = next.splice(index, 1);
-      next.splice(target, 0, item!);
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item!);
       return next;
     });
-    setSelected((sel) => (sel === index ? index + direction : sel));
+    setSelected(to);
     setDirty(true);
+  };
+  const move = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= sections.length) return;
+    moveTo(index, target);
   };
   const remove = (index: number) => {
     setSections((s) => s.filter((_, i) => i !== index));
@@ -397,12 +436,12 @@ export function WebsiteSectionEditor({ pageId, pageTitle, previewUrl, initialSec
     setDirty(true);
   };
 
-  const save = () => {
+  const persist = (next: SiteSection[], successMsg: string) => {
     startTransition(async () => {
-      const result = await updateSitePageAction({ pageId, sections });
+      const result = await updateSitePageAction({ pageId, sections: next });
       if (result.ok) {
         setDirty(false);
-        showToast("Page saved", "success");
+        showToast(successMsg, "success");
         setPreviewNonce((n) => n + 1); // reload the live preview
         router.refresh();
       } else {
@@ -410,6 +449,8 @@ export function WebsiteSectionEditor({ pageId, pageTitle, previewUrl, initialSec
       }
     });
   };
+  persistRef.current = persist;
+  const save = () => persist(sections, "Page saved");
 
   const studioSrc = `${previewUrl}${previewUrl.includes("?") ? "&" : "?"}studio=1&v=${previewNonce}`;
   const selectedSection = selected !== null ? sections[selected] : undefined;
@@ -454,7 +495,26 @@ export function WebsiteSectionEditor({ pageId, pageTitle, previewUrl, initialSec
           ) : (
             <ul className="flex flex-col gap-1">
               {sections.map((section, index) => (
-                <li key={index} className="flex items-center gap-1">
+                <li
+                  key={index}
+                  className="flex items-center gap-1"
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData("text/x-cms-list", String(index));
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragOver={(e) => {
+                    if (e.dataTransfer.types.includes("text/x-cms-list")) e.preventDefault();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const from = Number.parseInt(e.dataTransfer.getData("text/x-cms-list"), 10);
+                    if (!Number.isNaN(from)) moveTo(from, index);
+                  }}
+                >
+                  <span className="cursor-grab px-0.5 text-ink-muted active:cursor-grabbing" title="Drag to reorder" aria-hidden>
+                    ⠿
+                  </span>
                   <button
                     type="button"
                     aria-pressed={selected === index}

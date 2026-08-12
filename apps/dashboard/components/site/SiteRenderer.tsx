@@ -2,6 +2,7 @@ import Link from "next/link";
 import { videoEmbedUrl } from "@cms/database";
 import type { PublicSite, PublicSitePage, SiteSection } from "@cms/database";
 import type { SiteLiveContent } from "../../lib/site-content";
+import { StudioEditableText } from "./StudioEditableText";
 import { StudioSectionTarget } from "./StudioSectionTarget";
 
 /**
@@ -67,8 +68,13 @@ function SectionShell({ children, tone }: { children: React.ReactNode; tone?: "m
   );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="mb-6 text-2xl font-bold tracking-tight text-slate-900">{children}</h2>;
+function SectionTitle({ children, editIndex }: { children: React.ReactNode; editIndex?: number }) {
+  const className = "mb-6 text-2xl font-bold tracking-tight text-slate-900";
+  // In studio mode plain string titles edit in place (docs/domain/website.md "Studio").
+  if (editIndex !== undefined && typeof children === "string") {
+    return <StudioEditableText as="h2" index={editIndex} field="title" value={children} className={className} />;
+  }
+  return <h2 className={className}>{children}</h2>;
 }
 
 function CtaButtons({ ctas, basePath, accent }: { ctas: { label: string; href: string }[]; basePath: string; accent: string }) {
@@ -93,7 +99,20 @@ function CtaButtons({ ctas, basePath, accent }: { ctas: { label: string; href: s
   );
 }
 
-function Section({ section, site, live, basePath }: { section: SiteSection; site: PublicSite; live: SiteLiveContent; basePath: string }) {
+function Section({
+  section,
+  site,
+  live,
+  basePath,
+  editIndex,
+}: {
+  section: SiteSection;
+  site: PublicSite;
+  live: SiteLiveContent;
+  basePath: string;
+  /** Set only in studio mode: this section's index, enabling in-place text editing. */
+  editIndex?: number;
+}) {
   const accent = site.config.theme.accentColor;
   switch (section.kind) {
     case "hero":
@@ -107,8 +126,30 @@ function Section({ section, site, live, basePath }: { section: SiteSection; site
           }
         >
           <div className="mx-auto max-w-5xl px-6 py-24">
-            <h1 className="mb-4 max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl">{section.headline}</h1>
-            {section.subheadline ? <p className="mb-8 max-w-2xl text-lg text-slate-200">{section.subheadline}</p> : null}
+            {editIndex !== undefined ? (
+              <StudioEditableText
+                as="h1"
+                index={editIndex}
+                field="headline"
+                value={section.headline}
+                className="mb-4 max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl"
+              />
+            ) : (
+              <h1 className="mb-4 max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl">{section.headline}</h1>
+            )}
+            {section.subheadline ? (
+              editIndex !== undefined ? (
+                <StudioEditableText
+                  as="p"
+                  index={editIndex}
+                  field="subheadline"
+                  value={section.subheadline}
+                  className="mb-8 max-w-2xl text-lg text-slate-200"
+                />
+              ) : (
+                <p className="mb-8 max-w-2xl text-lg text-slate-200">{section.subheadline}</p>
+              )
+            ) : null}
             <CtaButtons ctas={section.ctas} basePath={basePath} accent={accent} />
           </div>
         </section>
@@ -116,7 +157,7 @@ function Section({ section, site, live, basePath }: { section: SiteSection; site
     case "serviceTimes":
       return (
         <SectionShell tone="muted">
-          {section.title ? <SectionTitle>{section.title}</SectionTitle> : null}
+          {section.title ? <SectionTitle editIndex={editIndex}>{section.title}</SectionTitle> : null}
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {site.config.serviceTimes.map((t, i) => (
               <div key={i} className="rounded-xl border border-slate-200 bg-white p-5">
@@ -138,7 +179,7 @@ function Section({ section, site, live, basePath }: { section: SiteSection; site
               <img src={section.imageUrl} alt="" className="rounded-xl object-cover" />
             ) : null}
             <div>
-              <SectionTitle>{section.title}</SectionTitle>
+              <SectionTitle editIndex={editIndex}>{section.title}</SectionTitle>
               <BodyText text={section.body} className="text-slate-600" />
             </div>
             {section.imageUrl && section.imageSide === "right" ? (
@@ -151,7 +192,7 @@ function Section({ section, site, live, basePath }: { section: SiteSection; site
     case "cardGrid":
       return (
         <SectionShell tone="muted">
-          <SectionTitle>{section.title}</SectionTitle>
+          <SectionTitle editIndex={editIndex}>{section.title}</SectionTitle>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {section.cards.map((card, i) => {
               const body = (
@@ -174,7 +215,7 @@ function Section({ section, site, live, basePath }: { section: SiteSection; site
     case "events":
       return (
         <SectionShell>
-          <SectionTitle>{section.title}</SectionTitle>
+          <SectionTitle editIndex={editIndex}>{section.title}</SectionTitle>
           {live.events.length === 0 ? (
             <p className="text-sm text-slate-500">Nothing on the calendar right now — check back soon.</p>
           ) : (
@@ -204,7 +245,7 @@ function Section({ section, site, live, basePath }: { section: SiteSection; site
       const featuredEmbed = featured ? videoEmbedUrl(featured.videoUrl) : null;
       return (
         <SectionShell tone="muted">
-          <SectionTitle>{section.title}</SectionTitle>
+          <SectionTitle editIndex={editIndex}>{section.title}</SectionTitle>
           {shown.length === 0 ? (
             <p className="text-sm text-slate-500">Messages will appear here soon.</p>
           ) : (
@@ -265,7 +306,7 @@ function Section({ section, site, live, basePath }: { section: SiteSection; site
     case "groups":
       return (
         <SectionShell>
-          <SectionTitle>{section.title}</SectionTitle>
+          <SectionTitle editIndex={editIndex}>{section.title}</SectionTitle>
           {live.groups.length === 0 ? (
             <p className="text-sm text-slate-500">Groups are forming — check back soon.</p>
           ) : (
@@ -319,7 +360,7 @@ function Section({ section, site, live, basePath }: { section: SiteSection; site
       if (section.people.length === 0) return null;
       return (
         <SectionShell>
-          <SectionTitle>{section.title}</SectionTitle>
+          <SectionTitle editIndex={editIndex}>{section.title}</SectionTitle>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {section.people.map((person, i) => (
               <div key={i} className="text-center">
@@ -341,7 +382,7 @@ function Section({ section, site, live, basePath }: { section: SiteSection; site
     case "visit":
       return (
         <SectionShell tone="muted">
-          <SectionTitle>{section.title}</SectionTitle>
+          <SectionTitle editIndex={editIndex}>{section.title}</SectionTitle>
           {section.body ? <BodyText text={section.body} className="mb-6 max-w-2xl text-slate-600" /> : null}
           <div className="grid gap-6 rounded-2xl border border-slate-200 bg-white p-6 sm:grid-cols-3" data-section="visit">
             <div>
@@ -411,7 +452,7 @@ export function SiteRenderer({ site, page, live, basePath, selectable = false }:
         {page.sections.map((section, i) =>
           selectable ? (
             <StudioSectionTarget key={i} index={i} kind={section.kind}>
-              <Section section={section} site={site} live={live} basePath={basePath} />
+              <Section section={section} site={site} live={live} basePath={basePath} editIndex={i} />
             </StudioSectionTarget>
           ) : (
             <Section key={i} section={section} site={site} live={live} basePath={basePath} />

@@ -68,6 +68,16 @@ inspector. It is the same `WebsiteSectionEditor` (with `fullScreen` chrome),
 the same `app.manage` permission, and the same audited actions as everything
 below — only the chrome differs.
 
+Canvas editing: single-line text fields (hero headline/subheadline, section
+titles) are contentEditable in studio mode (`StudioEditableText`) — each
+keystroke posts `cms:edit-text` to the editor, the inspector field mirrors it
+live, and Save persists through the validated action. Sections drag-to-reorder
+two ways: the canvas drag handle posts `cms:reorder-section` on drop (the
+editor persists the new order immediately and reloads the preview), and the
+inspector's section list rows drag like the arrows (marks dirty, Save
+applies). The whitelist of in-place fields lives in the editor; everything
+else edits in the inspector, and the public page never renders any of this.
+
 `/website` (dashboard) — publish toggle + public URL, site settings, and the
 page list (reorder, nav toggle, create/delete; the home page can't be deleted
 or put in the nav — it's the logo link); its edit buttons open the builder in
