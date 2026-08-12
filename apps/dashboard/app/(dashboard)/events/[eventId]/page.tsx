@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { ArrowLeft, CalendarClock, ExternalLink, Eye, EyeOff, Trash2, Undo2, UserCheck, X } from "lucide-react";
+import { ArrowLeft, CalendarClock, ExternalLink, Eye, EyeOff, MapPin, Trash2, Undo2, UserCheck, X } from "lucide-react";
 import { checkinService, eventService, expandOccurrences, personDisplayName } from "@cms/database";
 import { campusService } from "@cms/database";
 import { Badge } from "../../../../components/ui/Badge";
@@ -20,7 +20,21 @@ import {
   updateEventAction,
 } from "../actions";
 
-export default async function EventDetailPage({ params }: { params: Promise<{ eventId: string }> }) {
+/**
+ * Event detail (docs/design-system.md "Detail pages"): identity header with
+ * the next occurrence and a registration stat strip, then tabs —
+ * Registrations, Attendance, Settings. Check-in stays one obvious button.
+ */
+
+type Tab = "registrations" | "attendance" | "settings";
+
+export default async function EventDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const organization = await getCurrentOrganization();
   if (!organization) return null;
   await requireEvents(organization.id, "event.view");
@@ -31,8 +45,28 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ev
   ]);
 
   const { eventId } = await params;
+  const { tab: rawTab } = await searchParams;
   const event = await eventService.getEvent(organization.id, eventId);
   if (!event) notFound();
+
+  const requested: Tab = (["registrations", "attendance", "settings"] as const).includes(rawTab as Tab)
+    ? (rawTab as Tab)
+    : "registrations";
+  // Fall back to the first tab this viewer can actually see.
+  const tab: Tab =
+    requested === "registrations" && !canViewRegistrations
+      ? canViewAttendance
+        ? "attendance"
+        : "settings"
+      : requested === "attendance" && !canViewAttendance
+        ? canViewRegistrations
+          ? "registrations"
+          : "settings"
+        : requested === "settings" && !canManage
+          ? canViewRegistrations
+            ? "registrations"
+            : "attendance"
+          : requested;
 
   const [campuses, registrations, attendanceHistory] = await Promise.all([
     campusService.listCampuses(organization.id),
@@ -42,128 +76,197 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ev
 
   const now = new Date();
   const upcoming = expandOccurrences(event, now, new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000), 6);
+  const next = upcoming[0] ?? null;
+  const activeRegistrations = registrations.filter((r) => r.status !== "CANCELLED").length;
+  const fillPct = event.capacity ? Math.min(100, Math.round((event._count.registrations / event.capacity) * 100)) : null;
+  const lastAttendance = attendanceHistory[0] ?? null;
 
   const h = await headers();
   const host = h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   const publicUrl = `${proto}://${host}/e/${event.publicId}`;
 
+  const tabHref = (key: Tab) => (key === "registrations" ? `/events/${event.id}` : `/events/${event.id}?tab=${key}`);
+  const TABS: { key: Tab; label: string; show: boolean }[] = [
+    { key: "registrations", label: "Registrations", show: canViewRegistrations },
+    { key: "attendance", label: "Attendance", show: canViewAttendance },
+    { key: "settings", label: "Settings", show: canManage },
+  ];
+
   return (
-    <div>
-      <Link href="/events" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-secondary hover:text-ink">
-        <ArrowLeft size={15} /> Back to Events
+    <div className="mx-auto max-w-5xl">
+      <Link href="/events" className="mb-5 inline-flex items-center gap-1.5 text-sm text-ink-secondary hover:text-ink">
+        <ArrowLeft size={15} /> Events
       </Link>
 
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">{event.title}</h1>
-        <Badge variant="info">{recurrenceLabel(event.recurrence, event.recurrenceInterval)}</Badge>
-        {event.isPublished ? <Badge variant="success">Published</Badge> : <Badge>Draft</Badge>}
-        {event.archivedAt && <Badge variant="warning">Archived</Badge>}
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          {canManage && (
-            <Card padding="md">
-              <h2 className="mb-4 text-sm font-semibold text-ink">Details</h2>
-              <EventForm
-                action={updateEventAction.bind(null, event.id)}
-                event={event}
-                campuses={campuses.map((c) => ({ id: c.id, name: c.name }))}
-                submitLabel="Save changes"
-              />
-            </Card>
-          )}
-
-          {canViewRegistrations && (
-            <Card padding="md">
-              <h2 className="mb-4 text-sm font-semibold text-ink">
-                Registrations ({event._count.registrations}
-                {event.capacity ? ` / ${event.capacity}` : ""})
-              </h2>
-              {registrations.length === 0 ? (
-                <p className="text-sm text-ink-muted">No registrations yet. Share the public link to collect them.</p>
-              ) : (
-                <ul className="divide-y divide-border">
-                  {registrations.map((registration) => (
-                    <li key={registration.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                      <div>
-                        {registration.person ? (
-                          <Link href={`/people/${registration.person.id}`} className="font-medium text-ink hover:text-accent">
-                            {personDisplayName(registration.person)}
-                          </Link>
-                        ) : (
-                          <span className="font-medium text-ink">{registration.name}</span>
-                        )}
-                        <span className="block text-xs text-ink-muted">
-                          {registration.email ?? "no email"} · {new Date(registration.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {registration.status === "CANCELLED" ? (
-                          <Badge variant="warning">Cancelled</Badge>
-                        ) : (
-                          <>
-                            <Badge variant="success">Registered</Badge>
-                            <form action={cancelRegistrationAction.bind(null, event.id, registration.id)}>
-                              <button
-                                type="submit"
-                                aria-label="Cancel registration"
-                                className="rounded-sm p-1 text-ink-muted hover:bg-surface-muted hover:text-danger"
-                              >
-                                <X size={14} />
-                              </button>
-                            </form>
-                          </>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
-          )}
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-display text-[28px] leading-tight text-ink">{event.title}</h1>
+            {event.recurrence !== "NONE" && <Badge variant="info">{recurrenceLabel(event.recurrence, event.recurrenceInterval)}</Badge>}
+            {event.isPublished ? <Badge variant="success">Published</Badge> : <Badge>Draft</Badge>}
+            {event.archivedAt && <Badge variant="warning">Archived</Badge>}
+          </div>
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-ink-secondary">
+            <span className="inline-flex items-center gap-1.5">
+              <CalendarClock size={15} className="text-ink-muted" />
+              {next ? formatEventDate(next, event.allDay) : "No upcoming occurrences"}
+            </span>
+            {event.location && (
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin size={15} className="text-ink-muted" /> {event.location}
+              </span>
+            )}
+          </p>
         </div>
-
-        <div className="flex flex-col gap-6">
+        <div className="flex shrink-0 items-center gap-2">
+          {event.isPublished && (
+            <a href={publicUrl} target="_blank" rel="noreferrer" className={buttonClasses("secondary", "sm")}>
+              <ExternalLink size={14} /> Public page
+            </a>
+          )}
           {canViewRegistrations && (
-            <Link href={`/events/${event.id}/checkin`} className={buttonClasses("secondary", "md") + " w-full"}>
-              <UserCheck size={16} /> Open check-in
+            <Link href={`/events/${event.id}/checkin`} className={buttonClasses("primary", "sm")}>
+              <UserCheck size={15} /> Open check-in
             </Link>
           )}
+        </div>
+      </div>
 
-          {canViewAttendance && attendanceHistory.length > 0 && (
-            <Card padding="md">
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
-                <UserCheck size={15} /> Attendance history
-              </h2>
-              <ul className="space-y-1.5 text-sm">
-                {attendanceHistory.map((occurrence) => (
-                  <li key={occurrence.occurrenceAt.toISOString()} className="flex items-center justify-between gap-2">
-                    <span className="text-ink-secondary">{formatEventDate(occurrence.occurrenceAt, event.allDay)}</span>
-                    <span className="font-medium text-ink">{occurrence.count}</span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
+      {/* Stat strip */}
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-3" data-section="event-stats">
+        <Card padding="md">
+          <p className="text-[13px] font-medium text-ink-secondary">Registered</p>
+          <p className="text-metric mt-1.5 text-[28px] leading-none text-ink">
+            {event._count.registrations}
+            {event.capacity ? <span className="text-base text-ink-muted"> / {event.capacity}</span> : null}
+          </p>
+          {fillPct !== null && (
+            <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-muted">
+              <div className={`h-full rounded-full ${fillPct >= 100 ? "bg-warning" : "bg-accent"}`} style={{ width: `${fillPct}%` }} />
+            </div>
           )}
+        </Card>
+        <Card padding="md">
+          <p className="text-[13px] font-medium text-ink-secondary">Last attendance</p>
+          <p className="text-metric mt-1.5 text-[28px] leading-none text-ink">{lastAttendance ? lastAttendance.count : "—"}</p>
+          <p className="mt-2 text-xs text-ink-muted">
+            {lastAttendance ? formatEventDate(lastAttendance.occurrenceAt, event.allDay) : "No check-ins yet"}
+          </p>
+        </Card>
+        <Card padding="md" className="col-span-2 lg:col-span-1">
+          <p className="text-[13px] font-medium text-ink-secondary">Coming up</p>
+          {upcoming.length === 0 ? (
+            <p className="mt-2 text-sm text-ink-muted">Nothing in the next 90 days.</p>
+          ) : (
+            <ul className="mt-2 space-y-1 text-sm text-ink-secondary">
+              {upcoming.slice(0, 3).map((occurrence) => (
+                <li key={occurrence.toISOString()}>{formatEventDate(occurrence, event.allDay)}</li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
 
-          <Card padding="md">
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
-              <CalendarClock size={15} /> Upcoming
-            </h2>
-            {upcoming.length === 0 ? (
-              <p className="text-sm text-ink-muted">No upcoming occurrences in the next 90 days.</p>
-            ) : (
-              <ul className="space-y-1.5 text-sm text-ink-secondary">
-                {upcoming.map((occurrence) => (
-                  <li key={occurrence.toISOString()}>{formatEventDate(occurrence, event.allDay)}</li>
-                ))}
-              </ul>
-            )}
+      <nav className="mb-8 flex items-center gap-1 border-b border-border" aria-label="Event sections">
+        {TABS.filter((t) => t.show).map((t) => (
+          <Link
+            key={t.key}
+            href={tabHref(t.key)}
+            aria-current={tab === t.key ? "page" : undefined}
+            className={`-mb-px border-b-2 px-3.5 py-2.5 text-sm transition-colors duration-180 ${
+              tab === t.key ? "border-accent font-semibold text-ink" : "border-transparent font-medium text-ink-secondary hover:text-ink"
+            }`}
+          >
+            {t.label}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === "registrations" && canViewRegistrations && (
+        <Card padding="md" className="max-w-3xl" data-section="event-registrations">
+          <h2 className="mb-3 text-sm font-semibold text-ink">
+            {activeRegistrations} active {activeRegistrations === 1 ? "registration" : "registrations"}
+          </h2>
+          {registrations.length === 0 ? (
+            <p className="text-sm text-ink-muted">
+              No registrations yet.{" "}
+              {event.isPublished ? "Share the public page to collect them." : "Publish the event to open registration."}
+            </p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {registrations.map((registration) => (
+                <li key={registration.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                  <div>
+                    {registration.person ? (
+                      <Link href={`/people/${registration.person.id}`} className="font-medium text-ink hover:text-accent">
+                        {personDisplayName(registration.person)}
+                      </Link>
+                    ) : (
+                      <span className="font-medium text-ink">{registration.name}</span>
+                    )}
+                    <span className="block text-xs text-ink-muted">
+                      {registration.email ?? "no email"} · {new Date(registration.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {registration.status === "CANCELLED" ? (
+                      <Badge variant="warning">Cancelled</Badge>
+                    ) : (
+                      <>
+                        <Badge variant="success">Registered</Badge>
+                        <form action={cancelRegistrationAction.bind(null, event.id, registration.id)}>
+                          <button
+                            type="submit"
+                            aria-label="Cancel registration"
+                            className="rounded-sm p-1 text-ink-muted hover:bg-surface-muted hover:text-danger"
+                          >
+                            <X size={14} />
+                          </button>
+                        </form>
+                      </>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
+
+      {tab === "attendance" && canViewAttendance && (
+        <Card padding="md" className="max-w-2xl">
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
+            <UserCheck size={15} /> Attendance by occurrence
+          </h2>
+          {attendanceHistory.length === 0 ? (
+            <p className="text-sm text-ink-muted">No check-ins recorded yet — use Open check-in on service day.</p>
+          ) : (
+            <ul className="divide-y divide-border text-sm">
+              {attendanceHistory.map((occurrence) => (
+                <li key={occurrence.occurrenceAt.toISOString()} className="flex items-center justify-between gap-2 py-2">
+                  <span className="text-ink-secondary">{formatEventDate(occurrence.occurrenceAt, event.allDay)}</span>
+                  <span className="text-metric text-lg text-ink">{occurrence.count}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
+
+      {tab === "settings" && canManage && (
+        <div className="grid gap-5 lg:grid-cols-3">
+          <Card padding="md" className="lg:col-span-2">
+            <h2 className="mb-4 text-sm font-semibold text-ink">Details</h2>
+            <EventForm
+              action={updateEventAction.bind(null, event.id)}
+              event={event}
+              campuses={campuses.map((c) => ({ id: c.id, name: c.name }))}
+              submitLabel="Save changes"
+            />
           </Card>
 
-          {canManage && (
+          <div className="flex flex-col gap-5">
             <Card padding="md">
               <h2 className="mb-3 text-sm font-semibold text-ink">Publish</h2>
               {event.isPublished ? (
@@ -185,9 +288,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ev
                 </>
               ) : (
                 <>
-                  <p className="mb-3 text-xs text-ink-muted">
-                    Publishing makes this event live at a public link with registration.
-                  </p>
+                  <p className="mb-3 text-xs text-ink-muted">Publishing makes this event live at a public link with registration.</p>
                   <form action={setEventPublishedAction.bind(null, event.id, true)}>
                     <button type="submit" className={buttonClasses("primary", "sm") + " w-full"}>
                       <Eye size={14} /> Publish event
@@ -196,9 +297,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ev
                 </>
               )}
             </Card>
-          )}
 
-          {canManage && (
             <Card padding="md">
               <h2 className="mb-2 text-sm font-semibold text-ink">Status</h2>
               {event.archivedAt ? (
@@ -215,9 +314,9 @@ export default async function EventDetailPage({ params }: { params: Promise<{ ev
                 </form>
               )}
             </Card>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

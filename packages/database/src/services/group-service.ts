@@ -53,7 +53,15 @@ export async function listGroups(organizationId: string, opts: ListGroupsOptions
     orderBy: { name: "asc" },
     skip: opts.skip,
     take: opts.take,
-    include: { _count: { select: { memberships: true } } },
+    include: {
+      _count: { select: { memberships: true } },
+      // Leaders surface on group cards; two names is plenty for a list row.
+      memberships: {
+        where: { role: GroupMembershipRole.LEADER },
+        include: { person: { select: { firstName: true, lastName: true, preferredName: true } } },
+        take: 2,
+      },
+    },
   });
 }
 
