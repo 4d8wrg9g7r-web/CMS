@@ -47,8 +47,10 @@ export const DEFAULT_FONT: SiteFontId = "modern";
 export interface SiteTheme {
   /** Hex accent used for buttons, links, thermometers. */
   accentColor: string;
-  /** One of the curated SITE_FONTS ids — never a raw font-family string. */
+  /** Body typeface — one of the curated SITE_FONTS ids, never a raw font-family string. */
   font: SiteFontId;
+  /** Heading typeface (site name, hero headline, section titles) — same curated set. */
+  headingFont: SiteFontId;
 }
 
 export interface SiteConfig {
@@ -68,7 +70,7 @@ export function defaultSiteConfig(siteName: string): SiteConfig {
   return {
     siteName,
     tagline: "",
-    theme: { accentColor: DEFAULT_ACCENT, font: DEFAULT_FONT },
+    theme: { accentColor: DEFAULT_ACCENT, font: DEFAULT_FONT, headingFont: DEFAULT_FONT },
     contact: { address: "", phone: "", email: "" },
     serviceTimes: [{ label: "Sunday Worship", time: "Sundays · 10:00 AM" }],
   };
@@ -103,10 +105,16 @@ export function parseSiteConfig(raw: unknown, fallbackSiteName: string): SiteCon
   return {
     siteName: str(r.siteName, 120) || base.siteName,
     tagline: str(r.tagline, 200),
-    theme: {
-      accentColor: HEX_COLOR.test(accent) ? accent : DEFAULT_ACCENT,
-      font: typeof theme.font === "string" && theme.font in SITE_FONTS ? (theme.font as SiteFontId) : DEFAULT_FONT,
-    },
+    theme: (() => {
+      const fontId = (v: unknown): SiteFontId | null => (typeof v === "string" && v in SITE_FONTS ? (v as SiteFontId) : null);
+      const font = fontId(theme.font) ?? DEFAULT_FONT;
+      return {
+        accentColor: HEX_COLOR.test(accent) ? accent : DEFAULT_ACCENT,
+        font,
+        // Configs written before heading fonts existed keep headings matching the body.
+        headingFont: fontId(theme.headingFont) ?? font,
+      };
+    })(),
     contact: {
       address: str(contact.address, 200),
       phone: str(contact.phone, 40),

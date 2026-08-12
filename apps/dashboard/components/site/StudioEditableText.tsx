@@ -16,12 +16,14 @@ export function StudioEditableText({
   field,
   value,
   className,
+  style,
   as = "span",
 }: {
   index: number;
   field: string;
   value: string;
   className?: string;
+  style?: React.CSSProperties;
   as?: keyof JSX.IntrinsicElements;
 }) {
   const Tag = as as "span";
@@ -30,6 +32,7 @@ export function StudioEditableText({
       contentEditable
       suppressContentEditableWarning
       spellCheck={false}
+      style={style}
       data-editable-field={field}
       data-editable-index={index}
       className={`${className ?? ""} -mx-1 cursor-text rounded-sm px-1 outline-none transition-shadow duration-150 focus:ring-2 focus:ring-[#2566e8]/70`}

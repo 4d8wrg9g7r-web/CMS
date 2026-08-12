@@ -28,6 +28,17 @@ describe("site config", () => {
     expect(parseSiteConfig({ theme: { accentColor: "#AA33ff" } }, "x").theme.font).toBe(DEFAULT_FONT);
   });
 
+  it("heading font pairs with the body font unless set independently", () => {
+    // Configs written before heading fonts existed: headings follow the body.
+    expect(parseSiteConfig({ theme: { font: "classic" } }, "x").theme.headingFont).toBe("classic");
+    // Independent pair.
+    const paired = parseSiteConfig({ theme: { font: "modern", headingFont: "elegant" } }, "x").theme;
+    expect(paired.font).toBe("modern");
+    expect(paired.headingFont).toBe("elegant");
+    // Junk heading ids fall back to the body font.
+    expect(parseSiteConfig({ theme: { font: "friendly", headingFont: "cursive" } }, "x").theme.headingFont).toBe("friendly");
+  });
+
   it("every curated font resolves to a non-empty system stack", () => {
     for (const font of Object.values(SITE_FONTS)) {
       expect(font.stack.length).toBeGreaterThan(10);

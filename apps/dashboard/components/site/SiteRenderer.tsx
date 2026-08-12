@@ -68,13 +68,20 @@ function SectionShell({ children, tone }: { children: React.ReactNode; tone?: "m
   );
 }
 
+/** Headings (site name, hero, section titles) render in the theme's heading stack. */
+const HEADING_STYLE: React.CSSProperties = { fontFamily: "var(--site-heading-font)" };
+
 function SectionTitle({ children, editIndex }: { children: React.ReactNode; editIndex?: number }) {
   const className = "mb-6 text-2xl font-bold tracking-tight text-slate-900";
   // In studio mode plain string titles edit in place (docs/domain/website.md "Studio").
   if (editIndex !== undefined && typeof children === "string") {
-    return <StudioEditableText as="h2" index={editIndex} field="title" value={children} className={className} />;
+    return <StudioEditableText as="h2" index={editIndex} field="title" value={children} className={className} style={HEADING_STYLE} />;
   }
-  return <h2 className={className}>{children}</h2>;
+  return (
+    <h2 className={className} style={HEADING_STYLE}>
+      {children}
+    </h2>
+  );
 }
 
 function CtaButtons({ ctas, basePath, accent }: { ctas: { label: string; href: string }[]; basePath: string; accent: string }) {
@@ -133,9 +140,12 @@ function Section({
                 field="headline"
                 value={section.headline}
                 className="mb-4 max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl"
+                style={HEADING_STYLE}
               />
             ) : (
-              <h1 className="mb-4 max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl">{section.headline}</h1>
+              <h1 className="mb-4 max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl" style={HEADING_STYLE}>
+                {section.headline}
+              </h1>
             )}
             {section.subheadline ? (
               editIndex !== undefined ? (
@@ -424,13 +434,20 @@ function Section({
 
 export function SiteRenderer({ site, page, live, basePath, selectable = false }: Props) {
   const accent = site.config.theme.accentColor;
-  // Theme font: a curated id resolved to a system stack — never a raw string.
+  // Theme fonts: curated ids resolved to system stacks — never raw strings.
+  // The body stack applies everywhere; headings pick up --site-heading-font.
   const fontStack = (SITE_FONTS[site.config.theme.font] ?? SITE_FONTS.modern).stack;
+  const headingStack = (SITE_FONTS[site.config.theme.headingFont] ?? SITE_FONTS.modern).stack;
   return (
-    <div className="min-h-screen bg-white text-slate-900" style={{ fontFamily: fontStack }} data-site-font={site.config.theme.font}>
+    <div
+      className="min-h-screen bg-white text-slate-900"
+      style={{ fontFamily: fontStack, "--site-heading-font": headingStack } as React.CSSProperties}
+      data-site-font={site.config.theme.font}
+      data-site-heading-font={site.config.theme.headingFont}
+    >
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-6 px-6 py-4">
-          <Link href={basePath} className="text-base font-bold tracking-tight text-slate-900">
+          <Link href={basePath} className="text-base font-bold tracking-tight text-slate-900" style={HEADING_STYLE}>
             {site.config.siteName}
           </Link>
           <nav className="flex items-center gap-1 overflow-x-auto" data-section="site-nav">

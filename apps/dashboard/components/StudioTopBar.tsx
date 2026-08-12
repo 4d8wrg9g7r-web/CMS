@@ -21,16 +21,65 @@ import { publishSiteAction, saveSiteConfigAction } from "../app/(dashboard)/webs
 
 const ACCENT_SWATCHES = ["#1d4ed8", "#2566e8", "#b91c1c", "#c2410c", "#b45309", "#15803d", "#0f766e", "#7e22ce", "#be185d", "#1f2937"];
 
+/** One radio-card group of the curated typefaces, previewing real sample text. */
+function FontPicker({
+  label,
+  hint,
+  value,
+  onChange,
+  sample,
+  bold,
+  group,
+}: {
+  label: string;
+  hint: string;
+  value: SiteFontId;
+  onChange: (id: SiteFontId) => void;
+  sample: string;
+  bold?: boolean;
+  group: string;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{label}</p>
+      <p className="mt-1 text-xs text-ink-muted">{hint}</p>
+      <div className="mt-3 space-y-2" role="radiogroup" aria-label={label}>
+        {SITE_FONTS_UI.map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            role="radio"
+            aria-checked={value === option.id}
+            onClick={() => onChange(option.id)}
+            data-font-option={`${group}:${option.id}`}
+            className={`w-full rounded-lg border px-3.5 py-2.5 text-left transition-colors duration-150 ${
+              value === option.id ? "border-accent bg-surface-warm" : "border-border bg-surface hover:border-border-strong"
+            }`}
+          >
+            <span className={`text-xs ${value === option.id ? "font-semibold text-accent" : "font-medium text-ink-secondary"}`}>
+              {option.label}
+            </span>
+            <span className={`mt-0.5 block truncate text-ink ${bold ? "text-lg font-bold" : "text-[15px]"}`} style={{ fontFamily: option.stack }}>
+              {sample}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ThemePanel({ config, open, onClose }: { config: SiteConfig; open: boolean; onClose: () => void }) {
   const router = useRouter();
   const { showToast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [accent, setAccent] = useState(config.theme.accentColor);
   const [font, setFont] = useState<SiteFontId>(config.theme.font);
+  const [headingFont, setHeadingFont] = useState<SiteFontId>(config.theme.headingFont);
 
   const save = () => {
     startTransition(async () => {
-      const result = await saveSiteConfigAction({ config: { ...config, theme: { accentColor: accent, font } } });
+      const result = await saveSiteConfigAction({ config: { ...config, theme: { accentColor: accent, font, headingFont } } });
       if (result.ok) {
         showToast("Theme saved", "success");
         // The editor owns the preview iframe; ask it to reload with the new theme.
@@ -78,30 +127,26 @@ function ThemePanel({ config, open, onClose }: { config: SiteConfig; open: boole
         </div>
 
         <div className="mt-6 border-t border-border pt-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Typeface</p>
-          <p className="mt-1 text-xs text-ink-muted">System font pairings — fast everywhere, nothing to load.</p>
-          <div className="mt-3 space-y-2" role="radiogroup" aria-label="Site typeface">
-            {SITE_FONTS_UI.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                role="radio"
-                aria-checked={font === option.id}
-                onClick={() => setFont(option.id)}
-                data-font-option={option.id}
-                className={`w-full rounded-lg border px-3.5 py-3 text-left transition-colors duration-150 ${
-                  font === option.id ? "border-accent bg-surface-warm" : "border-border bg-surface hover:border-border-strong"
-                }`}
-              >
-                <span className="flex items-center justify-between">
-                  <span className={`text-sm ${font === option.id ? "font-semibold text-accent" : "font-medium text-ink"}`}>{option.label}</span>
-                </span>
-                <span className="mt-0.5 block truncate text-lg text-ink" style={{ fontFamily: option.stack }}>
-                  Sunday gatherings at 10 AM
-                </span>
-              </button>
-            ))}
-          </div>
+          <FontPicker
+            label="Headings"
+            hint="Site name, hero headline, and section titles."
+            value={headingFont}
+            onChange={setHeadingFont}
+            sample="Grace That Finds Us"
+            bold
+            group="heading"
+          />
+        </div>
+
+        <div className="mt-6 border-t border-border pt-5">
+          <FontPicker
+            label="Body"
+            hint="Paragraphs, cards, and everything else. System stacks — nothing to load."
+            value={font}
+            onChange={setFont}
+            sample="Sunday gatherings at 10 AM — everyone is welcome."
+            group="body"
+          />
         </div>
 
         <div className="mt-auto border-t border-border pt-5">

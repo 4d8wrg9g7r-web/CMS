@@ -243,19 +243,35 @@ export function WebsiteStudio({ published, siteUrl, config: initialConfig, pages
               />
             </div>
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-ink-secondary">Typeface</label>
-            <Select
-              value={config.theme.font}
-              onChange={(e) => setConfig({ ...config, theme: { ...config.theme, font: e.target.value as SiteFontId } })}
-              aria-label="Site typeface"
-            >
-              {SITE_FONTS_UI.map((font) => (
-                <option key={font.id} value={font.id}>
-                  {font.label}
-                </option>
-              ))}
-            </Select>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-secondary">Heading typeface</label>
+              <Select
+                value={config.theme.headingFont}
+                onChange={(e) => setConfig({ ...config, theme: { ...config.theme, headingFont: e.target.value as SiteFontId } })}
+                aria-label="Heading typeface"
+              >
+                {SITE_FONTS_UI.map((font) => (
+                  <option key={font.id} value={font.id}>
+                    {font.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-secondary">Body typeface</label>
+              <Select
+                value={config.theme.font}
+                onChange={(e) => setConfig({ ...config, theme: { ...config.theme, font: e.target.value as SiteFontId } })}
+                aria-label="Body typeface"
+              >
+                {SITE_FONTS_UI.map((font) => (
+                  <option key={font.id} value={font.id}>
+                    {font.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-ink-secondary">Address</label>
