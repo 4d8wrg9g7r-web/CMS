@@ -73,6 +73,12 @@ must not enter the browser bundle): `lib/site-sections-ui.ts` mirrors the
 section-kind constants, and `parseSections` re-validates server-side on save,
 so drift can mislabel a button but never corrupt data.
 
+The `sermons` live section plays the newest embeddable message inline:
+`videoEmbedUrl` (packages/database `site/video-embed.ts`) recognizes YouTube
+(watch/short/live/embed links → the privacy-enhanced `youtube-nocookie.com`
+player) and Vimeo, with strict id validation so arbitrary strings never
+become iframe sources; everything else stays a card linking out.
+
 Image fields (hero background, text+image art, team photos) accept a pasted
 URL or an upload: `uploadSiteImageAction` stores to PUBLIC storage (the public
 site serves images by URL, so like newsletter images they can't live in the

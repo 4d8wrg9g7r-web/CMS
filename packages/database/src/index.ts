@@ -270,6 +270,7 @@ export type {
   CardGridSection,
   TeamSection,
 } from "./site/site-sections";
+export { videoEmbedUrl } from "./site/video-embed";
 export type { PublicSite, PublicSitePage, SitePageSummary } from "./services/site-service";
 export type { SearchHit, GlobalSearchResults } from "./services/search-service";
 export type { HomeBrief, AttentionItem, WeekItem, PulseMetric, HomeInsight } from "./services/home-service";

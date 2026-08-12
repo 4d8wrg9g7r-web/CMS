@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { videoEmbedUrl } from "@cms/database";
 import type { PublicSite, PublicSitePage, SiteSection } from "@cms/database";
 import type { SiteLiveContent } from "../../lib/site-content";
 import { StudioSectionTarget } from "./StudioSectionTarget";
@@ -196,15 +197,44 @@ function Section({ section, site, live, basePath }: { section: SiteSection; site
           </p>
         </SectionShell>
       );
-    case "sermons":
+    case "sermons": {
+      const shown = live.sermons.slice(0, section.limit);
+      // The newest embeddable message plays inline; the rest stay as cards.
+      const featured = shown.find((s) => videoEmbedUrl(s.videoUrl));
+      const featuredEmbed = featured ? videoEmbedUrl(featured.videoUrl) : null;
       return (
         <SectionShell tone="muted">
           <SectionTitle>{section.title}</SectionTitle>
-          {live.sermons.length === 0 ? (
+          {shown.length === 0 ? (
             <p className="text-sm text-slate-500">Messages will appear here soon.</p>
           ) : (
+            <>
+              {featured && featuredEmbed ? (
+                <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white" data-live="sermon-embed">
+                  <div className="aspect-video w-full">
+                    <iframe
+                      src={featuredEmbed}
+                      title={featured.title}
+                      className="h-full w-full"
+                      loading="lazy"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      referrerPolicy="strict-origin-when-cross-origin"
+                    />
+                  </div>
+                  <div className="px-5 py-4">
+                    {featured.series ? (
+                      <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: accent }}>
+                        {featured.series}
+                      </p>
+                    ) : null}
+                    <p className="mt-1 text-sm font-semibold text-slate-900">{featured.title}</p>
+                    <p className="mt-0.5 text-sm text-slate-500">{[featured.speaker, featured.when].filter(Boolean).join(" · ")}</p>
+                  </div>
+                </div>
+              ) : null}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {live.sermons.slice(0, section.limit).map((sermon) => {
+              {shown.filter((s) => s.id !== featured?.id).map((sermon) => {
                 const card = (
                   <div className="h-full rounded-xl border border-slate-200 bg-white p-5" data-live="sermon">
                     {sermon.series ? (
@@ -227,9 +257,11 @@ function Section({ section, site, live, basePath }: { section: SiteSection; site
                 );
               })}
             </div>
+            </>
           )}
         </SectionShell>
       );
+    }
     case "groups":
       return (
         <SectionShell>
