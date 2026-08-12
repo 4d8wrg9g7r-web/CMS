@@ -91,6 +91,7 @@ export * as campaignService from "./services/campaign-service";
 export * as siteService from "./services/site-service";
 export * as searchService from "./services/search-service";
 export * as homeService from "./services/home-service";
+export * as inboxService from "./services/inbox-service";
 export type { AppCampaign, CampaignProgress } from "./services/campaign-service";
 export { campaignPercent, campaignIsActive, pledgeAmountError } from "./giving/campaigns";
 export type { ActivePage } from "./services/app-page-service";
@@ -272,3 +273,4 @@ export type {
 export type { PublicSite, PublicSitePage, SitePageSummary } from "./services/site-service";
 export type { SearchHit, GlobalSearchResults } from "./services/search-service";
 export type { HomeBrief, AttentionItem, WeekItem, PulseMetric, HomeInsight } from "./services/home-service";
+export type { InboxItem, InboxGroup, InboxInclude } from "./services/inbox-service";

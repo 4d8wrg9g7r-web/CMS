@@ -27,6 +27,7 @@ export const TENANT_SCOPED_MODELS = new Set([
   "Pledge",
   "Site",
   "SitePage",
+  "InboxDismissal",
   "SavedReport",
   "EmailBlast",
   "EmailBlastAttachment",

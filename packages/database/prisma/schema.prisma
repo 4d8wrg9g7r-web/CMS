@@ -141,6 +141,7 @@ model Organization {
   pledges             Pledge[]
   site                Site?
   sitePages           SitePage[]
+  inboxDismissals     InboxDismissal[]
 }
 
 /**
@@ -257,6 +258,25 @@ model Pledge {
 
   @@unique([campaignId, personId])
   @@index([organizationId])
+}
+
+/**
+ * A resolved item in the operational Inbox (docs/design-system.md "Inbox").
+ * Inbox items are DERIVED from existing tables (form submissions, failed
+ * automations, registrations, prayer requests...) — this table only records
+ * which item keys staff have resolved, org-wide, so the feed stays quiet.
+ */
+model InboxDismissal {
+  id             String   @id @default(cuid())
+  organizationId String
+  /** Stable derived key, e.g. "submission:<id>", "run:<id>". */
+  itemKey        String
+  dismissedByUserId String?
+  dismissedAt    DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, itemKey])
 }
 
 /**

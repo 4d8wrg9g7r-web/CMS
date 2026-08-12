@@ -1,5 +1,6 @@
 import {
   CalendarDays,
+  Inbox as InboxIcon,
   Contact,
   Folder,
   HandCoins,
@@ -18,6 +19,7 @@ import { SidebarNavGroup } from "../../components/ui/SidebarNavGroup";
 import { SidebarNavItem } from "../../components/ui/SidebarNavItem";
 import { ToastProvider } from "../../components/ui/Toast";
 import { signOut } from "../../auth";
+import { inboxService } from "@cms/database";
 import { getCurrentOrganization, getCurrentUser } from "../../lib/session";
 
 /** Every page behind this layout is authenticated-only content -- never meant to be indexed, regardless of what robots.txt already disallows (defense in depth: a disallowed URL can still get indexed by title alone if linked externally). */
@@ -49,6 +51,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!organization) redirect("/onboarding");
 
   const user = await getCurrentUser();
+  // Sidebar badge: undismissed action-required inbox items (cheap bounded queries).
+  const inboxCount = await inboxService.countActionRequired(organization.id).catch(() => 0);
 
   const sidebar = (
     <>
@@ -66,6 +70,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 pt-1" aria-label="Main">
         <SidebarNavItem href="/dashboard" label="Home" icon={<House size={17} strokeWidth={1.75} />} />
+        <SidebarNavItem href="/inbox" label="Inbox" icon={<InboxIcon size={17} strokeWidth={1.75} />} badge={inboxCount} />
         <SidebarNavItem href="/people" label="People" icon={<Contact size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/groups" label="Groups" icon={<Users2 size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/events" label="Events" icon={<CalendarDays size={17} strokeWidth={1.75} />} />

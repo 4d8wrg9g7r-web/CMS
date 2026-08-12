@@ -41,6 +41,7 @@ export const config = {
     "/tasks/:path*",
     "/messages/:path*",
     "/communicate",
+    "/inbox",
     "/website/:path*",
     "/team",
     "/audit-log",
