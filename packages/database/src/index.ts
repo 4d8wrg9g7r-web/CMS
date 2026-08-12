@@ -250,8 +250,10 @@ export {
   parseSiteConfig,
   defaultSiteConfig,
   DEFAULT_ACCENT,
+  DEFAULT_FONT,
+  SITE_FONTS,
 } from "./site/site-config";
-export type { SiteConfig, SiteContact, SiteTheme, ServiceTime } from "./site/site-config";
+export type { SiteConfig, SiteContact, SiteTheme, ServiceTime, SiteFontId } from "./site/site-config";
 export {
   parseSection,
   parseSections,

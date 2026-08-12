@@ -1,35 +1,138 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ExternalLink, Eye, EyeOff, Loader2 } from "lucide-react";
-import { Select } from "./ui/Input";
+import { ArrowLeft, ExternalLink, Eye, EyeOff, Loader2, Palette } from "lucide-react";
+import type { SiteConfig, SiteFontId } from "@cms/database";
+import { SITE_FONTS_UI } from "../lib/site-fonts-ui";
+import { Inspector } from "./ui/Inspector";
+import { Input, Select } from "./ui/Input";
+import { Button } from "./ui/Button";
 import { useToast } from "./ui/Toast";
-import { publishSiteAction } from "../app/(dashboard)/website/actions";
+import { publishSiteAction, saveSiteConfigAction } from "../app/(dashboard)/website/actions";
 
 /**
  * Top chrome of the full-page website builder (/studio/website): exit back to
- * the dashboard, switch pages, see live state, publish/unpublish, open the
- * live site. Site settings (theme, contact, service times) stay on /website —
- * the builder links back rather than duplicating them.
+ * the dashboard, switch pages, open the theme panel (accent + typeface), see
+ * live state, publish/unpublish, open the live site. Full site settings
+ * (contact, service times, pages) stay on /website.
  */
+
+const ACCENT_SWATCHES = ["#1d4ed8", "#2566e8", "#b91c1c", "#c2410c", "#b45309", "#15803d", "#0f766e", "#7e22ce", "#be185d", "#1f2937"];
+
+function ThemePanel({ config, open, onClose }: { config: SiteConfig; open: boolean; onClose: () => void }) {
+  const router = useRouter();
+  const { showToast } = useToast();
+  const [isPending, startTransition] = useTransition();
+  const [accent, setAccent] = useState(config.theme.accentColor);
+  const [font, setFont] = useState<SiteFontId>(config.theme.font);
+
+  const save = () => {
+    startTransition(async () => {
+      const result = await saveSiteConfigAction({ config: { ...config, theme: { accentColor: accent, font } } });
+      if (result.ok) {
+        showToast("Theme saved", "success");
+        // The editor owns the preview iframe; ask it to reload with the new theme.
+        window.dispatchEvent(new CustomEvent("cms:reload-preview"));
+        router.refresh();
+        onClose();
+      } else {
+        showToast(result.error ?? "Could not save the theme", "error");
+      }
+    });
+  };
+
+  return (
+    <Inspector open={open} onClose={onClose} title="Theme">
+      <div className="flex h-full flex-col" data-section="theme-panel">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Accent color</p>
+          <p className="mt-1 text-xs text-ink-muted">Buttons, links, and highlights across the site.</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {ACCENT_SWATCHES.map((hex) => (
+              <button
+                key={hex}
+                type="button"
+                onClick={() => setAccent(hex)}
+                aria-label={`Accent ${hex}`}
+                aria-pressed={accent.toLowerCase() === hex}
+                data-swatch={hex}
+                className={`h-8 w-8 rounded-full border transition-transform duration-150 ${
+                  accent.toLowerCase() === hex ? "scale-110 border-ink ring-2 ring-accent/40" : "border-black/10 hover:scale-105"
+                }`}
+                style={{ backgroundColor: hex }}
+              />
+            ))}
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              type="color"
+              value={/^#[0-9a-fA-F]{6}$/.test(accent) ? accent : "#1d4ed8"}
+              onChange={(e) => setAccent(e.target.value)}
+              className="h-9 w-12 cursor-pointer rounded-sm border border-border-strong bg-surface"
+              aria-label="Custom accent color"
+            />
+            <Input value={accent} onChange={(e) => setAccent(e.target.value)} className="w-28" maxLength={7} aria-label="Accent hex" />
+          </div>
+        </div>
+
+        <div className="mt-6 border-t border-border pt-5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Typeface</p>
+          <p className="mt-1 text-xs text-ink-muted">System font pairings — fast everywhere, nothing to load.</p>
+          <div className="mt-3 space-y-2" role="radiogroup" aria-label="Site typeface">
+            {SITE_FONTS_UI.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                role="radio"
+                aria-checked={font === option.id}
+                onClick={() => setFont(option.id)}
+                data-font-option={option.id}
+                className={`w-full rounded-lg border px-3.5 py-3 text-left transition-colors duration-150 ${
+                  font === option.id ? "border-accent bg-surface-warm" : "border-border bg-surface hover:border-border-strong"
+                }`}
+              >
+                <span className="flex items-center justify-between">
+                  <span className={`text-sm ${font === option.id ? "font-semibold text-accent" : "font-medium text-ink"}`}>{option.label}</span>
+                </span>
+                <span className="mt-0.5 block truncate text-lg text-ink" style={{ fontFamily: option.stack }}>
+                  Sunday gatherings at 10 AM
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-auto border-t border-border pt-5">
+          <Button onClick={save} disabled={isPending} className="w-full" data-action="save-theme">
+            {isPending ? <Loader2 size={14} className="animate-spin" /> : null} Save theme
+          </Button>
+        </div>
+      </div>
+    </Inspector>
+  );
+}
+
 export function StudioTopBar({
   siteName,
   pages,
   currentPageId,
   published,
   liveUrl,
+  config,
 }: {
   siteName: string;
   pages: { id: string; title: string; slug: string }[];
   currentPageId: string;
   published: boolean;
   liveUrl: string;
+  config: SiteConfig;
 }) {
   const router = useRouter();
   const { showToast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const [themeOpen, setThemeOpen] = useState(false);
 
   const setPublished = (next: boolean) => {
     startTransition(async () => {
@@ -72,6 +175,15 @@ export function StudioTopBar({
         </Select>
       </div>
 
+      <button
+        type="button"
+        onClick={() => setThemeOpen(true)}
+        data-action="open-theme"
+        className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-ink-secondary transition-colors duration-180 hover:bg-surface-muted hover:text-ink"
+      >
+        <Palette size={15} style={{ color: config.theme.accentColor }} /> Theme
+      </button>
+
       <span
         className={`hidden rounded-full px-2.5 py-1 text-xs font-semibold sm:block ${
           published ? "bg-success/10 text-success" : "bg-surface-muted text-ink-muted"
@@ -100,6 +212,8 @@ export function StudioTopBar({
         {isPending ? <Loader2 size={14} className="animate-spin" /> : published ? <EyeOff size={14} /> : <Eye size={14} />}
         {published ? "Unpublish" : "Publish"}
       </button>
+
+      <ThemePanel key={themeOpen ? "open" : "closed"} config={config} open={themeOpen} onClose={() => setThemeOpen(false)} />
     </header>
   );
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { videoEmbedUrl } from "@cms/database";
+import { SITE_FONTS, videoEmbedUrl } from "@cms/database";
 import type { PublicSite, PublicSitePage, SiteSection } from "@cms/database";
 import type { SiteLiveContent } from "../../lib/site-content";
 import { StudioEditableText } from "./StudioEditableText";
@@ -424,8 +424,10 @@ function Section({
 
 export function SiteRenderer({ site, page, live, basePath, selectable = false }: Props) {
   const accent = site.config.theme.accentColor;
+  // Theme font: a curated id resolved to a system stack — never a raw string.
+  const fontStack = (SITE_FONTS[site.config.theme.font] ?? SITE_FONTS.modern).stack;
   return (
-    <div className="min-h-screen bg-white font-sans text-slate-900">
+    <div className="min-h-screen bg-white text-slate-900" style={{ fontFamily: fontStack }} data-site-font={site.config.theme.font}>
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-6 px-6 py-4">
           <Link href={basePath} className="text-base font-bold tracking-tight text-slate-900">

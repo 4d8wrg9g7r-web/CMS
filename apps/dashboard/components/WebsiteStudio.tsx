@@ -4,10 +4,11 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowDown, ArrowUp, ExternalLink, FilePlus2, Loader2, Pencil, Trash2 } from "lucide-react";
-import type { SiteConfig } from "@cms/database";
+import type { SiteConfig, SiteFontId } from "@cms/database";
+import { SITE_FONTS_UI } from "../lib/site-fonts-ui";
 import { Button } from "./ui/Button";
 import { Card } from "./ui/Card";
-import { Input } from "./ui/Input";
+import { Input, Select } from "./ui/Input";
 import { useToast } from "./ui/Toast";
 import {
   createSitePageAction,
@@ -230,17 +231,31 @@ export function WebsiteStudio({ published, siteUrl, config: initialConfig, pages
               <input
                 type="color"
                 value={config.theme.accentColor}
-                onChange={(e) => setConfig({ ...config, theme: { accentColor: e.target.value } })}
+                onChange={(e) => setConfig({ ...config, theme: { ...config.theme, accentColor: e.target.value } })}
                 className="h-9 w-12 cursor-pointer rounded-sm border border-border-strong bg-surface"
                 aria-label="Accent color"
               />
               <Input
                 value={config.theme.accentColor}
-                onChange={(e) => setConfig({ ...config, theme: { accentColor: e.target.value } })}
+                onChange={(e) => setConfig({ ...config, theme: { ...config.theme, accentColor: e.target.value } })}
                 className="w-28"
                 maxLength={7}
               />
             </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-ink-secondary">Typeface</label>
+            <Select
+              value={config.theme.font}
+              onChange={(e) => setConfig({ ...config, theme: { ...config.theme, font: e.target.value as SiteFontId } })}
+              aria-label="Site typeface"
+            >
+              {SITE_FONTS_UI.map((font) => (
+                <option key={font.id} value={font.id}>
+                  {font.label}
+                </option>
+              ))}
+            </Select>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-ink-secondary">Address</label>

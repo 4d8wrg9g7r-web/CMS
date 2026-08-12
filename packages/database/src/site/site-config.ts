@@ -17,9 +17,38 @@ export interface ServiceTime {
   time: string;
 }
 
+/**
+ * Curated site typefaces — system font stacks only, so the public page loads
+ * nothing external and can never be pointed at an arbitrary font URL.
+ */
+export const SITE_FONTS = {
+  modern: {
+    label: "Modern",
+    stack: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+  },
+  classic: {
+    label: "Classic",
+    stack: "Georgia, 'Times New Roman', Times, serif",
+  },
+  elegant: {
+    label: "Elegant",
+    stack: "'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif",
+  },
+  friendly: {
+    label: "Friendly",
+    stack: "'Trebuchet MS', Verdana, 'Segoe UI', sans-serif",
+  },
+} as const;
+
+export type SiteFontId = keyof typeof SITE_FONTS;
+
+export const DEFAULT_FONT: SiteFontId = "modern";
+
 export interface SiteTheme {
   /** Hex accent used for buttons, links, thermometers. */
   accentColor: string;
+  /** One of the curated SITE_FONTS ids — never a raw font-family string. */
+  font: SiteFontId;
 }
 
 export interface SiteConfig {
@@ -39,7 +68,7 @@ export function defaultSiteConfig(siteName: string): SiteConfig {
   return {
     siteName,
     tagline: "",
-    theme: { accentColor: DEFAULT_ACCENT },
+    theme: { accentColor: DEFAULT_ACCENT, font: DEFAULT_FONT },
     contact: { address: "", phone: "", email: "" },
     serviceTimes: [{ label: "Sunday Worship", time: "Sundays · 10:00 AM" }],
   };
@@ -74,7 +103,10 @@ export function parseSiteConfig(raw: unknown, fallbackSiteName: string): SiteCon
   return {
     siteName: str(r.siteName, 120) || base.siteName,
     tagline: str(r.tagline, 200),
-    theme: { accentColor: HEX_COLOR.test(accent) ? accent : DEFAULT_ACCENT },
+    theme: {
+      accentColor: HEX_COLOR.test(accent) ? accent : DEFAULT_ACCENT,
+      font: typeof theme.font === "string" && theme.font in SITE_FONTS ? (theme.font as SiteFontId) : DEFAULT_FONT,
+    },
     contact: {
       address: str(contact.address, 200),
       phone: str(contact.phone, 40),

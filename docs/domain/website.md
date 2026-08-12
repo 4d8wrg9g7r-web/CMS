@@ -68,6 +68,13 @@ inspector. It is the same `WebsiteSectionEditor` (with `fullScreen` chrome),
 the same `app.manage` permission, and the same audited actions as everything
 below — only the chrome differs.
 
+Theme: the top bar's Theme panel edits the site accent and typeface. Fonts
+are a curated set of system stacks (`SITE_FONTS` in `site/site-config.ts`) —
+the config stores only the id, `parseSiteConfig` rejects anything else, and
+the renderer resolves it to a stack, so a raw font-family string can never
+reach the public page and nothing external ever loads. `/website` settings
+edits the same theme fields.
+
 Canvas editing: single-line text fields (hero headline/subheadline, section
 titles) are contentEditable in studio mode (`StudioEditableText`) — each
 keystroke posts `cms:edit-text` to the editor, the inspector field mirrors it

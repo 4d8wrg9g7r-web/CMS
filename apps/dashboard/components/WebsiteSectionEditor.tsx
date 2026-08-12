@@ -396,8 +396,15 @@ export function WebsiteSectionEditor({ pageId, pageTitle, previewUrl, initialSec
         setDirty(true);
       }
     };
+    // Other studio chrome (e.g. the theme panel) saves site-wide config and
+    // asks the preview to reload so the canvas reflects it.
+    const onReload = () => setPreviewNonce((n) => n + 1);
     window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
+    window.addEventListener("cms:reload-preview", onReload);
+    return () => {
+      window.removeEventListener("message", onMessage);
+      window.removeEventListener("cms:reload-preview", onReload);
+    };
   }, [EDITABLE_FIELDS]);
 
   const update = (index: number, section: SiteSection) => {

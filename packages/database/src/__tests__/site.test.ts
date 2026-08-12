@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultSiteConfig, parseSiteConfig, DEFAULT_ACCENT } from "../site/site-config";
+import { defaultSiteConfig, parseSiteConfig, DEFAULT_ACCENT, DEFAULT_FONT, SITE_FONTS } from "../site/site-config";
 import {
   blankSection,
   pageSlugError,
@@ -16,7 +16,23 @@ describe("site config", () => {
     const cfg = parseSiteConfig(null, "Victory Church");
     expect(cfg.siteName).toBe("Victory Church");
     expect(cfg.theme.accentColor).toBe(DEFAULT_ACCENT);
+    expect(cfg.theme.font).toBe(DEFAULT_FONT);
     expect(cfg.serviceTimes.length).toBeGreaterThan(0);
+  });
+
+  it("accepts only curated font ids — a raw font-family string never survives", () => {
+    expect(parseSiteConfig({ theme: { font: "classic" } }, "x").theme.font).toBe("classic");
+    expect(parseSiteConfig({ theme: { font: "'Comic Sans MS', cursive" } }, "x").theme.font).toBe(DEFAULT_FONT);
+    expect(parseSiteConfig({ theme: { font: 42 } }, "x").theme.font).toBe(DEFAULT_FONT);
+    // Configs written before fonts existed keep working.
+    expect(parseSiteConfig({ theme: { accentColor: "#AA33ff" } }, "x").theme.font).toBe(DEFAULT_FONT);
+  });
+
+  it("every curated font resolves to a non-empty system stack", () => {
+    for (const font of Object.values(SITE_FONTS)) {
+      expect(font.stack.length).toBeGreaterThan(10);
+      expect(font.label.length).toBeGreaterThan(0);
+    }
   });
 
   it("keeps valid values and rejects a malformed accent color", () => {

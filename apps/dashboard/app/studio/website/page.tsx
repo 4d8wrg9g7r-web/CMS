@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { parseSections, siteService } from "@cms/database";
+import { parseSections, parseSiteConfig, siteService } from "@cms/database";
 import { StudioTopBar } from "../../../components/StudioTopBar";
 import { ToastProvider } from "../../../components/ui/Toast";
 import { WebsiteSectionEditor } from "../../../components/WebsiteSectionEditor";
@@ -45,6 +45,7 @@ export default async function WebsiteBuilderPage({ searchParams }: { searchParam
           currentPageId={page.id}
           published={site.published}
           liveUrl={liveUrl}
+          config={parseSiteConfig(site.config, organization.name)}
         />
         <div className="min-h-0 flex-1 px-4 py-4">
           <WebsiteSectionEditor
