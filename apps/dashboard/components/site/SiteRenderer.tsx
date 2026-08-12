@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { PublicSite, PublicSitePage, SiteSection } from "@cms/database";
 import type { SiteLiveContent } from "../../lib/site-content";
+import { StudioSectionTarget } from "./StudioSectionTarget";
 
 /**
  * The public website renderer (docs/domain/website.md) — server component used
@@ -15,6 +16,8 @@ interface Props {
   live: SiteLiveContent;
   /** Base path for internal links — /w/<key> normally, the preview route in the studio. */
   basePath: string;
+  /** Studio mode: wrap sections in click-to-select targets (staff preview only). */
+  selectable?: boolean;
 }
 
 /** Internal section-block links ("/plan-a-visit") live under the site's base path. */
@@ -346,7 +349,7 @@ function Section({ section, site, live, basePath }: { section: SiteSection; site
   }
 }
 
-export function SiteRenderer({ site, page, live, basePath }: Props) {
+export function SiteRenderer({ site, page, live, basePath, selectable = false }: Props) {
   const accent = site.config.theme.accentColor;
   return (
     <div className="min-h-screen bg-white font-sans text-slate-900">
@@ -373,9 +376,15 @@ export function SiteRenderer({ site, page, live, basePath }: Props) {
       </header>
 
       <main>
-        {page.sections.map((section, i) => (
-          <Section key={i} section={section} site={site} live={live} basePath={basePath} />
-        ))}
+        {page.sections.map((section, i) =>
+          selectable ? (
+            <StudioSectionTarget key={i} index={i} kind={section.kind}>
+              <Section section={section} site={site} live={live} basePath={basePath} />
+            </StudioSectionTarget>
+          ) : (
+            <Section key={i} section={section} site={site} live={live} basePath={basePath} />
+          ),
+        )}
       </main>
 
       <footer className="bg-slate-900 text-slate-300">

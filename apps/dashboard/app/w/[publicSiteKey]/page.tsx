@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { siteService } from "@cms/database";
 import { SiteRenderer } from "../../../components/site/SiteRenderer";
 import { buildSiteLiveContent } from "../../../lib/site-content";
-import { resolveSiteForRequest } from "../../../lib/site-request";
+import { isStaffOfSite, resolveSiteForRequest } from "../../../lib/site-request";
 
 /**
  * The public church website (docs/domain/website.md): /w/<publicSiteKey> is
@@ -13,6 +13,7 @@ import { resolveSiteForRequest } from "../../../lib/site-request";
 
 interface Props {
   params: Promise<{ publicSiteKey: string }>;
+  searchParams: Promise<{ studio?: string }>;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -25,12 +26,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function PublicSiteHomePage({ params }: Props) {
+export default async function PublicSiteHomePage({ params, searchParams }: Props) {
   const { publicSiteKey } = await params;
+  const { studio } = await searchParams;
   const site = await resolveSiteForRequest(publicSiteKey);
   if (!site) notFound();
   const page = await siteService.resolvePublicPage(publicSiteKey, "home", { preview: !site.published });
   if (!page) notFound();
   const live = await buildSiteLiveContent(site.organizationId, page.sections);
-  return <SiteRenderer site={site} page={page} live={live} basePath={`/w/${publicSiteKey}`} />;
+  const selectable = studio === "1" && (await isStaffOfSite(site.organizationId));
+  return <SiteRenderer site={site} page={page} live={live} basePath={`/w/${publicSiteKey}`} selectable={selectable} />;
 }

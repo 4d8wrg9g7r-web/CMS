@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, ExternalLink, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, ExternalLink, Loader2, Plus, Trash2 } from "lucide-react";
 import type { SiteSection, SiteSectionKind } from "@cms/database";
 import {
   blankSectionUi as blankSection,
@@ -16,10 +16,12 @@ import { useToast } from "./ui/Toast";
 import { updateSitePageAction } from "../app/(dashboard)/website/actions";
 
 /**
- * Per-page section editor (docs/domain/website.md): every block kind gets its
- * own small form; live kinds (events/sermons/groups) only need a title + count
- * because their content comes from the CMS at render time. Order with the
- * arrows, save the whole page at once, preview on the public route.
+ * The Website studio page editor (docs/domain/website.md): a canvas +
+ * inspector. The canvas is the REAL public page in an iframe (studio mode) —
+ * clicking a section there selects it here; the inspector carries the section
+ * list and one per-kind form. Saving re-renders the live preview. Live kinds
+ * (events/sermons/groups) only need a title + count because their content
+ * comes from the CMS at render time.
  */
 
 interface Props {
@@ -288,8 +290,24 @@ export function WebsiteSectionEditor({ pageId, pageTitle, previewUrl, initialSec
   const { showToast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [sections, setSections] = useState<SiteSection[]>(initialSections);
+  const [selected, setSelected] = useState<number | null>(initialSections.length > 0 ? 0 : null);
   const [addKind, setAddKind] = useState<SiteSectionKind>("hero");
   const [dirty, setDirty] = useState(false);
+  const [previewNonce, setPreviewNonce] = useState(0);
+
+  // The live preview is the real public page in studio mode: clicking a
+  // section there posts its index back up, selecting it in the inspector.
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      const data = e.data as { type?: string; index?: number };
+      if (data?.type === "cms:select-section" && typeof data.index === "number") {
+        setSelected(data.index);
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
 
   const update = (index: number, section: SiteSection) => {
     setSections((s) => s.map((x, i) => (i === index ? section : x)));
@@ -304,10 +322,21 @@ export function WebsiteSectionEditor({ pageId, pageTitle, previewUrl, initialSec
       next.splice(target, 0, item!);
       return next;
     });
+    setSelected((sel) => (sel === index ? index + direction : sel));
     setDirty(true);
   };
   const remove = (index: number) => {
     setSections((s) => s.filter((_, i) => i !== index));
+    setSelected((sel) => (sel === index ? null : sel !== null && sel > index ? sel - 1 : sel));
+    setDirty(true);
+  };
+  const duplicate = (index: number) => {
+    setSections((s) => {
+      const next = [...s];
+      next.splice(index + 1, 0, JSON.parse(JSON.stringify(next[index])) as SiteSection);
+      return next;
+    });
+    setSelected(index + 1);
     setDirty(true);
   };
 
@@ -317,6 +346,7 @@ export function WebsiteSectionEditor({ pageId, pageTitle, previewUrl, initialSec
       if (result.ok) {
         setDirty(false);
         showToast("Page saved", "success");
+        setPreviewNonce((n) => n + 1); // reload the live preview
         router.refresh();
       } else {
         showToast(result.error ?? "Could not save the page", "error");
@@ -324,73 +354,114 @@ export function WebsiteSectionEditor({ pageId, pageTitle, previewUrl, initialSec
     });
   };
 
+  const studioSrc = `${previewUrl}${previewUrl.includes("?") ? "&" : "?"}studio=1&v=${previewNonce}`;
+  const selectedSection = selected !== null ? sections[selected] : undefined;
+
   return (
-    <div className="max-w-3xl">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <a href={previewUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm text-accent hover:underline">
-          View this page <ExternalLink size={13} />
-        </a>
-        <Button size="sm" onClick={save} disabled={isPending || !dirty} data-action="save-page">
-          {isPending ? <Loader2 size={14} className="animate-spin" /> : null} {dirty ? "Save page" : "Saved"}
-        </Button>
+    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
+      {/* Canvas: the real page, live. Click a section to edit it. */}
+      <div className="min-w-0">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="text-sm text-ink-muted">
+            Click any section in the preview to edit it.
+            {dirty ? " Unsaved changes — the preview updates when you save." : ""}
+          </p>
+          <div className="flex items-center gap-2.5">
+            <a href={previewUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-medium text-accent hover:text-accent-dark">
+              Open page <ExternalLink size={13} />
+            </a>
+            <Button size="sm" onClick={save} disabled={isPending || !dirty} data-action="save-page">
+              {isPending ? <Loader2 size={14} className="animate-spin" /> : null} {dirty ? "Save page" : "Saved"}
+            </Button>
+          </div>
+        </div>
+        <iframe
+          key={previewNonce}
+          src={studioSrc}
+          title={`Preview of ${pageTitle}`}
+          data-testid="studio-preview"
+          className="h-[calc(100vh-230px)] min-h-[480px] w-full rounded-xl border border-border bg-white shadow-panel"
+        />
       </div>
 
-      <div className="space-y-3">
-        {sections.map((section, index) => (
-          <Card key={index} padding="sm" data-editor-section={section.kind}>
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">{SECTION_KIND_LABELS[section.kind]}</p>
-              <div className="flex items-center gap-1">
-                <button className="p-1 text-ink-muted hover:text-ink disabled:opacity-30" disabled={index === 0} onClick={() => move(index, -1)} aria-label="Move section up">
-                  <ArrowUp size={14} />
-                </button>
-                <button
-                  className="p-1 text-ink-muted hover:text-ink disabled:opacity-30"
-                  disabled={index === sections.length - 1}
-                  onClick={() => move(index, 1)}
-                  aria-label="Move section down"
-                >
-                  <ArrowDown size={14} />
-                </button>
-                <button className="p-1 text-ink-muted hover:text-danger" onClick={() => remove(index)} aria-label="Remove section">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
-            <SectionFields section={section} onChange={(s) => update(index, s)} />
+      {/* Inspector: section list + the selected section's controls. */}
+      <div className="flex min-w-0 flex-col gap-4" data-section="studio-inspector">
+        <Card padding="sm">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Sections</p>
+          {sections.length === 0 ? (
+            <p className="py-2 text-sm text-ink-muted">No sections yet — add the first one below.</p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {sections.map((section, index) => (
+                <li key={index} className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    aria-pressed={selected === index}
+                    onClick={() => setSelected(index)}
+                    className={`flex-1 rounded-md px-3 py-2 text-left text-sm transition-colors duration-150 ${
+                      selected === index ? "bg-surface-warm font-semibold text-accent" : "text-ink-secondary hover:bg-surface-muted hover:text-ink"
+                    }`}
+                    data-inspector-item={section.kind}
+                  >
+                    {SECTION_KIND_LABELS[section.kind]}
+                  </button>
+                  <button className="p-1 text-ink-muted hover:text-ink disabled:opacity-30" disabled={index === 0} onClick={() => move(index, -1)} aria-label="Move section up">
+                    <ArrowUp size={13} />
+                  </button>
+                  <button
+                    className="p-1 text-ink-muted hover:text-ink disabled:opacity-30"
+                    disabled={index === sections.length - 1}
+                    onClick={() => move(index, 1)}
+                    aria-label="Move section down"
+                  >
+                    <ArrowDown size={13} />
+                  </button>
+                  <button className="p-1 text-ink-muted hover:text-ink" onClick={() => duplicate(index)} aria-label="Duplicate section" title="Duplicate">
+                    <Copy size={13} />
+                  </button>
+                  <button className="p-1 text-ink-muted hover:text-danger" onClick={() => remove(index)} aria-label="Remove section">
+                    <Trash2 size={13} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
+            <Select value={addKind} onChange={(e) => setAddKind(e.target.value as SiteSectionKind)} className="flex-1 py-2 text-sm" aria-label="Section kind">
+              {SECTION_KINDS.map((kind) => (
+                <option key={kind} value={kind}>
+                  {SECTION_KIND_LABELS[kind]}
+                </option>
+              ))}
+            </Select>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setSections((s) => [...s, blankSection(addKind)]);
+                setSelected(sections.length);
+                setDirty(true);
+              }}
+              data-action="add-section"
+            >
+              <Plus size={14} /> Add
+            </Button>
+          </div>
+        </Card>
+
+        {selectedSection !== undefined && selected !== null ? (
+          <Card padding="sm" data-editor-section={selectedSection.kind}>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+              {SECTION_KIND_LABELS[selectedSection.kind]}
+            </p>
+            <SectionFields section={selectedSection} onChange={(s) => update(selected, s)} />
           </Card>
-        ))}
-        {sections.length === 0 ? (
+        ) : (
           <Card padding="md">
-            <p className="py-4 text-center text-sm text-ink-muted">No sections yet — add the first one below.</p>
+            <p className="text-center text-sm text-ink-muted">Select a section — in the preview or the list — to edit it.</p>
           </Card>
-        ) : null}
+        )}
       </div>
-
-      <div className="mt-4 flex items-center gap-2">
-        <Select value={addKind} onChange={(e) => setAddKind(e.target.value as SiteSectionKind)} className="w-56" aria-label="Section kind">
-          {SECTION_KINDS.map((kind) => (
-            <option key={kind} value={kind}>
-              {SECTION_KIND_LABELS[kind]}
-            </option>
-          ))}
-        </Select>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            setSections((s) => [...s, blankSection(addKind)]);
-            setDirty(true);
-          }}
-          data-action="add-section"
-        >
-          <Plus size={14} /> Add section
-        </Button>
-      </div>
-
-      <p className="mt-3 text-xs text-ink-muted">
-        Editing “{pageTitle}” — changes go live on the public site as soon as you save (if the site is published).
-      </p>
     </div>
   );
 }

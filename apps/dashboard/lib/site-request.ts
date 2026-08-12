@@ -14,3 +14,9 @@ export async function resolveSiteForRequest(publicSiteKey: string): Promise<Publ
   const organization = await getCurrentOrganization().catch(() => null);
   return organization?.id === site.organizationId ? site : null;
 }
+
+/** Is the current session signed-in staff of the site's org? Gates studio-mode extras on /w. */
+export async function isStaffOfSite(organizationId: string): Promise<boolean> {
+  const organization = await getCurrentOrganization().catch(() => null);
+  return organization?.id === organizationId;
+}
