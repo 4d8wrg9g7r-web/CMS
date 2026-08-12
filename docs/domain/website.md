@@ -69,14 +69,19 @@ the same `app.manage` permission, and the same audited actions as everything
 below — only the chrome differs.
 
 Theme: the top bar's Theme panel edits the site accent and a heading/body
-typeface pair. Fonts are a curated set of system stacks (`SITE_FONTS` in
-`site/site-config.ts`) — the config stores only ids (`theme.font` for body,
-`theme.headingFont` for the site name, hero headline, and section titles;
-configs written before pairs existed keep headings matching the body),
-`parseSiteConfig` rejects anything else, and the renderer resolves ids to
-stacks (body on the root, headings via the `--site-heading-font` CSS
-variable), so a raw font-family string can never reach the public page and
-nothing external ever loads. `/website` settings edits the same theme fields.
+typeface pair. Fonts are a curated set (`SITE_FONTS` in
+`site/site-config.ts`) of two tiers: system stacks (Modern/Classic/Elegant/
+Friendly — nothing loads at all) and self-hosted webfonts (Inter, Fraunces,
+Lora, Outfit — latin variable woff2s in `public/fonts/`, OFL-licensed per
+`public/fonts/LICENSE.txt`, declared via `@font-face` in `globals.css` with
+`font-display: swap` and a generic fallback at the end of every stack). The
+config stores only ids (`theme.font` for body, `theme.headingFont` for the
+site name, hero headline, and section titles; configs written before pairs
+existed keep headings matching the body), `parseSiteConfig` rejects anything
+else, and the renderer resolves ids to stacks (body on the root, headings via
+the `--site-heading-font` CSS variable) — so a raw font-family string can
+never reach the public page and no external request is ever made for theme
+assets. `/website` settings edits the same theme fields.
 
 Canvas editing: single-line text fields (hero headline/subheadline, section
 titles) are contentEditable in studio mode (`StudioEditableText`) — each

@@ -16,4 +16,10 @@ export const SITE_FONTS_UI: { id: SiteFontId; label: string; stack: string }[] =
   { id: "classic", label: "Classic", stack: "Georgia, 'Times New Roman', Times, serif" },
   { id: "elegant", label: "Elegant", stack: "'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif" },
   { id: "friendly", label: "Friendly", stack: "'Trebuchet MS', Verdana, 'Segoe UI', sans-serif" },
+  // Self-hosted webfonts (public/fonts, @font-face in globals.css — the
+  // dashboard loads the same faces, so panel previews render for real).
+  { id: "inter", label: "Inter", stack: "'Inter', ui-sans-serif, system-ui, sans-serif" },
+  { id: "fraunces", label: "Fraunces", stack: "'Fraunces', Georgia, serif" },
+  { id: "lora", label: "Lora", stack: "'Lora', Georgia, serif" },
+  { id: "outfit", label: "Outfit", stack: "'Outfit', ui-sans-serif, system-ui, sans-serif" },
 ];

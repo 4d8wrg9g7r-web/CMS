@@ -18,8 +18,11 @@ export interface ServiceTime {
 }
 
 /**
- * Curated site typefaces — system font stacks only, so the public page loads
- * nothing external and can never be pointed at an arbitrary font URL.
+ * Curated site typefaces. Two tiers, both resolved from ids server-side so
+ * the public page can never be pointed at an arbitrary font URL:
+ * - system stacks (nothing loads at all), and
+ * - self-hosted webfonts (latin variable woff2s under the app's own
+ *   /fonts/ path, declared in globals.css — still zero external requests).
  */
 export const SITE_FONTS = {
   modern: {
@@ -37,6 +40,22 @@ export const SITE_FONTS = {
   friendly: {
     label: "Friendly",
     stack: "'Trebuchet MS', Verdana, 'Segoe UI', sans-serif",
+  },
+  inter: {
+    label: "Inter",
+    stack: "'Inter', ui-sans-serif, system-ui, sans-serif",
+  },
+  fraunces: {
+    label: "Fraunces",
+    stack: "'Fraunces', Georgia, serif",
+  },
+  lora: {
+    label: "Lora",
+    stack: "'Lora', Georgia, serif",
+  },
+  outfit: {
+    label: "Outfit",
+    stack: "'Outfit', ui-sans-serif, system-ui, sans-serif",
   },
 } as const;
 

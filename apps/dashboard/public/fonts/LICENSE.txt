@@ -1,0 +1,12 @@
+Self-hosted webfonts (latin subsets, variable weight):
+
+- Inter — Copyright The Inter Project Authors (https://github.com/rsms/inter)
+- Fraunces — Copyright The Fraunces Project Authors (https://github.com/undercasetype/Fraunces)
+- Lora — Copyright The Lora Project Authors (https://github.com/cyrealtype/Lora-Cyrillic)
+- Outfit — Copyright The Outfit Project Authors (https://github.com/Outfitio/Outfit-Fonts)
+
+All four families are licensed under the SIL Open Font License, Version 1.1:
+https://openfontlicense.org
+
+The OFL permits bundling, embedding, and redistribution of the fonts with
+software, provided they are not sold by themselves.

@@ -46,6 +46,17 @@ describe("site config", () => {
     }
   });
 
+  it("self-hosted webfont ids parse like the system-stack ones", () => {
+    const theme = parseSiteConfig({ theme: { font: "inter", headingFont: "fraunces" } }, "x").theme;
+    expect(theme.font).toBe("inter");
+    expect(theme.headingFont).toBe("fraunces");
+    // Every webfont stack ends in a generic family so text renders even if
+    // the woff2 fails to load.
+    for (const id of ["inter", "fraunces", "lora", "outfit"] as const) {
+      expect(SITE_FONTS[id].stack).toMatch(/(sans-serif|serif)$/);
+    }
+  });
+
   it("keeps valid values and rejects a malformed accent color", () => {
     const cfg = parseSiteConfig(
       {
