@@ -61,6 +61,41 @@ export interface BlastFormState {
  * private storage, creates the blast (per-recipient consent-checked Message fan-out),
  * drains the outbox opportunistically, and lands on the blast detail page.
  */
+/**
+ * Live recipient estimate for the guided composer's Audience step — same
+ * validation and resolution path the send uses, so the number can't lie.
+ * Consent suppression still happens per-recipient at send time.
+ */
+export async function estimateAudienceAction(input: {
+  kind: string;
+  membershipStatus?: string;
+  campusId?: string;
+  tag?: string;
+  customFieldKey?: string;
+  customFieldValue?: string;
+  groupId?: string;
+  personIds?: string[];
+}): Promise<{ ok: true; count: number; noEmailCount: number } | { ok: false; error: string }> {
+  const organization = await getCurrentOrganization();
+  if (!organization) return { ok: false, error: "No organization" };
+  await requireMessages(organization.id, "message.manage");
+
+  const validated = validateBlastAudience({
+    kind: input.kind,
+    membershipStatus: input.membershipStatus ?? "",
+    campusId: input.campusId ?? "",
+    tag: input.tag ?? "",
+    customFieldKey: input.customFieldKey ?? "",
+    customFieldValue: input.customFieldValue ?? "",
+    groupId: input.groupId ?? "",
+    personIds: input.personIds ?? [],
+  });
+  if (!validated.ok) return { ok: false, error: validated.error };
+
+  const { recipients, noEmailCount } = await messageService.resolveBlastRecipients(organization.id, validated.audience);
+  return { ok: true, count: recipients.length, noEmailCount };
+}
+
 export async function createBlastAction(_prev: BlastFormState, formData: FormData): Promise<BlastFormState> {
   const organization = await getCurrentOrganization();
   if (!organization) return { error: "No organization" };
