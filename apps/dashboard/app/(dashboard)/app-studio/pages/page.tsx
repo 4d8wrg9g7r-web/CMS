@@ -31,7 +31,7 @@ export default async function AppPagesPage() {
       <Link href="/app-studio" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-secondary hover:text-ink">
         <ArrowLeft size={14} /> Back to App Studio
       </Link>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Custom pages</h1>
+      <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Custom pages</h1>
       <p className="mb-6 max-w-2xl text-sm text-ink-secondary">
         Design your own app screens — upload graphics, make them tappable, and point every link at an app tab, an
         in-app page, or the browser. Add a page to your bottom bar from App Studio&rsquo;s tab picker.

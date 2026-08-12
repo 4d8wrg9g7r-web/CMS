@@ -27,7 +27,7 @@ export default async function SermonsPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Sermons</h1>
+      <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Sermons</h1>
       <p className="mb-6 text-sm text-ink-secondary">
         Your sermon library — it powers the Sermons tab in your church app. Link videos from YouTube, Vimeo, or
         your podcast host; nothing is re-uploaded.

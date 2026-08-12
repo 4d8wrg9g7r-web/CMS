@@ -27,7 +27,7 @@ export default async function DevelopersPage() {
   if (!allowed) {
     return (
       <div>
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Developers</h1>
+        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Developers</h1>
         <Card padding="md" className="mt-6">
           <EmptyState
             icon={<Lock size={22} />}
@@ -52,7 +52,7 @@ export default async function DevelopersPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Developers</h1>
+        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Developers</h1>
         <p className="text-sm text-ink-secondary">
           Server API keys and signed webhooks — the same services and permissions as the dashboard, never a bypass.
         </p>

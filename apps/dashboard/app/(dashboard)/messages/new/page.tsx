@@ -57,7 +57,7 @@ export default async function NewBlastPage({
       <Link href="/messages" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-secondary hover:text-ink">
         <ArrowLeft size={14} /> Back to Messages
       </Link>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">New email</h1>
+      <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">New email</h1>
       <p className="mb-6 text-sm text-ink-secondary">
         Send an email or newsletter to people in your database — with formatting and attachments. Every recipient
         gets an individual, consent-checked message in the log.

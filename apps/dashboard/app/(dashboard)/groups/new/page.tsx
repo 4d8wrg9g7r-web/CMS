@@ -19,7 +19,7 @@ export default async function NewGroupPage() {
       <Link href="/groups" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-secondary hover:text-ink">
         <ArrowLeft size={15} /> Back to Groups
       </Link>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Create a group</h1>
+      <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Create a group</h1>
       <p className="mb-6 text-sm text-ink-secondary">Add leaders and members after saving.</p>
       <Card padding="md">
         <GroupForm

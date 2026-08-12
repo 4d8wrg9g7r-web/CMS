@@ -56,7 +56,7 @@ export default async function BatchPage({ params }: { params: Promise<{ batchId:
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight text-ink">{batch.name}</h1>
+          <h1 className="text-display text-[28px] leading-tight text-ink">{batch.name}</h1>
           <Badge variant={open ? "info" : "success"}>{open ? "Open" : "Closed"}</Badge>
         </div>
         <form action={setBatchClosedAction.bind(null, batch.id, open)}>

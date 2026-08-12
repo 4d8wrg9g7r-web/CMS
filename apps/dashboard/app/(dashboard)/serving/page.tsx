@@ -21,7 +21,7 @@ export default async function ServingPage() {
   if (!canView) {
     return (
       <div>
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Serving</h1>
+        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Serving</h1>
         <Card padding="md" className="mt-6">
           <EmptyState
             icon={<Lock size={22} />}
@@ -38,7 +38,7 @@ export default async function ServingPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Serving</h1>
+        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Serving</h1>
         <p className="text-sm text-ink-secondary">
           Teams, positions, and who serves where — with qualification flags, never silent blocks.
         </p>

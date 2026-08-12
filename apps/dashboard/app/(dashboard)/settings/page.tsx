@@ -210,7 +210,7 @@ export default async function SettingsPage({
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Settings</h1>
+      <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Settings</h1>
       <p className="mb-8 text-sm text-ink-secondary">Organization profile and preferences.</p>
 
       <Card padding="md" className="mb-6">

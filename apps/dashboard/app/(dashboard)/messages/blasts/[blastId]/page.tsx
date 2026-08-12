@@ -53,7 +53,7 @@ export default async function BlastDetailPage({ params }: { params: Promise<{ bl
       </Link>
 
       <div className="mb-2 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">{blast.subject}</h1>
+        <h1 className="text-display text-[28px] leading-tight text-ink">{blast.subject}</h1>
         <Badge variant={blast.failedCount > 0 ? "warning" : allDelivered ? "success" : "info"}>
           {allDelivered ? "Delivered" : "Sending"}
         </Badge>

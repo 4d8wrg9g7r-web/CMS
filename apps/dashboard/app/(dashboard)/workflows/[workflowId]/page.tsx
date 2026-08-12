@@ -75,7 +75,7 @@ export default async function WorkflowDetailPage({ params }: { params: Promise<{
       </Link>
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">{workflow.name}</h1>
+        <h1 className="text-display text-[28px] leading-tight text-ink">{workflow.name}</h1>
         <Badge variant="info">{triggerLabel(workflow.trigger)}</Badge>
         <Badge variant={workflowStatusTone(workflow.status)}>{workflowStatusLabel(workflow.status)}</Badge>
         {workflow.archivedAt && <Badge variant="warning">Archived</Badge>}

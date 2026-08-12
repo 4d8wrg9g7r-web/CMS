@@ -20,7 +20,7 @@ export default async function JourneysPage() {
   if (!canView) {
     return (
       <div>
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Journeys</h1>
+        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Journeys</h1>
         <Card padding="md" className="mt-6">
           <EmptyState
             icon={<Lock size={22} />}
@@ -38,7 +38,7 @@ export default async function JourneysPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Journeys</h1>
+          <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Journeys</h1>
           <p className="text-sm text-ink-secondary">
             Your church&rsquo;s next-step pathways — define the milestones, track everyone&rsquo;s progress.
           </p>

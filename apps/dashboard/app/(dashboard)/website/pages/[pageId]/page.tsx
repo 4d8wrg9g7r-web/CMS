@@ -36,7 +36,7 @@ export default async function WebsitePageEditor({ params }: { params: Promise<{ 
         <Link href="/website" className="mb-2 inline-flex items-center gap-1 text-sm text-ink-secondary hover:text-ink">
           <ArrowLeft size={15} /> Website
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">{page.title}</h1>
+        <h1 className="text-display text-[28px] leading-tight text-ink">{page.title}</h1>
         <p className="text-sm text-ink-secondary">{page.slug === "home" ? "Home page" : `/${page.slug}`}</p>
       </div>
       <WebsiteSectionEditor

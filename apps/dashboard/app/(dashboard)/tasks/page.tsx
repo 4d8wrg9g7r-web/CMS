@@ -42,7 +42,7 @@ export default async function TasksPage({
   if (!canView) {
     return (
       <div>
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Tasks</h1>
+        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Tasks</h1>
         <Card padding="md" className="mt-6">
           <EmptyState
             icon={<Lock size={22} />}
@@ -74,7 +74,7 @@ export default async function TasksPage({
   return (
     <div>
       <div className="mb-6">
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Tasks</h1>
+        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Tasks</h1>
         <p className="text-sm text-ink-secondary">
           Follow-up and operational work — created by staff or by workflows.
         </p>

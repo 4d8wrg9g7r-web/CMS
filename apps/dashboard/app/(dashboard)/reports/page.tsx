@@ -35,7 +35,7 @@ export default async function ReportsPage() {
   if (allowedSources.length === 0) {
     return (
       <div>
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Reports</h1>
+        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Reports</h1>
         <Card padding="md" className="mt-6">
           <EmptyState icon={<Lock size={22} />} title="You don't have access to any report sources" description="" />
         </Card>
@@ -54,7 +54,7 @@ export default async function ReportsPage() {
   return (
     <div>
       <div className="mb-6 print:mb-3">
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Reports</h1>
+        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Reports</h1>
         <p className="text-sm text-ink-secondary print:hidden">
           Any combination of attendance, people fields, and giving over any date range — chart it, save it, or
           download it as a PDF.

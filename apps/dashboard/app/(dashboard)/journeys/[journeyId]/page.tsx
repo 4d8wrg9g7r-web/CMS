@@ -43,7 +43,7 @@ export default async function JourneyDetailPage({ params }: { params: Promise<{ 
       </Link>
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">{journey.name}</h1>
+        <h1 className="text-display text-[28px] leading-tight text-ink">{journey.name}</h1>
         {journey.isActive ? <Badge variant="success">Open</Badge> : <Badge variant="warning">Closed</Badge>}
         {journey.archivedAt && <Badge variant="warning">Archived</Badge>}
       </div>

@@ -21,7 +21,7 @@ export default async function WorkflowsPage() {
   if (!canView) {
     return (
       <div>
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Workflows</h1>
+        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Workflows</h1>
         <Card padding="md" className="mt-6">
           <EmptyState
             icon={<Lock size={22} />}
@@ -39,7 +39,7 @@ export default async function WorkflowsPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Workflows</h1>
+          <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Workflows</h1>
           <p className="text-sm text-ink-secondary">
             Automate follow-up: when something happens, check conditions, then act.
           </p>

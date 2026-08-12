@@ -43,7 +43,7 @@ export default async function MessagesPage({
   if (!canView) {
     return (
       <div>
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Messages</h1>
+        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Messages</h1>
         <Card padding="md" className="mt-6">
           <EmptyState
             icon={<Lock size={22} />}
@@ -67,7 +67,7 @@ export default async function MessagesPage({
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Messages</h1>
+          <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Messages</h1>
           <p className="text-sm text-ink-secondary">
             Every email the platform sends — from workflows, form notifications, and resends — with delivery status.
           </p>

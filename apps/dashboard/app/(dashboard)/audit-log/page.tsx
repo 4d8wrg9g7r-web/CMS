@@ -24,7 +24,7 @@ export default async function AuditLogPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Audit log</h1>
+      <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Audit log</h1>
       <p className="mb-8 text-sm text-ink-secondary">
         A history of who did what in {organization.name} -- the most recent {EVENT_LIMIT} events.
       </p>

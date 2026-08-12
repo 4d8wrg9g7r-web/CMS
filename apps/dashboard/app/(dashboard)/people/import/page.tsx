@@ -16,7 +16,7 @@ export default async function PeopleImportPage() {
   if (!allowed) {
     return (
       <div>
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Import people</h1>
+        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Import people</h1>
         <Card padding="md" className="mt-6">
           <EmptyState
             icon={<Lock size={22} />}

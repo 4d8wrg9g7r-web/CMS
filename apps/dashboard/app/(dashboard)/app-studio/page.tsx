@@ -50,7 +50,7 @@ export default async function AppStudioPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="mb-1 flex items-center gap-2 text-2xl font-semibold tracking-tight text-ink">
+        <h1 className="mb-1 flex items-center gap-2 text-display text-[28px] leading-tight text-ink">
           <Smartphone size={22} /> App Studio
         </h1>
         <p className="text-sm text-ink-secondary">

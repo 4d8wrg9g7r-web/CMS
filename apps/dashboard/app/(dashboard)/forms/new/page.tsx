@@ -17,7 +17,7 @@ export default async function NewFormPage() {
       <Link href="/forms" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-secondary hover:text-ink">
         <ArrowLeft size={15} /> Back to Forms
       </Link>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Create a form</h1>
+      <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Create a form</h1>
       <p className="mb-6 text-sm text-ink-secondary">Name it, then add fields and publish.</p>
       <Card padding="md">
         <form action={createFormAction} className="space-y-4">

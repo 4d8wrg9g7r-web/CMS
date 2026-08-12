@@ -21,7 +21,7 @@ export default async function NewPersonPage() {
       <Link href="/people" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-secondary hover:text-ink">
         <ArrowLeft size={15} /> Back to People
       </Link>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Add a person</h1>
+      <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Add a person</h1>
       <p className="mb-6 text-sm text-ink-secondary">
         Create a canonical record. You can add household and relationships after saving.
       </p>

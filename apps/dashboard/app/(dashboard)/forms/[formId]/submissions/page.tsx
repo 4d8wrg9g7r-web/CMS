@@ -26,7 +26,7 @@ export default async function FormSubmissionsPage({ params }: { params: Promise<
       >
         <ArrowLeft size={15} /> Back to {form.title}
       </Link>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Submissions</h1>
+      <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Submissions</h1>
       <p className="mb-6 text-sm text-ink-secondary">{form.title}</p>
 
       {submissions.length === 0 ? (

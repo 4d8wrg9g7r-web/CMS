@@ -67,7 +67,7 @@ export default async function CheckinPage({
       </Link>
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Check-in</h1>
+        <h1 className="text-display text-[28px] leading-tight text-ink">Check-in</h1>
         <Badge variant="info">{formatEventDate(occurrence, event.allDay)}</Badge>
         <Badge variant="success">{checkIns.length} checked in</Badge>
       </div>

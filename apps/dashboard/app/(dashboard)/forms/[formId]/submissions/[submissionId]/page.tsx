@@ -39,7 +39,7 @@ export default async function SubmissionDetailPage({
         <ArrowLeft size={15} /> Back to submissions
       </Link>
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Submission</h1>
+        <h1 className="text-display text-[28px] leading-tight text-ink">Submission</h1>
         <span className="text-sm text-ink-muted">
           {new Date(submission.createdAt).toLocaleString()} · v{submission.version}
         </span>

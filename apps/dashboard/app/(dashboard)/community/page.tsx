@@ -34,7 +34,7 @@ export default async function CommunityPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">Community</h1>
+      <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Community</h1>
       <p className="mb-6 text-sm text-ink-secondary">
         The live feed inside your church app: post announcements as the church, and moderate what members share.
       </p>

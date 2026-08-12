@@ -38,7 +38,7 @@ export default async function ServingTeamPage({ params }: { params: Promise<{ te
       </Link>
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">{team.name}</h1>
+        <h1 className="text-display text-[28px] leading-tight text-ink">{team.name}</h1>
         {team.archivedAt && <Badge variant="warning">Archived</Badge>}
       </div>
 

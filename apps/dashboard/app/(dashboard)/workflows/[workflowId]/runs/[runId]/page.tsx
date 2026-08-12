@@ -60,7 +60,7 @@ export default async function WorkflowRunPage({
       </Link>
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Run</h1>
+        <h1 className="text-display text-[28px] leading-tight text-ink">Run</h1>
         <Badge variant={runStatusTone(run.status)}>{runStatusLabel(run.status)}</Badge>
         <span className="text-sm text-ink-muted">
           {new Date(run.createdAt).toLocaleString()} · v{run.version}
