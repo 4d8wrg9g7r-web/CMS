@@ -89,6 +89,7 @@ export {
 } from "./giving/text-give";
 export * as campaignService from "./services/campaign-service";
 export * as siteService from "./services/site-service";
+export * as searchService from "./services/search-service";
 export type { AppCampaign, CampaignProgress } from "./services/campaign-service";
 export { campaignPercent, campaignIsActive, pledgeAmountError } from "./giving/campaigns";
 export type { ActivePage } from "./services/app-page-service";
@@ -268,3 +269,4 @@ export type {
   TeamSection,
 } from "./site/site-sections";
 export type { PublicSite, PublicSitePage, SitePageSummary } from "./services/site-service";
+export type { SearchHit, GlobalSearchResults } from "./services/search-service";

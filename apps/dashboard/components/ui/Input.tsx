@@ -14,7 +14,7 @@ import { forwardRef, type InputHTMLAttributes, type SelectHTMLAttributes, type T
  * this is purely additive.
  */
 const FIELD_CLASSES =
-  "block w-full rounded-sm border border-border-strong bg-surface px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-180 focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-60";
+  "block w-full rounded border border-border-strong bg-surface px-3.5 py-2.5 text-sm text-ink outline-none transition-colors duration-180 placeholder:text-ink-muted focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-60";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input(
   { className = "", ...props },

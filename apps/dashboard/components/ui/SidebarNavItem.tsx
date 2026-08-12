@@ -3,11 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+/**
+ * One item of the light sidebar (docs/design-system.md "Navigation"). Active
+ * state = accent text on a white pill; everything else stays quiet so the nav
+ * reads as a list of places, not a wall of buttons.
+ */
 export function SidebarNavItem({
   href,
   label,
   icon,
   badge,
+  nested = false,
 }: {
   href: string;
   label: string;
@@ -16,6 +22,8 @@ export function SidebarNavItem({
   // this is a Client Component receiving props from a Server Component parent.
   icon: React.ReactNode;
   badge?: number;
+  /** Secondary destination inside an expanded nav group. */
+  nested?: boolean;
 }) {
   const pathname = usePathname();
   const isActive = pathname === href || pathname?.startsWith(`${href}/`);
@@ -23,16 +31,19 @@ export function SidebarNavItem({
   return (
     <Link
       href={href}
-      className={`flex h-11 items-center gap-3 rounded-md px-3 text-sm transition-colors duration-180 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-light focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar ${
+      aria-current={isActive ? "page" : undefined}
+      className={`flex items-center gap-3 rounded-md text-sm transition-colors duration-180 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar ${
+        nested ? "h-9 pl-[38px] pr-3" : "h-11 px-3"
+      } ${
         isActive
-          ? "bg-[rgba(181,123,57,0.13)] text-white"
-          : "text-white/60 hover:bg-white/[0.04] hover:text-white/90"
+          ? "bg-surface font-semibold text-accent shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+          : "text-ink-secondary hover:bg-black/[0.04] hover:text-ink"
       }`}
     >
-      <span className={isActive ? "text-accent-light" : "text-white/40"}>{icon}</span>
-      <span className="flex-1 font-medium">{label}</span>
+      {!nested && <span className={isActive ? "text-accent" : "text-ink-muted"}>{icon}</span>}
+      <span className={`flex-1 truncate ${isActive ? "" : "font-medium"}`}>{label}</span>
       {typeof badge === "number" && badge > 0 && (
-        <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-medium text-white/80">{badge}</span>
+        <span className="rounded-full bg-black/[0.06] px-2 py-0.5 text-xs font-medium text-ink-secondary">{badge}</span>
       )}
     </Link>
   );

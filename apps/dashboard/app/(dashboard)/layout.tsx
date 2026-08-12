@@ -1,31 +1,20 @@
 import {
-  BarChart3,
   CalendarDays,
-  CheckSquare,
-  ClipboardList,
-  Code2,
   Contact,
-  Church,
+  Folder,
   HandCoins,
-  HeartHandshake,
-  LayoutDashboard,
+  House,
   LifeBuoy,
-  Mail,
-  Map,
-  MessagesSquare,
-  PieChart,
-  Clapperboard,
-  Globe,
-  ScrollText,
-  Smartphone,
+  MonitorSmartphone,
+  Send,
   Settings as SettingsIcon,
-  Users,
+  SlidersHorizontal,
   Users2,
-  Workflow,
 } from "lucide-react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { DashboardShell } from "../../components/DashboardShell";
+import { SidebarNavGroup } from "../../components/ui/SidebarNavGroup";
 import { SidebarNavItem } from "../../components/ui/SidebarNavItem";
 import { ToastProvider } from "../../components/ui/Toast";
 import { signOut } from "../../auth";
@@ -48,6 +37,13 @@ function initials(name: string) {
     .join("");
 }
 
+/**
+ * Navigation is organized around the staff mental model, not the database
+ * (docs/design-system.md "Navigation"): eight primary destinations, with the
+ * long tail grouped under Communicate / Content / Digital / More. Everything
+ * is still one keystroke away via the ⌘K palette — grouping hides
+ * architecture, never capability.
+ */
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const organization = await getCurrentOrganization();
   if (!organization) redirect("/onboarding");
@@ -56,65 +52,88 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const sidebar = (
     <>
-      <div className="flex items-center gap-2 px-5 pb-5 pt-6">
-        <Church size={20} strokeWidth={1.75} className="text-accent-light" />
-        <span className="text-sm font-semibold uppercase tracking-[0.18em] text-white">CMS</span>
-      </div>
-
-      <div className="px-3 pb-4">
+      <div className="px-3 pb-2 pt-4">
         {/* Non-interactive by design -- one organization per account (see
             OrganizationMember.userId's @unique constraint), so there's nothing to
             switch to. This is a label, not a control. */}
-        <div className="flex w-full items-center gap-2.5 rounded-md border border-white/10 bg-white/[0.03] px-3 py-2.5">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-accent/25 text-xs font-semibold text-accent-light">
+        <div className="flex w-full items-center gap-2.5 rounded-md px-2 py-2">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface-warm text-xs font-bold text-accent">
             {initials(organization.name)}
           </span>
-          <span className="min-w-0 flex-1 truncate text-sm font-medium text-white">{organization.name}</span>
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{organization.name}</span>
         </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3">
-        <SidebarNavItem href="/dashboard" label="Overview" icon={<LayoutDashboard size={17} strokeWidth={1.75} />} />
+      <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 pt-1" aria-label="Main">
+        <SidebarNavItem href="/dashboard" label="Home" icon={<House size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/people" label="People" icon={<Contact size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/groups" label="Groups" icon={<Users2 size={17} strokeWidth={1.75} />} />
-        <SidebarNavItem href="/journeys" label="Journeys" icon={<Map size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/events" label="Events" icon={<CalendarDays size={17} strokeWidth={1.75} />} />
-        <SidebarNavItem href="/attendance" label="Attendance" icon={<BarChart3 size={17} strokeWidth={1.75} />} />
-        <SidebarNavItem href="/reports" label="Reports" icon={<PieChart size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/giving" label="Giving" icon={<HandCoins size={17} strokeWidth={1.75} />} />
-        <SidebarNavItem href="/serving" label="Serving" icon={<HeartHandshake size={17} strokeWidth={1.75} />} />
-        <SidebarNavItem href="/forms" label="Forms" icon={<ClipboardList size={17} strokeWidth={1.75} />} />
-        <SidebarNavItem href="/workflows" label="Workflows" icon={<Workflow size={17} strokeWidth={1.75} />} />
-        <SidebarNavItem href="/tasks" label="Tasks" icon={<CheckSquare size={17} strokeWidth={1.75} />} />
-        <SidebarNavItem href="/messages" label="Messages" icon={<Mail size={17} strokeWidth={1.75} />} />
-        <SidebarNavItem href="/sermons" label="Sermons" icon={<Clapperboard size={17} strokeWidth={1.75} />} />
-        <SidebarNavItem href="/app-studio" label="App Studio" icon={<Smartphone size={17} strokeWidth={1.75} />} />
-        <SidebarNavItem href="/website" label="Website" icon={<Globe size={17} strokeWidth={1.75} />} />
-        <SidebarNavItem href="/community" label="Community" icon={<MessagesSquare size={17} strokeWidth={1.75} />} />
-        <SidebarNavItem href="/team" label="Team" icon={<Users size={17} strokeWidth={1.75} />} />
-        <SidebarNavItem href="/audit-log" label="Audit Log" icon={<ScrollText size={17} strokeWidth={1.75} />} />
-        <SidebarNavItem href="/developers" label="Developers" icon={<Code2 size={17} strokeWidth={1.75} />} />
-        <SidebarNavItem href="/settings" label="Settings" icon={<SettingsIcon size={17} strokeWidth={1.75} />} />
+
+        <SidebarNavGroup
+          label="Communicate"
+          icon={<Send size={17} strokeWidth={1.75} />}
+          childHrefs={["/messages", "/forms", "/workflows", "/journeys", "/tasks"]}
+        >
+          <SidebarNavItem nested href="/messages" label="Messages" icon={null} />
+          <SidebarNavItem nested href="/forms" label="Forms" icon={null} />
+          <SidebarNavItem nested href="/workflows" label="Automations" icon={null} />
+          <SidebarNavItem nested href="/journeys" label="Journeys" icon={null} />
+          <SidebarNavItem nested href="/tasks" label="Tasks" icon={null} />
+        </SidebarNavGroup>
+
+        <SidebarNavGroup
+          label="Content"
+          icon={<Folder size={17} strokeWidth={1.75} />}
+          childHrefs={["/sermons", "/community"]}
+        >
+          <SidebarNavItem nested href="/sermons" label="Sermons" icon={null} />
+          <SidebarNavItem nested href="/community" label="Community" icon={null} />
+        </SidebarNavGroup>
+
+        <SidebarNavGroup
+          label="Digital"
+          icon={<MonitorSmartphone size={17} strokeWidth={1.75} />}
+          childHrefs={["/app-studio", "/website"]}
+        >
+          <SidebarNavItem nested href="/app-studio" label="Church App" icon={null} />
+          <SidebarNavItem nested href="/website" label="Website" icon={null} />
+        </SidebarNavGroup>
+
+        <SidebarNavGroup
+          label="More"
+          icon={<SlidersHorizontal size={17} strokeWidth={1.75} />}
+          childHrefs={["/reports", "/attendance", "/serving", "/team", "/audit-log", "/developers"]}
+        >
+          <SidebarNavItem nested href="/reports" label="Reports" icon={null} />
+          <SidebarNavItem nested href="/attendance" label="Attendance" icon={null} />
+          <SidebarNavItem nested href="/serving" label="Serving" icon={null} />
+          <SidebarNavItem nested href="/team" label="Team" icon={null} />
+          <SidebarNavItem nested href="/audit-log" label="Audit Log" icon={null} />
+          <SidebarNavItem nested href="/developers" label="Developers" icon={null} />
+        </SidebarNavGroup>
       </nav>
 
-      <div className="flex flex-col gap-3 px-3 pb-4">
-        <div className="flex items-center gap-2.5 border-t border-white/[0.06] pt-3">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-white">
+      <div className="flex flex-col gap-0.5 px-3 pb-3 pt-2">
+        <SidebarNavItem href="/settings" label="Settings" icon={<SettingsIcon size={17} strokeWidth={1.75} />} />
+        <div className="mt-2 flex items-center gap-2.5 border-t border-black/[0.06] px-2 pt-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/[0.06] text-xs font-semibold text-ink-secondary">
             {initials(user?.name || user?.email || "?")}
           </span>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-white">{user?.name || "Account"}</div>
-            <div className="truncate text-[11px] text-white/40">{user?.email}</div>
+            <div className="truncate text-sm font-medium text-ink">{user?.name || "Account"}</div>
+            <div className="truncate text-xs text-ink-muted">{user?.email}</div>
           </div>
         </div>
-        <div className="flex items-center justify-between px-0.5 text-[11px]">
-          <span className="flex cursor-default items-center gap-1 text-white/40" title="Support isn't available yet">
-            <LifeBuoy size={12} /> Help & Support
+        <div className="flex items-center justify-between px-2 pb-1 pt-1.5 text-xs">
+          <span className="flex cursor-default items-center gap-1 text-ink-muted" title="Support isn't available yet">
+            <LifeBuoy size={12} /> Help
           </span>
           <form action={signOutAction}>
             <button
               type="submit"
-              className="rounded-sm text-white/40 hover:text-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-light focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar"
+              className="rounded-sm text-ink-muted hover:text-ink-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               Sign out
             </button>

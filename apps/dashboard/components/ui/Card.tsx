@@ -25,7 +25,7 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 export function Card({ padding = "sm", interactive = false, className = "", children, ...props }: CardProps) {
   return (
     <div
-      className={`shadow-panel rounded-lg border border-border bg-surface ${PADDING_CLASSES[padding]} ${
+      className={`shadow-panel rounded-xl border border-border bg-surface ${PADDING_CLASSES[padding]} ${
         interactive ? "transition-shadow duration-180 hover:shadow-md" : ""
       } ${className}`}
       {...props}

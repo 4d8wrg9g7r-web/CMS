@@ -3,54 +3,83 @@
 @tailwind utilities;
 
 :root {
-  /* Surface rule: --background is the page canvas only (never a card).
-     --surface is every bordered card/panel. --surface-muted is recessed
-     content inside a card (empty-state fills, hover rows, code snippets) or
-     a full-bleed background for shell-less pages (e.g. the public prayer
-     wall). --surface-warm is reserved for accent-tinted icon chips/badges. */
-  --background: #f7f6f3;
+  /* Design tokens (docs/design-system.md). Surface rule: --background is the
+     page canvas only (never a card). --surface is every card/panel.
+     --surface-muted is recessed content inside a card (empty-state fills,
+     hover rows, code snippets) or a full-bleed background for shell-less
+     pages. --surface-warm is reserved for accent-tinted icon chips/badges.
+
+     The palette is deliberately neutral — each church's own brand (accent
+     colors, logos, site themes) should read against it without fighting the
+     product chrome. One product accent, used only for interactive UI. */
+  --background: #f5f5f7;
   --surface: #ffffff;
-  --surface-muted: #f1efeb;
-  --surface-warm: #eee8df;
-  --sidebar: #090d11;
-  --sidebar-secondary: #0c1116;
-  --sidebar-border: rgba(255, 255, 255, 0.09);
-  --text-primary: #161616;
-  --text-secondary: #696661;
-  --text-muted: #98938c;
-  --border: #e6e2dc;
-  --border-strong: #d7d1c8;
-  --accent: #b87b38;
-  --accent-light: #e5bd83;
-  --accent-dark: #815122;
-  --success: #618167;
-  --success-background: #e8f0e8;
-  --warning: #a56d2d;
-  --warning-background: #f5ead7;
-  --danger: #a2574c;
-  --danger-background: #f5e4e1;
+  --surface-muted: #f6f6f8;
+  --surface-warm: #e9effc;
+  --sidebar: #efeff2;
+  --sidebar-secondary: #efeff2;
+  --sidebar-border: rgba(0, 0, 0, 0.06);
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --text-muted: #86868b;
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.13);
+  --accent: #2566e8;
+  --accent-light: #6b9bf2;
+  --accent-dark: #1749a8;
+  --success: #35845c;
+  --success-background: #e9f4ee;
+  --warning: #a8761a;
+  --warning-background: #faf1dc;
+  --danger: #c0483d;
+  --danger-background: #fbeae8;
 
   /* Space-separated RGB channels of the colors above -- Tailwind's `bg-accent/70`-style
      opacity modifiers can only be computed from this form (rgb(var(...) / alpha)), not
      from a hex string. Keep these in sync with the hex values above by hand; see
      tailwind.config.ts's `colors` block for where they're consumed. */
-  --accent-rgb: 184 123 56;
-  --success-rgb: 97 129 103;
-  --warning-rgb: 165 109 45;
-  --danger-rgb: 162 87 76;
+  --accent-rgb: 37 102 232;
+  --success-rgb: 53 132 92;
+  --warning-rgb: 168 118 26;
+  --danger-rgb: 192 72 61;
 }
 
 body {
   background: var(--background);
   color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
 }
 
+/* The one shadow recipe for raised surfaces — soft and barely-there. */
 .shadow-panel {
   box-shadow:
-    0 1px 2px rgba(20, 17, 13, 0.03),
-    0 8px 30px rgba(20, 17, 13, 0.04);
+    0 1px 2px rgba(0, 0, 0, 0.03),
+    0 8px 30px rgba(0, 0, 0, 0.04);
 }
 
+/* Kept for compatibility: the sidebar is now a flat, light surface. */
 .bg-sidebar-gradient {
-  background: linear-gradient(180deg, var(--sidebar) 0%, var(--sidebar-secondary) 60%, var(--sidebar) 100%);
+  background: var(--sidebar);
+}
+
+/* Display headings — big, confident, tight (page titles, hero metrics). */
+.text-display {
+  font-weight: 650;
+  letter-spacing: -0.035em;
+}
+
+.text-metric {
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
