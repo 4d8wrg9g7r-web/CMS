@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { Search } from "lucide-react";
 import type { GlobalSearchResults } from "@cms/database";
 import { globalSearchAction } from "../app/(dashboard)/search-actions";
@@ -162,7 +163,10 @@ export function CommandPalette() {
 
   return (
     <div className="fixed inset-0 z-[80] flex items-start justify-center bg-black/25 p-4 pt-[12vh]" onClick={close} role="dialog" aria-modal="true" aria-label="Command palette">
-      <div
+      <motion.div
+        initial={{ opacity: 0, scale: 0.98, y: -8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.16, ease: "easeOut" }}
         className="w-full max-w-xl overflow-hidden rounded-xl border border-border bg-surface shadow-[0_2px_8px_rgba(0,0,0,0.06),0_24px_60px_rgba(0,0,0,0.18)]"
         onClick={(e) => e.stopPropagation()}
         data-testid="command-palette"
@@ -223,7 +227,7 @@ export function CommandPalette() {
             })
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

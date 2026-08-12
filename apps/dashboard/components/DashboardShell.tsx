@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, Menu, PanelLeft, Plus, Search, X } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { CommandPalette } from "./CommandPalette";
+import { PageTransition } from "./ui/PageTransition";
 
 /**
  * The application shell (docs/design-system.md "Shell"): a light 250px
@@ -42,12 +44,17 @@ function CreateMenu() {
       >
         <Plus size={16} /> Create <ChevronDown size={14} className="opacity-70" />
       </button>
+      <AnimatePresence>
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div
+          <motion.div
             role="menu"
-            className="absolute right-0 z-50 mt-2 w-48 overflow-hidden rounded-md border border-border bg-surface py-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_16px_40px_rgba(0,0,0,0.12)]"
+            initial={{ opacity: 0, scale: 0.96, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.98, y: -2 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="absolute right-0 z-50 mt-2 w-48 origin-top-right overflow-hidden rounded-md border border-border bg-surface py-1.5 shadow-[0_2px_8px_rgba(0,0,0,0.06),0_16px_40px_rgba(0,0,0,0.12)]"
             data-testid="create-menu"
           >
             {CREATE_ITEMS.map((item) => (
@@ -61,9 +68,10 @@ function CreateMenu() {
                 {item.label}
               </Link>
             ))}
-          </div>
+          </motion.div>
         </>
       )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -145,7 +153,9 @@ export function DashboardShell({ sidebar, children }: { sidebar: React.ReactNode
         </header>
 
         <main className="flex-1 overflow-y-auto px-4 py-8 md:px-8 lg:px-10">
-          <div className="mx-auto max-w-[1440px]">{children}</div>
+          <div className="mx-auto max-w-[1440px]">
+            <PageTransition>{children}</PageTransition>
+          </div>
         </main>
       </div>
     </div>
