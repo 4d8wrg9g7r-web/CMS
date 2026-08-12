@@ -29,6 +29,8 @@ interface Props {
   pageTitle: string;
   previewUrl: string;
   initialSections: SiteSection[];
+  /** Full-screen studio chrome (/studio/website): canvas+inspector fill the viewport. */
+  fullScreen?: boolean;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -340,7 +342,7 @@ function SectionFields({ section, onChange }: { section: SiteSection; onChange: 
   }
 }
 
-export function WebsiteSectionEditor({ pageId, pageTitle, previewUrl, initialSections }: Props) {
+export function WebsiteSectionEditor({ pageId, pageTitle, previewUrl, initialSections, fullScreen }: Props) {
   const router = useRouter();
   const { showToast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -413,9 +415,9 @@ export function WebsiteSectionEditor({ pageId, pageTitle, previewUrl, initialSec
   const selectedSection = selected !== null ? sections[selected] : undefined;
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
+    <div className={fullScreen ? "grid h-full min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_380px]" : "grid gap-5 xl:grid-cols-[minmax(0,1fr)_400px]"}>
       {/* Canvas: the real page, live. Click a section to edit it. */}
-      <div className="min-w-0">
+      <div className={fullScreen ? "flex min-h-0 min-w-0 flex-col" : "min-w-0"}>
         <div className="mb-3 flex items-center justify-between gap-3">
           <p className="text-sm text-ink-muted">
             Click any section in the preview to edit it.
@@ -435,12 +437,16 @@ export function WebsiteSectionEditor({ pageId, pageTitle, previewUrl, initialSec
           src={studioSrc}
           title={`Preview of ${pageTitle}`}
           data-testid="studio-preview"
-          className="h-[calc(100vh-230px)] min-h-[480px] w-full rounded-xl border border-border bg-white shadow-panel"
+          className={
+            fullScreen
+              ? "min-h-0 w-full flex-1 rounded-xl border border-border bg-white shadow-panel"
+              : "h-[calc(100vh-230px)] min-h-[480px] w-full rounded-xl border border-border bg-white shadow-panel"
+          }
         />
       </div>
 
       {/* Inspector: section list + the selected section's controls. */}
-      <div className="flex min-w-0 flex-col gap-4" data-section="studio-inspector">
+      <div className={`flex min-w-0 flex-col gap-4 ${fullScreen ? "min-h-0 overflow-y-auto pr-1" : ""}`} data-section="studio-inspector">
         <Card padding="sm">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Sections</p>
           {sections.length === 0 ? (

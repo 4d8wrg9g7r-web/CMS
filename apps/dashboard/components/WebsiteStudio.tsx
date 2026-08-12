@@ -154,7 +154,13 @@ export function WebsiteStudio({ published, siteUrl, config: initialConfig, pages
                     In nav
                   </label>
                 ) : null}
-                <Link href={`/website/pages/${page.id}`} className="rounded-sm p-1.5 text-ink-secondary hover:bg-surface-muted hover:text-ink" aria-label={`Edit ${page.title}`}>
+                <Link
+                  href={`/studio/website?page=${page.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-sm p-1.5 text-ink-secondary hover:bg-surface-muted hover:text-ink"
+                  aria-label={`Edit ${page.title}`}
+                >
                   <Pencil size={15} />
                 </Link>
                 {page.slug !== "home" ? (

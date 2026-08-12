@@ -14,6 +14,7 @@ export function SidebarNavItem({
   icon,
   badge,
   nested = false,
+  newTab = false,
 }: {
   href: string;
   label: string;
@@ -24,13 +25,16 @@ export function SidebarNavItem({
   badge?: number;
   /** Secondary destination inside an expanded nav group. */
   nested?: boolean;
+  /** Full-page workspaces (e.g. the website builder) open in their own tab. */
+  newTab?: boolean;
 }) {
   const pathname = usePathname();
-  const isActive = pathname === href || pathname?.startsWith(`${href}/`);
+  const isActive = !newTab && (pathname === href || pathname?.startsWith(`${href}/`));
 
   return (
     <Link
       href={href}
+      {...(newTab ? { target: "_blank", rel: "noreferrer" } : {})}
       aria-current={isActive ? "page" : undefined}
       className={`flex items-center gap-3 rounded-md text-sm transition-colors duration-180 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar ${
         nested ? "h-9 pl-[38px] pr-3" : "h-11 px-3"

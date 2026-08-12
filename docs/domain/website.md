@@ -61,10 +61,18 @@ service times.
 
 ## Studio
 
+`/studio/website` — the full-page builder, opened in its own tab from the
+sidebar's Website link (Wix-style): a top bar (exit to dashboard, page
+switcher, publish toggle, view live) over a full-height live canvas and
+inspector. It is the same `WebsiteSectionEditor` (with `fullScreen` chrome),
+the same `app.manage` permission, and the same audited actions as everything
+below — only the chrome differs.
+
 `/website` (dashboard) — publish toggle + public URL, site settings, and the
 page list (reorder, nav toggle, create/delete; the home page can't be deleted
-or put in the nav — it's the logo link). `/website/pages/<id>` edits one page's
-sections with per-kind forms. Managing the website shares the `app.manage`
+or put in the nav — it's the logo link); its edit buttons open the builder in
+a new tab. `/website/pages/<id>` still edits one page's sections embedded in
+the dashboard shell. Managing the website shares the `app.manage`
 permission with App Studio — one "digital presence" responsibility. All
 mutations are audited (`site.*` actions).
 

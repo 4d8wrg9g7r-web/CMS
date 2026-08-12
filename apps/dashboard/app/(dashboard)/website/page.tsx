@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
-import { Globe, Lock } from "lucide-react";
+import { Globe, Lock, PenLine } from "lucide-react";
 import { siteService, parseSiteConfig } from "@cms/database";
+import { buttonClasses } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { WebsiteStudio } from "../../../components/WebsiteStudio";
@@ -34,14 +35,19 @@ export default async function WebsitePage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="mb-1 flex items-center gap-2 text-display text-[28px] leading-tight text-ink">
-          <Globe size={22} /> Website
-        </h1>
-        <p className="text-sm text-ink-secondary">
-          Your church&rsquo;s public website — pages built from sections, with events, sermons, and groups pulled
-          live from the CMS. Edit, preview, then publish when it&rsquo;s ready.
-        </p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="mb-1 flex items-center gap-2 text-display text-[28px] leading-tight text-ink">
+            <Globe size={22} /> Website
+          </h1>
+          <p className="text-sm text-ink-secondary">
+            Your church&rsquo;s public website — pages built from sections, with events, sermons, and groups pulled
+            live from the CMS. Edit, preview, then publish when it&rsquo;s ready.
+          </p>
+        </div>
+        <a href="/studio/website" target="_blank" rel="noreferrer" className={buttonClasses("primary", "sm")} data-action="open-builder">
+          <PenLine size={15} /> Open builder
+        </a>
       </div>
       <WebsiteStudio
         published={site.published}
