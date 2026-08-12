@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { appFeedService, groupService, onlineGivingService } from "@cms/database";
+import { appFeedService, campaignService, groupService, onlineGivingService } from "@cms/database";
 import { buildAppContent } from "../../../../../../lib/church-app-content";
 import { memberJson, resolveAppRequest } from "../../../../../../lib/app-api-auth";
 
@@ -30,12 +30,29 @@ export async function GET(req: Request, { params }: { params: Promise<{ publicAp
   ]);
   // Additive: in-app giving options (never the keys — just what to render).
   const givingLive = onlineGivingService.isLive(givingConfig);
-  const onlineFunds = givingLive ? await onlineGivingService.listOnlineFunds(app.organizationId) : [];
+  const [onlineFunds, campaigns] = await Promise.all([
+    givingLive ? onlineGivingService.listOnlineFunds(app.organizationId) : Promise.resolve([]),
+    campaignService.listActiveCampaignsForApp(app.organizationId, member?.personId ?? null),
+  ]);
   const giving = {
     online: givingLive && onlineFunds.length > 0,
     bank: Boolean(givingLive && givingConfig?.achEnabled),
     currency: givingConfig?.currency ?? "usd",
     funds: onlineFunds.map((f) => ({ id: f.id, name: f.name })),
+    campaigns: campaigns.map((c) => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+      fund_id: c.fundId,
+      fund_name: c.fundName,
+      goal_cents: c.goalCents,
+      raised_cents: c.raisedCents,
+      pledged_cents: c.pledgedCents,
+      pledge_count: c.pledgeCount,
+      ends_at: c.endsAt,
+      my_pledge_cents: c.myPledgeCents,
+      my_given_cents: c.myGivenCents,
+    })),
   };
 
   return NextResponse.json(

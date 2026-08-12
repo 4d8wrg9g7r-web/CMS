@@ -137,6 +137,8 @@ model Organization {
   personImports       PersonImport[]
   onlineGivingConfig  OnlineGivingConfig?
   recurringGifts      RecurringGift[]
+  campaigns           Campaign[]
+  pledges             Pledge[]
 }
 
 /**
@@ -165,6 +167,52 @@ model OnlineGivingConfig {
   updatedAt           DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+/**
+ * A pledge campaign (docs/domain/giving.md "Pledge campaigns"): a fundraising
+ * push toward a goal, tied to a Fund and a time window. Progress = ALL
+ * contributions to that fund inside the window — checks counted on Sunday and
+ * online gifts alike — so the thermometer reflects the real ledger.
+ */
+model Campaign {
+  id             String    @id @default(cuid())
+  organizationId String
+  fundId         String
+  name           String
+  description    String?
+  goalCents      Int
+  startsAt       DateTime
+  endsAt         DateTime?
+  /** Show a progress card (and pledge form) on the church app's Give tab. */
+  showInApp      Boolean   @default(true)
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fund         Fund         @relation(fields: [fundId], references: [id])
+  pledges      Pledge[]
+
+  @@index([organizationId])
+}
+
+/** One pledge per person per campaign; fulfillment = their gifts to the campaign's fund in-window. */
+model Pledge {
+  id             String   @id @default(cuid())
+  organizationId String
+  campaignId     String
+  personId       String
+  amountCents    Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  campaign     Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, personId])
+  @@index([organizationId])
 }
 
 /**
@@ -402,6 +450,7 @@ model Person {
   fieldValues       PersonFieldValue[]
   contributions     Contribution[]
   recurringGifts    RecurringGift[]
+  pledges           Pledge[]
   appPosts          AppPost[]
   appPostLikes      AppPostLike[]
   appPostComments   AppPostComment[]
@@ -500,6 +549,7 @@ model Fund {
   organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   contributions Contribution[]
   recurringGifts RecurringGift[]
+  campaigns     Campaign[]
 
   @@unique([organizationId, name])
   @@index([organizationId])

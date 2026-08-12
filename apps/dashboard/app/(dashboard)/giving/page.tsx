@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Globe, HandCoins, Landmark, Lock, Plus, ReceiptText } from "lucide-react";
+import { Globe, HandCoins, Landmark, Lock, Plus, ReceiptText, Target } from "lucide-react";
 import { formatCents, givingService } from "@cms/database";
 import { Badge } from "../../../components/ui/Badge";
 import { buttonClasses } from "../../../components/ui/Button";
@@ -49,6 +49,9 @@ export default async function GivingPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Link href="/giving/campaigns" className={buttonClasses("secondary", "sm")}>
+            <Target size={15} /> Campaigns
+          </Link>
           <Link href="/giving/online" className={buttonClasses("secondary", "sm")}>
             <Globe size={15} /> Online giving
           </Link>

@@ -87,6 +87,9 @@ export {
   twimlReply,
   TEXT_GIVE_HELP,
 } from "./giving/text-give";
+export * as campaignService from "./services/campaign-service";
+export type { AppCampaign, CampaignProgress } from "./services/campaign-service";
+export { campaignPercent, campaignIsActive, pledgeAmountError } from "./giving/campaigns";
 export type { ActivePage } from "./services/app-page-service";
 export { validateAppPageBlocks, toEmbedUrl, MAX_PAGE_BLOCKS } from "./app/page-blocks";
 export type { AppPageBlock, AppLinkTarget } from "./app/page-blocks";

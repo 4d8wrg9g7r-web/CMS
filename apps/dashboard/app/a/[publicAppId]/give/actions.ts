@@ -96,3 +96,26 @@ export async function cancelRecurringGiftAction(
     return { ok: false, error: err instanceof Error ? err.message : "Could not cancel" };
   }
 }
+
+/** Make or update the signed-in member's pledge to a campaign. */
+export async function pledgeAction(
+  publicAppId: string,
+  campaignId: string,
+  amountCents: number,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const app = await appService.resolvePublicApp(publicAppId);
+    if (!app) return { ok: false, error: "This app is not available." };
+
+    const token = (await cookies()).get(`app_session_${publicAppId}`)?.value ?? "";
+    const member = token ? await appMemberService.getSessionMember(app.organizationId, token) : null;
+    if (!member) return { ok: false, error: "Sign in to make a pledge." };
+
+    const { campaignService } = await import("@cms/database");
+    await campaignService.upsertPledge(app.organizationId, campaignId, member.personId, amountCents);
+    revalidatePath(`/a/${publicAppId}`);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not save your pledge" };
+  }
+}

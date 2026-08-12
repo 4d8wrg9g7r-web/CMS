@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
-import { cancelRecurringGift, fetchMyGiving, startGiveCheckout } from "../api";
-import type { AppGiving, GiftInterval, MyGiving } from "../contract";
+import { cancelRecurringGift, fetchMyGiving, makePledge, startGiveCheckout } from "../api";
+import type { AppCampaign, AppGiving, GiftInterval, MyGiving } from "../contract";
 
 /**
  * Native give flow, amount-first like the big church-app platforms: large
@@ -39,16 +39,119 @@ const INTERVAL_LABEL: Record<string, string> = { week: "weekly", "2week": "every
 const money = (cents: number) =>
   `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: cents % 100 === 0 ? 0 : 2, maximumFractionDigits: 2 })}`;
 
+function CampaignBlock({
+  publicAppId,
+  campaign,
+  token,
+  accent,
+  onPledged,
+}: {
+  publicAppId: string;
+  campaign: AppCampaign;
+  token: string | null;
+  accent: string;
+  onPledged: () => void;
+}) {
+  const [pledging, setPledging] = useState(false);
+  const [amountText, setAmountText] = useState(
+    campaign.my_pledge_cents ? String(Math.round(campaign.my_pledge_cents / 100)) : "",
+  );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const goal = campaign.goal_cents;
+  const pct = goal <= 0 ? 0 : Math.max(0, Math.min(100, Math.round((campaign.raised_cents / goal) * 100)));
+  const dollars = (cents: number) => `$${Math.round(cents / 100).toLocaleString("en-US")}`;
+  const amountCents = Math.round(Number.parseFloat(amountText.replace(/[^0-9.]/g, "") || "0") * 100);
+  const valid = amountCents >= 100;
+
+  const submit = async () => {
+    if (!token || !valid || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await makePledge(publicAppId, token, campaign.id, amountCents);
+      setPledging(false);
+      onPledged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save your pledge");
+    }
+    setBusy(false);
+  };
+
+  return (
+    <View style={styles.panel}>
+      <Text style={styles.campaignName}>🎯 {campaign.name}</Text>
+      {campaign.description ? <Text style={styles.campaignDesc}>{campaign.description}</Text> : null}
+      <View style={styles.thermoTrack}>
+        <View style={[styles.thermoFill, { width: `${pct}%`, backgroundColor: accent }]} />
+      </View>
+      <View style={styles.campaignRow}>
+        <Text style={styles.campaignRaised}>{dollars(campaign.raised_cents)} raised</Text>
+        <Text style={styles.campaignGoal}>
+          {pct}% of {dollars(campaign.goal_cents)}
+        </Text>
+      </View>
+      {campaign.pledge_count > 0 && (
+        <Text style={styles.campaignPledged}>
+          {dollars(campaign.pledged_cents)} pledged by {campaign.pledge_count}{" "}
+          {campaign.pledge_count === 1 ? "family" : "families"}
+        </Text>
+      )}
+      {token &&
+        (campaign.my_pledge_cents !== null && !pledging ? (
+          <View style={styles.myPledgeRow}>
+            <Text style={styles.myPledgeText}>
+              Your pledge: {dollars(campaign.my_pledge_cents)} · given {dollars(campaign.my_given_cents)}
+            </Text>
+            <Pressable onPress={() => setPledging(true)} hitSlop={6}>
+              <Text style={[styles.myPledgeChange, { color: accent }]}>Change</Text>
+            </Pressable>
+          </View>
+        ) : !pledging ? (
+          <Pressable onPress={() => setPledging(true)} style={[styles.pledgeButton, { borderColor: accent }]}>
+            <Text style={[styles.pledgeButtonText, { color: accent }]}>Make a pledge</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.pledgeFormRow}>
+            <View style={styles.pledgeInputWrap}>
+              <Text style={styles.pledgeDollar}>$</Text>
+              <TextInput
+                value={amountText}
+                onChangeText={(v) => setAmountText(v.replace(/[^0-9.]/g, ""))}
+                keyboardType="decimal-pad"
+                placeholder="1,000"
+                placeholderTextColor="#a3a3a3"
+                style={styles.pledgeInput}
+              />
+            </View>
+            <Pressable
+              onPress={() => void submit()}
+              disabled={!valid || busy}
+              style={[styles.pledgeSubmit, { backgroundColor: accent, opacity: !valid || busy ? 0.5 : 1 }]}
+            >
+              <Text style={styles.pledgeSubmitText}>{busy ? "…" : "Pledge"}</Text>
+            </Pressable>
+          </View>
+        ))}
+      {error && <Text style={styles.error}>{error}</Text>}
+    </View>
+  );
+}
+
 export function GiveOnline({
   publicAppId,
   giving,
   token,
   accent,
+  onRefresh,
 }: {
   publicAppId: string;
   giving: AppGiving;
   token: string | null;
   accent: string;
+  /** Reload the app payload (campaign progress + my pledge) after a pledge. */
+  onRefresh?: () => void;
 }) {
   const [amountText, setAmountText] = useState("50");
   const [fundId, setFundId] = useState(giving.funds[0]?.id ?? "");
@@ -109,6 +212,16 @@ export function GiveOnline({
 
   return (
     <View style={styles.column}>
+      {(giving.campaigns ?? []).map((campaign) => (
+        <CampaignBlock
+          key={campaign.id}
+          publicAppId={publicAppId}
+          campaign={campaign}
+          token={token}
+          accent={accent}
+          onPledged={() => onRefresh?.()}
+        />
+      ))}
       <View style={styles.panel}>
         <View style={styles.amountRow}>
           <Text style={[styles.amountDollar, { color: accent }]}>$</Text>
@@ -280,6 +393,25 @@ const styles = StyleSheet.create({
   giveButton: { borderRadius: 22, paddingVertical: 13, alignItems: "center" },
   giveButtonText: { color: "#ffffff", fontSize: 15, fontWeight: "700" },
   error: { color: "#b91c1c", fontSize: 12, textAlign: "center" },
+  campaignName: { fontSize: 15, fontWeight: "800", color: "#171717" },
+  campaignDesc: { fontSize: 12, color: "#737373", marginTop: -6 },
+  thermoTrack: { height: 12, borderRadius: 6, backgroundColor: "#f0f0ef", overflow: "hidden" },
+  thermoFill: { height: "100%", borderRadius: 6 },
+  campaignRow: { flexDirection: "row", justifyContent: "space-between", marginTop: -4 },
+  campaignRaised: { fontSize: 13, fontWeight: "800", color: "#171717" },
+  campaignGoal: { fontSize: 12, color: "#a3a3a3" },
+  campaignPledged: { fontSize: 11, color: "#a3a3a3", marginTop: -6 },
+  myPledgeRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#fafaf9", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
+  myPledgeText: { fontSize: 12, color: "#404040" },
+  myPledgeChange: { fontSize: 12, fontWeight: "700" },
+  pledgeButton: { borderWidth: 1, borderRadius: 18, paddingVertical: 9, alignItems: "center" },
+  pledgeButtonText: { fontSize: 13, fontWeight: "700" },
+  pledgeFormRow: { flexDirection: "row", gap: 8 },
+  pledgeDollar: { fontSize: 14, fontWeight: "700", color: "#a3a3a3" },
+  pledgeInputWrap: { flex: 1, flexDirection: "row", alignItems: "center", gap: 4, borderWidth: 1, borderColor: "#e5e5e5", borderRadius: 10, paddingHorizontal: 10 },
+  pledgeInput: { flex: 1, fontSize: 14, fontWeight: "600", color: "#171717", paddingVertical: 8 },
+  pledgeSubmit: { borderRadius: 18, paddingHorizontal: 18, justifyContent: "center" },
+  pledgeSubmitText: { color: "#ffffff", fontSize: 13, fontWeight: "700" },
   secureNote: { fontSize: 11, color: "#a3a3a3", textAlign: "center" },
   sectionLabel: { fontSize: 11, fontWeight: "800", color: "#a3a3a3", letterSpacing: 0.8 },
   mineRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },

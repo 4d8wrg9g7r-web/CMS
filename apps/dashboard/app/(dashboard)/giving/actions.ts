@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   auditService,
+  campaignService,
   givingService,
   onlineGivingService,
   mapContributionRows,
@@ -291,4 +292,100 @@ export async function setFundOnlineAction(fundId: string, online: boolean) {
     targetId: fundId,
   });
   revalidatePath("/giving/online");
+}
+
+/* ---------------------------------------------------------------- *
+ * Pledge campaigns (docs/domain/giving.md "Pledge campaigns").
+ * ---------------------------------------------------------------- */
+
+function readCampaignInput(formData: FormData) {
+  const goal = Number.parseFloat(str(formData, "goal").replace(/[^0-9.]/g, ""));
+  const endsAtRaw = str(formData, "endsAt");
+  return {
+    name: str(formData, "name"),
+    fundId: str(formData, "fundId"),
+    description: str(formData, "description") || null,
+    goalCents: Number.isFinite(goal) ? Math.round(goal * 100) : NaN,
+    startsAt: new Date(str(formData, "startsAt") || Date.now()),
+    endsAt: endsAtRaw ? new Date(endsAtRaw) : null,
+    showInApp: formData.get("showInApp") === "on",
+  };
+}
+
+export async function createCampaignAction(formData: FormData) {
+  const organization = await requireOrg();
+  await requireGiving(organization.id, "giving.manage_funds");
+
+  const campaign = await campaignService.createCampaign(organization.id, readCampaignInput(formData));
+
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: "giving.campaign_created",
+    targetType: "Campaign",
+    targetId: campaign.id,
+    metadata: { name: campaign.name, goalCents: campaign.goalCents },
+  });
+
+  redirect(`/giving/campaigns/${campaign.id}`);
+}
+
+export async function setCampaignArchivedAction(campaignId: string, archived: boolean) {
+  const organization = await requireOrg();
+  await requireGiving(organization.id, "giving.manage_funds");
+  await campaignService.setCampaignArchived(organization.id, campaignId, archived);
+
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: archived ? "giving.campaign_archived" : "giving.campaign_restored",
+    targetType: "Campaign",
+    targetId: campaignId,
+  });
+
+  revalidatePath(`/giving/campaigns/${campaignId}`);
+  revalidatePath("/giving/campaigns");
+}
+
+/** Staff record a pledge on someone's behalf (phone call, pledge card). */
+export async function staffUpsertPledgeAction(campaignId: string, formData: FormData) {
+  const organization = await requireOrg();
+  await requireGiving(organization.id, "giving.manage_funds");
+
+  const personId = str(formData, "personId");
+  if (!personId) throw new Error("Choose a person.");
+  const amount = Number.parseFloat(str(formData, "amount").replace(/[^0-9.]/g, ""));
+  await campaignService.upsertPledge(organization.id, campaignId, personId, Math.round(amount * 100));
+
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: "giving.pledge_recorded",
+    targetType: "Campaign",
+    targetId: campaignId,
+    metadata: { personId },
+  });
+
+  revalidatePath(`/giving/campaigns/${campaignId}`);
+}
+
+export async function removePledgeAction(campaignId: string, personId: string) {
+  const organization = await requireOrg();
+  await requireGiving(organization.id, "giving.manage_funds");
+  await campaignService.removePledge(organization.id, campaignId, personId);
+
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: "giving.pledge_removed",
+    targetType: "Campaign",
+    targetId: campaignId,
+    metadata: { personId },
+  });
+
+  revalidatePath(`/giving/campaigns/${campaignId}`);
 }

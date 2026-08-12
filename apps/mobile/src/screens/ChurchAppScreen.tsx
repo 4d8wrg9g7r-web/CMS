@@ -440,14 +440,17 @@ export function ChurchAppScreen({ publicAppId, onSwitchChurch }: { publicAppId: 
           </View>
         );
       case "giving":
-        if (payload.giving?.online && payload.giving.funds.length > 0) {
+        if (
+          payload.giving &&
+          ((payload.giving.online && payload.giving.funds.length > 0) || (payload.giving.campaigns?.length ?? 0) > 0)
+        ) {
           return (
             <View style={styles.column}>
               <View style={styles.give}>
                 <Text style={styles.giveIcon}>❤️</Text>
                 <Text style={styles.giveText}>Your generosity makes ministry happen. Thank you.</Text>
               </View>
-              <GiveOnline publicAppId={publicAppId} giving={payload.giving} token={token} accent={accent} />
+              <GiveOnline publicAppId={publicAppId} giving={payload.giving} token={token} accent={accent} onRefresh={() => void load()} />
             </View>
           );
         }

@@ -124,6 +124,10 @@ export async function startGiveCheckout(
   return json.url;
 }
 
+export async function makePledge(publicAppId: string, token: string, campaignId: string, amountCents: number) {
+  await postJson(appPath(publicAppId, "/give/pledge"), token, { campaign_id: campaignId, amount_cents: amountCents });
+}
+
 export async function fetchMyGiving(publicAppId: string, token: string): Promise<MyGiving> {
   const data = await getJson<{ data: MyGiving }>(appPath(publicAppId, "/give/mine"), token);
   return data.data;

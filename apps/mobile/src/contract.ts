@@ -182,6 +182,23 @@ export interface AppGiving {
   bank?: boolean;
   currency: string;
   funds: { id: string; name: string }[];
+  /** Additive: live pledge campaigns for the Give tab. */
+  campaigns?: AppCampaign[];
+}
+
+export interface AppCampaign {
+  id: string;
+  name: string;
+  description: string | null;
+  fund_id: string;
+  fund_name: string;
+  goal_cents: number;
+  raised_cents: number;
+  pledged_cents: number;
+  pledge_count: number;
+  ends_at: string | null;
+  my_pledge_cents: number | null;
+  my_given_cents: number;
 }
 
 export type GiftInterval = "week" | "2week" | "month";

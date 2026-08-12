@@ -3,9 +3,10 @@ import { ChevronRight, Users2 } from "lucide-react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { appFeedService, appMemberService, appService, givingService, groupService, onlineGivingService } from "@cms/database";
+import { appFeedService, appMemberService, appService, campaignService, givingService, groupService, onlineGivingService } from "@cms/database";
 import { AppFeed } from "../../../components/church-app/AppFeed";
 import { AppScreen } from "../../../components/church-app/AppScreen";
+import { CampaignCard } from "../../../components/church-app/CampaignCard";
 import { GiveOnlinePanel } from "../../../components/church-app/GiveOnlinePanel";
 import { MyGivingPanel } from "../../../components/church-app/MyGivingPanel";
 import { buildAppContent } from "../../../lib/church-app-content";
@@ -62,7 +63,10 @@ export default async function PublicAppPage({ params, searchParams }: Props) {
     onlineGivingService.getConfig(app.organizationId),
   ]);
   const givingLive = onlineGivingService.isLive(givingConfig);
-  const onlineFunds = givingLive ? await onlineGivingService.listOnlineFunds(app.organizationId) : [];
+  const [onlineFunds, campaigns] = await Promise.all([
+    givingLive ? onlineGivingService.listOnlineFunds(app.organizationId) : Promise.resolve([]),
+    campaignService.listActiveCampaignsForApp(app.organizationId, member?.personId ?? null),
+  ]);
   // The member's own giving (any method) + recurring schedules, for the Give tab.
   const [myGifts, myRecurring] = member
     ? await Promise.all([
@@ -112,14 +116,37 @@ export default async function PublicAppPage({ params, searchParams }: Props) {
         tabHref={(i) => `/a/${publicAppId}?tab=${i}`}
         myGroupsNav={myGroupsNav}
         givingPanel={
-          givingLive && onlineFunds.length > 0 ? (
+          (givingLive && onlineFunds.length > 0) || campaigns.length > 0 ? (
             <>
-              <GiveOnlinePanel
-                publicAppId={publicAppId}
-                funds={onlineFunds.map((f) => ({ id: f.id, name: f.name }))}
-                accent={app.manifest.themeColor}
-                bankEnabled={Boolean(givingConfig?.achEnabled)}
-              />
+              {campaigns.map((campaign) => (
+                <CampaignCard
+                  key={campaign.id}
+                  publicAppId={publicAppId}
+                  accent={app.manifest.themeColor}
+                  signedIn={Boolean(member)}
+                  campaign={{
+                    id: campaign.id,
+                    name: campaign.name,
+                    description: campaign.description,
+                    fundName: campaign.fundName,
+                    goalCents: campaign.goalCents,
+                    raisedCents: campaign.raisedCents,
+                    pledgedCents: campaign.pledgedCents,
+                    pledgeCount: campaign.pledgeCount,
+                    endsAt: campaign.endsAt,
+                    myPledgeCents: campaign.myPledgeCents,
+                    myGivenCents: campaign.myGivenCents,
+                  }}
+                />
+              ))}
+              {givingLive && onlineFunds.length > 0 && (
+                <GiveOnlinePanel
+                  publicAppId={publicAppId}
+                  funds={onlineFunds.map((f) => ({ id: f.id, name: f.name }))}
+                  accent={app.manifest.themeColor}
+                  bankEnabled={Boolean(givingConfig?.achEnabled)}
+                />
+              )}
               {member && (
                 <MyGivingPanel
                   publicAppId={publicAppId}

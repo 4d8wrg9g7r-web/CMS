@@ -153,3 +153,20 @@ help text. The sender's phone is matched to a Person (normalized last-10
 digits) and rides as metadata, so the recorded gift lands on their profile
 exactly like an in-app gift. Enable on /giving/online: toggle + Twilio auth
 token (write-only) + the webhook URL to paste into Twilio.
+
+## Pledge campaigns
+
+A Campaign = fund + goal + window (`Campaign`), with one upsertable `Pledge`
+per person. **The thermometer is the ledger**: raised = ALL contributions to
+the campaign's fund inside the window, whatever the method — Sunday checks and
+app gifts move the same bar. Surfaces:
+- Dashboard `/giving/campaigns` (giving.view; manage = giving.manage_funds):
+  create, archive/restore, per-person pledge roster with fulfillment bars
+  (given vs pledged from the ledger), staff pledge entry (phone/pledge-card).
+  Audited: campaign_created/archived/restored, pledge_recorded/removed.
+- App Give tab (PWA + native): progress card for live `showInApp` campaigns —
+  raised/goal thermometer, pledged-by count, and for signed-in members their
+  own pledge + fulfillment and a make/change-pledge form
+  (`POST give/pledge {campaign_id, amount_cents}`, upsert, campaign must be
+  live). Campaign cards render even when Stripe isn't configured — pledging
+  works without online giving; the give flow fulfills it when present.
