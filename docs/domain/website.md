@@ -73,6 +73,13 @@ must not enter the browser bundle): `lib/site-sections-ui.ts` mirrors the
 section-kind constants, and `parseSections` re-validates server-side on save,
 so drift can mislabel a button but never corrupt data.
 
+Image fields (hero background, text+image art, team photos) accept a pasted
+URL or an upload: `uploadSiteImageAction` stores to PUBLIC storage (the public
+site serves images by URL, so like newsletter images they can't live in the
+private bucket), validates PNG/JPEG/GIF/WebP up to 4 MB, audits as
+`site.image_uploaded`, and returns an absolute URL for the section's
+`imageUrl`.
+
 ## Invariants
 
 1. Everything rendered at `/w/` is already-public content — events, sermons,

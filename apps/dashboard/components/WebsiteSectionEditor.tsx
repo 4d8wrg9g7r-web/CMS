@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Copy, ExternalLink, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, ExternalLink, ImagePlus, Loader2, Plus, Trash2 } from "lucide-react";
 import type { SiteSection, SiteSectionKind } from "@cms/database";
 import {
   blankSectionUi as blankSection,
@@ -13,7 +13,7 @@ import { Button } from "./ui/Button";
 import { Card } from "./ui/Card";
 import { Input, Select, Textarea } from "./ui/Input";
 import { useToast } from "./ui/Toast";
-import { updateSitePageAction } from "../app/(dashboard)/website/actions";
+import { updateSitePageAction, uploadSiteImageAction } from "../app/(dashboard)/website/actions";
 
 /**
  * The Website studio page editor (docs/domain/website.md): a canvas +
@@ -82,6 +82,61 @@ function CtaListEditor({
   );
 }
 
+/** Hidden-file-input upload button; errors surface as toasts. */
+function UploadImageButton({ onUploaded, compact }: { onUploaded: (url: string) => void; compact?: boolean }) {
+  const { showToast } = useToast();
+  const [uploading, setUploading] = useState(false);
+  const pick = async (file: File | null) => {
+    if (!file) return;
+    setUploading(true);
+    const formData = new FormData();
+    formData.set("file", file);
+    const result = await uploadSiteImageAction(formData).catch(() => ({ error: "Upload failed — try again." as const }));
+    setUploading(false);
+    if ("url" in result) onUploaded(result.url);
+    else showToast(result.error, "error");
+  };
+  return (
+    <label
+      className={`inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-surface text-xs font-medium text-ink-secondary transition-colors duration-180 hover:border-border-strong hover:text-ink ${
+        compact ? "p-1.5" : "px-2.5 py-2"
+      }`}
+      title="Upload image"
+    >
+      {uploading ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />}
+      {compact ? null : "Upload"}
+      <input
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp"
+        className="hidden"
+        data-action="upload-image"
+        disabled={uploading}
+        onChange={(e) => {
+          void pick(e.target.files?.[0] ?? null);
+          e.target.value = "";
+        }}
+      />
+    </label>
+  );
+}
+
+/** Image URL input + upload + live thumbnail, for section image fields. */
+function ImageField({ label, value, onChange }: { label: string; value: string; onChange: (url: string) => void }) {
+  return (
+    <div>
+      <label className="mb-1 block text-xs font-medium text-ink-secondary">{label}</label>
+      <div className="flex items-center gap-2">
+        {value ? (
+          // eslint-disable-next-line @next/next/no-img-element -- arbitrary external/uploaded URLs
+          <img src={value} alt="" data-testid="image-field-thumb" className="h-9 w-9 shrink-0 rounded-md border border-border object-cover" />
+        ) : null}
+        <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder="https://… or upload" maxLength={1000} className="flex-1" />
+        <UploadImageButton onUploaded={onChange} />
+      </div>
+    </div>
+  );
+}
+
 function SectionFields({ section, onChange }: { section: SiteSection; onChange: (s: SiteSection) => void }) {
   switch (section.kind) {
     case "hero":
@@ -93,9 +148,7 @@ function SectionFields({ section, onChange }: { section: SiteSection; onChange: 
           <Field label="Subheadline">
             <Input value={section.subheadline} onChange={(e) => onChange({ ...section, subheadline: e.target.value })} maxLength={300} />
           </Field>
-          <Field label="Background image URL (optional)">
-            <Input value={section.imageUrl} onChange={(e) => onChange({ ...section, imageUrl: e.target.value })} placeholder="https://…" maxLength={1000} />
-          </Field>
+          <ImageField label="Background image (optional)" value={section.imageUrl} onChange={(imageUrl) => onChange({ ...section, imageUrl })} />
           <CtaListEditor ctas={section.ctas} onChange={(ctas) => onChange({ ...section, ctas })} />
         </div>
       );
@@ -118,9 +171,7 @@ function SectionFields({ section, onChange }: { section: SiteSection; onChange: 
             <Textarea value={section.body} onChange={(e) => onChange({ ...section, body: e.target.value })} rows={4} />
           </Field>
           <div className="grid grid-cols-[1fr_auto] gap-2">
-            <Field label="Image URL (optional)">
-              <Input value={section.imageUrl} onChange={(e) => onChange({ ...section, imageUrl: e.target.value })} placeholder="https://…" maxLength={1000} />
-            </Field>
+            <ImageField label="Image (optional)" value={section.imageUrl} onChange={(imageUrl) => onChange({ ...section, imageUrl })} />
             <Field label="Image side">
               <Select value={section.imageSide} onChange={(e) => onChange({ ...section, imageSide: e.target.value === "left" ? "left" : "right" })}>
                 <option value="right">Right</option>
@@ -253,6 +304,10 @@ function SectionFields({ section, onChange }: { section: SiteSection; onChange: 
                   placeholder="Photo URL"
                   className="flex-1"
                   maxLength={1000}
+                />
+                <UploadImageButton
+                  compact
+                  onUploaded={(url) => onChange({ ...section, people: section.people.map((p, j) => (j === i ? { ...p, imageUrl: url } : p)) })}
                 />
                 <button
                   className="p-1 text-ink-muted hover:text-danger"
