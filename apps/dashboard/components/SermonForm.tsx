@@ -1,13 +1,71 @@
 "use client";
 
-import { useActionState, useRef } from "react";
+import { useActionState, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { buttonClasses } from "./ui/Button";
-import { Input, Textarea } from "./ui/Input";
+import { Input, Select, Textarea } from "./ui/Input";
 import { createSermonAction, type SermonFormState } from "../app/(dashboard)/sermons/actions";
 
+const NEW = "__new__";
+
+/**
+ * Speaker/series pick from what already exists (no retyping, no typo-forked
+ * series) with a "+ New…" option that swaps in a text input — that's the
+ * Create-series flow. Both submit under the same form field name either way.
+ */
+function PickOrCreate({
+  name,
+  options,
+  placeholder,
+  newLabel,
+  width,
+}: {
+  name: string;
+  options: string[];
+  placeholder: string;
+  newLabel: string;
+  width: string;
+}) {
+  const [creating, setCreating] = useState(options.length === 0);
+  if (creating) {
+    return (
+      <span className="mt-1 flex items-center gap-1.5">
+        <Input name={name} placeholder={placeholder} autoFocus={options.length > 0} className={`block ${width}`} />
+        {options.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setCreating(false)}
+            className="text-xs font-medium text-accent hover:underline"
+            aria-label="Choose existing instead"
+          >
+            Pick
+          </button>
+        )}
+      </span>
+    );
+  }
+  return (
+    <Select
+      name={name}
+      defaultValue=""
+      className={`mt-1 block ${width}`}
+      onChange={(e) => {
+        if (e.target.value === NEW) setCreating(true);
+      }}
+    >
+      <option value="">—</option>
+      {options.map((option) => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      ))}
+      <option value={NEW}>{newLabel}</option>
+    </Select>
+  );
+}
+
 /** Inline add-a-sermon form (docs/domain/app.md) — metadata + external video link. */
-export function SermonForm() {
+export function SermonForm({ speakers = [], seriesList = [] }: { speakers?: string[]; seriesList?: string[] }) {
   const [state, formAction, pending] = useActionState<SermonFormState, FormData>(createSermonAction, { error: null });
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -15,6 +73,9 @@ export function SermonForm() {
     <form
       ref={formRef}
       action={async (fd) => {
+        // The "+ New…" sentinel must never persist as a value.
+        if (fd.get("speaker") === NEW) fd.set("speaker", "");
+        if (fd.get("series") === NEW) fd.set("series", "");
         formAction(fd);
       }}
       className="flex flex-wrap items-end gap-3"
@@ -25,11 +86,11 @@ export function SermonForm() {
       </label>
       <label className="text-sm text-ink-secondary">
         Speaker
-        <Input name="speaker" placeholder="Pastor Dana" className="mt-1 block w-40" />
+        <PickOrCreate name="speaker" options={speakers} placeholder="Pastor Dana" newLabel="+ New speaker…" width="w-44" />
       </label>
       <label className="text-sm text-ink-secondary">
         Series
-        <Input name="series" placeholder="Parables" className="mt-1 block w-36" />
+        <PickOrCreate name="series" options={seriesList} placeholder="Parables" newLabel="+ New series…" width="w-40" />
       </label>
       <label className="text-sm text-ink-secondary">
         Passage

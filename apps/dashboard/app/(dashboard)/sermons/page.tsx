@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Archive, Clapperboard, ExternalLink, Lock } from "lucide-react";
 import { sermonService } from "@cms/database";
 import { SermonForm } from "../../../components/SermonForm";
@@ -24,6 +25,9 @@ export default async function SermonsPage() {
   }
 
   const sermons = await sermonService.listSermons(organization.id);
+  // Distinct speakers/series feed the form's dropdowns (newest-first order kept).
+  const speakers = [...new Set(sermons.map((s) => s.speaker).filter((v): v is string => !!v))];
+  const seriesList = [...new Set(sermons.map((s) => s.series).filter((v): v is string => !!v))];
 
   return (
     <div>
@@ -35,7 +39,7 @@ export default async function SermonsPage() {
 
       {canManage && (
         <Card padding="md" className="mb-6">
-          <SermonForm />
+          <SermonForm speakers={speakers} seriesList={seriesList} />
         </Card>
       )}
 
@@ -65,7 +69,7 @@ export default async function SermonsPage() {
                 {sermons.map((sermon) => (
                   <tr key={sermon.id} className="border-b border-border/60 last:border-0">
                     <td className="px-5 py-3 font-medium text-ink">
-                      {sermon.title}
+                      <Link href={`/sermons/${sermon.id}`} className="hover:text-accent">{sermon.title}</Link>
                       {sermon.passage && <span className="ml-2 text-xs text-ink-muted">{sermon.passage}</span>}
                     </td>
                     <td className="px-5 py-3 text-ink-secondary">{sermon.speaker ?? "—"}</td>
