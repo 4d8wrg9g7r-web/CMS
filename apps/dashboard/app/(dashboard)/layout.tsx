@@ -1,5 +1,6 @@
 import {
   CalendarDays,
+  ChartNoAxesCombined,
   Inbox as InboxIcon,
   Contact,
   Folder,
@@ -76,6 +77,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <SidebarNavItem href="/groups" label="Groups" icon={<Users2 size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/events" label="Events" icon={<CalendarDays size={17} strokeWidth={1.75} />} />
         <SidebarNavItem href="/giving" label="Giving" icon={<HandCoins size={17} strokeWidth={1.75} />} />
+        <SidebarNavItem href="/reports" label="Reports" icon={<ChartNoAxesCombined size={17} strokeWidth={1.75} />} />
 
         <SidebarNavGroup
           label="Communicate"
@@ -93,7 +95,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           childHrefs={["/workflows", "/journeys", "/tasks"]}
         >
           <SidebarNavItem nested href="/workflows" label="Automations" icon={null} />
-          <SidebarNavItem nested href="/journeys" label="Journeys" icon={null} />
+          <SidebarNavItem nested href="/journeys" label="Pathways" icon={null} />
           <SidebarNavItem nested href="/tasks" label="Tasks" icon={null} />
         </SidebarNavGroup>
 
@@ -123,12 +125,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <SidebarNavGroup
           label="More"
           icon={<SlidersHorizontal size={17} strokeWidth={1.75} />}
-          childHrefs={["/reports", "/attendance", "/serving", "/team", "/audit-log", "/developers"]}
+          childHrefs={["/attendance", "/serving", "/team", "/audit-log", "/developers"]}
         >
-          <SidebarNavItem nested href="/reports" label="Reports" icon={null} />
-          <SidebarNavItem nested href="/attendance" label="Attendance" icon={null} />
+          <SidebarNavItem nested href="/attendance" label="Check-ins and Attendance" icon={null} />
           <SidebarNavItem nested href="/serving" label="Serving" icon={null} />
-          <SidebarNavItem nested href="/team" label="Team" icon={null} />
+          <SidebarNavItem nested href="/team" label="Users" icon={null} />
           <SidebarNavItem nested href="/audit-log" label="Audit Log" icon={null} />
           <SidebarNavItem nested href="/developers" label="Developers" icon={null} />
         </SidebarNavGroup>

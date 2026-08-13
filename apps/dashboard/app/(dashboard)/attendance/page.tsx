@@ -36,7 +36,7 @@ export default async function AttendancePage({
   if (!allowed) {
     return (
       <div>
-        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Attendance</h1>
+        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Check-ins and Attendance</h1>
         <Card padding="md" className="mt-6">
           <EmptyState
             icon={<Lock size={22} />}
@@ -71,7 +71,7 @@ export default async function AttendancePage({
   return (
     <div>
       <div className="mb-6">
-        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Attendance</h1>
+        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Check-ins and Attendance</h1>
         <p className="text-sm text-ink-secondary">
           Head-counts and trends from event check-ins. Rosters live on each event&rsquo;s check-in page.
         </p>

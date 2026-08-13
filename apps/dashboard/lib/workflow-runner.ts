@@ -181,6 +181,33 @@ export const workflowTriggerHandler = {
       return;
     }
 
+    if (event.type === "JourneyMilestoneCompleted") {
+      const payload = event.payload as {
+        journeyId: string;
+        journeyName: string;
+        milestoneId: string;
+        milestoneName: string;
+        personId: string;
+        journeyCompleted: boolean;
+      };
+      await workflowService.processTrigger(
+        {
+          organizationId: event.organizationId,
+          trigger: "JourneyMilestoneCompleted",
+          eventId: event.id,
+          personId: payload.personId,
+          context: {
+            pathwayId: payload.journeyId,
+            pathwayName: payload.journeyName,
+            milestoneName: payload.milestoneName,
+            pathwayCompleted: payload.journeyCompleted ? "yes" : "no",
+          },
+        },
+        EXECUTORS,
+      );
+      return;
+    }
+
     if (event.type === "PersonCreated") {
       const payload = event.payload as PersonCreatedPayload;
       await workflowService.processTrigger(

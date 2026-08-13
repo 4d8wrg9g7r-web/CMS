@@ -52,7 +52,7 @@ export default async function JourneyDetailPage({ params }: { params: Promise<{ 
         <div className="lg:col-span-2 flex flex-col gap-6">
           {/* Enrollments */}
           <Card padding="md">
-            <h2 className="mb-4 text-sm font-semibold text-ink">People on this journey ({journey.enrollments.length})</h2>
+            <h2 className="mb-4 text-sm font-semibold text-ink">People on this pathway ({journey.enrollments.length})</h2>
             {journey.enrollments.length === 0 ? (
               <p className="text-sm text-ink-muted">No one enrolled yet.</p>
             ) : (
@@ -266,7 +266,7 @@ export default async function JourneyDetailPage({ params }: { params: Promise<{ 
               ) : (
                 <form action={archiveJourneyAction.bind(null, journey.id)}>
                   <button type="submit" className={buttonClasses("danger", "sm") + " w-full"}>
-                    <Trash2 size={14} /> Archive journey
+                    <Trash2 size={14} /> Archive pathway
                   </button>
                 </form>
               )}

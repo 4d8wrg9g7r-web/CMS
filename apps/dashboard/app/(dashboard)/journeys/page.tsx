@@ -20,7 +20,7 @@ export default async function JourneysPage() {
   if (!canView) {
     return (
       <div>
-        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Journeys</h1>
+        <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Pathways</h1>
         <Card padding="md" className="mt-6">
           <EmptyState
             icon={<Lock size={22} />}
@@ -38,14 +38,14 @@ export default async function JourneysPage() {
     <div>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Journeys</h1>
+          <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Pathways</h1>
           <p className="text-sm text-ink-secondary">
             Your church&rsquo;s next-step pathways — define the milestones, track everyone&rsquo;s progress.
           </p>
         </div>
         {canManage && (
           <Link href="/journeys/new" className={buttonClasses("primary", "md")}>
-            <Plus size={16} /> New journey
+            <Plus size={16} /> New pathway
           </Link>
         )}
       </div>
@@ -54,7 +54,7 @@ export default async function JourneysPage() {
         <Card padding="none">
           <EmptyState
             icon={<Map size={22} />}
-            title="No journeys yet"
+            title="No pathways yet"
             description={
               <>
                 Try: <em>First Visit → Follow-Up → Membership → Serve Team</em> — or define your own pathway.
@@ -63,7 +63,7 @@ export default async function JourneysPage() {
             action={
               canManage ? (
                 <Link href="/journeys/new" className={buttonClasses("primary", "sm")}>
-                  <Plus size={15} /> New journey
+                  <Plus size={15} /> New pathway
                 </Link>
               ) : undefined
             }
@@ -75,7 +75,7 @@ export default async function JourneysPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-ink-muted">
-                  <th className="px-5 py-3 font-medium">Journey</th>
+                  <th className="px-5 py-3 font-medium">Pathway</th>
                   <th className="px-5 py-3 font-medium">Milestones</th>
                   <th className="px-5 py-3 font-medium">Active enrollments</th>
                   <th className="px-5 py-3 font-medium">Status</th>

@@ -17,7 +17,7 @@ export default async function NewJourneyPage() {
       <Link href="/journeys" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-secondary hover:text-ink">
         <ArrowLeft size={15} /> Back to Journeys
       </Link>
-      <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Create a journey</h1>
+      <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Create a pathway</h1>
       <p className="mb-6 text-sm text-ink-secondary">Name it, then add milestones in order.</p>
       <Card padding="md">
         <form action={createJourneyAction} className="space-y-4">
@@ -30,7 +30,7 @@ export default async function NewJourneyPage() {
             <Textarea name="description" rows={2} className="mt-1" />
           </label>
           <button type="submit" className={buttonClasses("primary", "md")}>
-            Create journey
+            Create pathway
           </button>
         </form>
       </Card>

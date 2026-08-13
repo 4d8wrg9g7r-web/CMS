@@ -220,7 +220,7 @@ export default async function SettingsPage({
           { label: "Giving & Stripe", href: "/giving/online" },
           { label: "Church App", href: "/app-studio" },
           { label: "Website", href: "/website" },
-          { label: "Team & roles", href: "/team" },
+          { label: "Users & roles", href: "/team" },
           { label: "API & webhooks", href: "/developers" },
         ].map((item) => (
           <a
@@ -387,7 +387,7 @@ export default async function SettingsPage({
       </Card>
 
       <p className="mt-6 text-xs text-ink-muted">
-        Manage teammates on the <a href="/team" className="underline hover:text-ink-secondary">Team</a> page and activity
+        Manage teammates on the <a href="/team" className="underline hover:text-ink-secondary">Users</a> page and activity
         history on the <a href="/audit-log" className="underline hover:text-ink-secondary">Audit log</a> page.
       </p>
     </div>

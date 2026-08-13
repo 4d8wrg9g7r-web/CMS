@@ -5,7 +5,7 @@
  * the same pattern as forms/schema.ts.
  */
 
-export const WORKFLOW_TRIGGERS = ["FormSubmitted", "PersonCreated", "EventRegistered"] as const;
+export const WORKFLOW_TRIGGERS = ["FormSubmitted", "PersonCreated", "EventRegistered", "JourneyMilestoneCompleted"] as const;
 export type WorkflowTrigger = (typeof WORKFLOW_TRIGGERS)[number];
 
 export const CONDITION_OPS = ["equals", "not_equals", "contains"] as const;

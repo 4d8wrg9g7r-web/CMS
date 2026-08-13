@@ -118,7 +118,7 @@ export default async function TeamPage() {
 
   return (
     <div>
-      <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Team</h1>
+      <h1 className="mb-1 text-display text-[28px] leading-tight text-ink">Users</h1>
       <p className="mb-8 text-sm text-ink-secondary">Who has access to {organization.name}.</p>
 
       {canManage && (

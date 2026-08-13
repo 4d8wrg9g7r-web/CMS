@@ -1,6 +1,7 @@
 import { JourneyEnrollmentStatus, Prisma } from "@prisma/client";
 import { tenantDb } from "../client";
 import { journeyProgress } from "../journeys/helpers";
+import { emitStandalone } from "./outbox-service";
 
 /**
  * Journeys service (BLUEPRINT §6). Tenant-scoped throughout. Enrollment is idempotent
@@ -208,7 +209,7 @@ export async function completeMilestone(
   });
   if (!milestone) return { ok: false, journeyCompleted: false };
 
-  await tenantDb.journeyMilestoneCompletion.createMany({
+  const created = await tenantDb.journeyMilestoneCompletion.createMany({
     data: [{ organizationId, enrollmentId, milestoneId, completedByUserId: completedByUserId ?? null }],
     skipDuplicates: true,
   });
@@ -228,6 +229,25 @@ export async function completeMilestone(
       data: { status: JourneyEnrollmentStatus.COMPLETED, completedAt: new Date() },
     });
   }
+  // Automation trigger (fires once per enrollment+milestone thanks to skipDuplicates).
+  if (created.count > 0) {
+    const journey = await tenantDb.journeyDefinition.findFirst({ where: { id: enrollment.journeyId, organizationId } });
+    await emitStandalone({
+      organizationId,
+      type: "JourneyMilestoneCompleted",
+      payload: {
+        journeyId: enrollment.journeyId,
+        journeyName: journey?.name ?? "",
+        milestoneId,
+        milestoneName: milestone.name,
+        enrollmentId,
+        personId: enrollment.personId,
+        journeyCompleted: progress.isComplete,
+      },
+      dedupeKey: `jmc:${enrollmentId}:${milestoneId}`,
+    });
+  }
+
   return { ok: true, journeyCompleted: progress.isComplete };
 }
 

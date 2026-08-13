@@ -30,7 +30,7 @@ const DESTINATIONS: StaticCommand[] = [
   { label: "Messages", href: "/messages", keywords: "messages email communicate blast" },
   { label: "Forms", href: "/forms", keywords: "forms" },
   { label: "Automations", href: "/workflows", keywords: "automations workflows" },
-  { label: "Journeys", href: "/journeys", keywords: "journeys pathway" },
+  { label: "Pathways", href: "/journeys", keywords: "journeys pathway" },
   { label: "Tasks", href: "/tasks", keywords: "tasks todo follow up" },
   { label: "Giving", href: "/giving", keywords: "giving donations money" },
   { label: "Campaigns", href: "/giving/campaigns", keywords: "campaigns pledge building fund" },
@@ -55,7 +55,7 @@ const ACTIONS: StaticCommand[] = [
   { label: "Send message", hint: "Create", href: "/messages/new", keywords: "send email message blast create new" },
   { label: "Build form", hint: "Create", href: "/forms/new", keywords: "new form create build" },
   { label: "Create automation", hint: "Create", href: "/workflows/new", keywords: "new workflow automation create" },
-  { label: "Create journey", hint: "Create", href: "/journeys/new", keywords: "new journey create" },
+  { label: "Create journey", hint: "Create", href: "/journeys/new", keywords: "new pathway create" },
   { label: "Import people", hint: "Create", href: "/people/import", keywords: "import csv upload people" },
 ];
 
