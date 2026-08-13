@@ -40,6 +40,7 @@ export const TENANT_SCOPED_MODELS = new Set([
   "LivestreamChatRole",
   "LivestreamConfig",
   "MediaJob",
+  "CheckInKiosk",
   "ChurchApp",
   "AppPost",
   "AppPostLike",

@@ -54,6 +54,7 @@ export * as mediaService from "./services/media-service";
 export * as livestreamChatService from "./services/livestream-chat-service";
 export * as livestreamService from "./services/livestream-service";
 export * as mediaJobService from "./services/media-job-service";
+export * as kioskService from "./services/kiosk-service";
 export { cleanChatBody, chatWaitSeconds, CHAT_MESSAGE_MAX } from "./services/livestream-chat-service";
 export type { ChatMessageView } from "./services/livestream-chat-service";
 export { MEDIA_COLLECTIONS, isMediaCollection } from "./services/media-service";

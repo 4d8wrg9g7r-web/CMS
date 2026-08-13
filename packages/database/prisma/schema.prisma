@@ -99,6 +99,7 @@ model Organization {
   livestreamChatRoles    LivestreamChatRole[]
   livestreamConfig       LivestreamConfig?
   mediaJobs              MediaJob[]
+  checkInKiosks          CheckInKiosk[]
   churchApp              ChurchApp?
   appPosts               AppPost[]
   appPostLikes           AppPostLike[]
@@ -1665,6 +1666,27 @@ model EventCalendar {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   events       Event[]
+  kiosks       CheckInKiosk[]
+
+  @@index([organizationId])
+}
+
+/// Kids check-in kiosk (docs/domain/app.md "Check-in"): staff creates one,
+/// links it to a calendar, and any device opened to /k/<publicKioskKey>
+/// automatically shows that calendar's events for today. The key is the
+/// credential — unguessable, revocable by disabling.
+model CheckInKiosk {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  calendarId     String?
+  publicKioskKey String   @unique @default(cuid())
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  calendar     EventCalendar? @relation(fields: [calendarId], references: [id], onDelete: SetNull)
+  checkIns     CheckIn[]
 
   @@index([organizationId])
 }
@@ -1686,6 +1708,8 @@ model Event {
   recurrenceUntil    DateTime?
   capacity       Int?
   isPublished    Boolean         @default(false)
+  /// Members may self check-in from the church app during the event window.
+  allowAppCheckIn Boolean        @default(false)
   publicId       String          @unique @default(cuid())
   campusId       String?
   archivedAt     DateTime?
@@ -1827,10 +1851,20 @@ model CheckIn {
   checkedInByUserId String?
   checkedInAt    DateTime @default(now())
   checkedOutAt   DateTime?
+  /// STAFF (dashboard), KIOSK (kids kiosk), APP (member self check-in).
+  method         String   @default("STAFF")
+  kioskId        String?
+  /// Kids security: printed on the child tag AND the guardian receipt;
+  /// pickup requires the match.
+  securityCode   String?
+  /// App check-ins only, captured at the moment of check-in (consented).
+  latitude       Float?
+  longitude      Float?
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
   person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  kiosk        CheckInKiosk? @relation(fields: [kioskId], references: [id], onDelete: SetNull)
 
   @@unique([eventId, occurrenceAt, personId])
   @@index([organizationId])
