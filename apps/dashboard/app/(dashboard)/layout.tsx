@@ -11,6 +11,7 @@ import {
   Settings as SettingsIcon,
   SlidersHorizontal,
   Users2,
+  Workflow,
 } from "lucide-react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -79,11 +80,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <SidebarNavGroup
           label="Communicate"
           icon={<Send size={17} strokeWidth={1.75} />}
-          childHrefs={["/communicate", "/messages", "/forms", "/workflows", "/journeys", "/tasks"]}
+          childHrefs={["/communicate", "/messages", "/forms"]}
         >
           <SidebarNavItem nested href="/communicate" label="Overview" icon={null} />
           <SidebarNavItem nested href="/messages" label="Messages" icon={null} />
           <SidebarNavItem nested href="/forms" label="Forms" icon={null} />
+        </SidebarNavGroup>
+
+        <SidebarNavGroup
+          label="Management"
+          icon={<Workflow size={17} strokeWidth={1.75} />}
+          childHrefs={["/workflows", "/journeys", "/tasks"]}
+        >
           <SidebarNavItem nested href="/workflows" label="Automations" icon={null} />
           <SidebarNavItem nested href="/journeys" label="Journeys" icon={null} />
           <SidebarNavItem nested href="/tasks" label="Tasks" icon={null} />
