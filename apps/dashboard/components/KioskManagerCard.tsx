@@ -1,0 +1,85 @@
+import { MonitorCheck, Plus, Trash2 } from "lucide-react";
+import { Card } from "./ui/Card";
+import { Input, Select } from "./ui/Input";
+import { buttonClasses } from "./ui/Button";
+import { createKioskAction, deleteKioskAction, setKioskEnabledAction } from "../app/(dashboard)/attendance/actions";
+
+/**
+ * Kids check-in kiosks (docs/domain/app.md "Check-in"): each kiosk is pinned
+ * to a calendar; the device opened to its link shows that calendar's events
+ * for today automatically. Print setup: Chrome with --kiosk --kiosk-printing
+ * and the Brother QL driver installed prints tags silently.
+ */
+export function KioskManagerCard({
+  kiosks,
+  calendars,
+  canManage,
+}: {
+  kiosks: { id: string; name: string; enabled: boolean; publicKioskKey: string; calendarName: string | null }[];
+  calendars: { id: string; name: string }[];
+  canManage: boolean;
+}) {
+  return (
+    <Card padding="md" data-section="kiosks">
+      <h2 className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-ink">
+        <MonitorCheck size={15} /> Check-in kiosks
+      </h2>
+      <p className="mb-4 text-xs text-ink-muted">
+        Pin a kiosk to a calendar and open its link on the check-in device — it shows that calendar&rsquo;s events for
+        today automatically. For silent Brother label printing, run Chrome with{" "}
+        <code className="rounded bg-surface-muted px-1">--kiosk --kiosk-printing</code> and the QL printer set as
+        default.
+      </p>
+
+      {kiosks.length > 0 && (
+        <ul className="mb-4 divide-y divide-border/60">
+          {kiosks.map((k) => (
+            <li key={k.id} className="flex flex-wrap items-center gap-3 py-2.5" data-kiosk={k.id}>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-ink">
+                  {k.name}
+                  {!k.enabled && <span className="ml-2 text-xs text-warning">disabled</span>}
+                </p>
+                <p className="text-xs text-ink-muted">{k.calendarName ?? "All calendars"}</p>
+              </div>
+              <a href={`/k/${k.publicKioskKey}`} target="_blank" rel="noreferrer" className={buttonClasses("secondary", "sm")} data-action="open-kiosk">
+                Open kiosk
+              </a>
+              {canManage && (
+                <>
+                  <form action={setKioskEnabledAction.bind(null, k.id, !k.enabled)}>
+                    <button type="submit" className="text-xs text-accent hover:underline" data-action="toggle-kiosk">
+                      {k.enabled ? "Disable" : "Enable"}
+                    </button>
+                  </form>
+                  <form action={deleteKioskAction.bind(null, k.id)}>
+                    <button type="submit" aria-label={`Delete ${k.name}`} className="p-0.5 text-ink-muted hover:text-danger" data-action="delete-kiosk">
+                      <Trash2 size={13} />
+                    </button>
+                  </form>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {canManage && (
+        <form action={createKioskAction} className="flex flex-wrap items-center gap-2" data-section="kiosk-create">
+          <Input name="name" required placeholder="Kids Wing Kiosk" className="w-48 text-sm" data-kiosk-name />
+          <Select name="calendarId" className="w-44 text-sm" aria-label="Calendar" data-kiosk-calendar>
+            <option value="">All calendars</option>
+            {calendars.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+          <button type="submit" className={buttonClasses("primary", "sm")} data-action="create-kiosk">
+            <Plus size={14} /> Add kiosk
+          </button>
+        </form>
+      )}
+    </Card>
+  );
+}

@@ -54,19 +54,26 @@ export async function kioskHouseholdLookup(organizationId: string, query: string
   const q = query.trim();
   if (q.length < 3) return [];
   const digits = q.replace(/\D/g, "");
+  const byPhone = digits.length >= 7;
+  // Stored phones carry formatting ("(555) 123-4567"), so a contains match on
+  // 7 digits never fires. The last 4 stay contiguous in any format — use them
+  // as the coarse filter, then compare digits-only in JS.
   const people = await tenantDb.person.findMany({
     where: {
       organizationId,
       archivedAt: null,
       householdId: { not: null },
-      ...(digits.length >= 7
-        ? { phone: { contains: digits.slice(-7) } }
+      ...(byPhone
+        ? { phone: { contains: digits.slice(-4) } }
         : { lastName: { equals: q, mode: "insensitive" } }),
     },
-    select: { householdId: true },
-    take: 20,
+    select: { householdId: true, phone: true },
+    take: 50,
   });
-  const householdIds = [...new Set(people.map((p) => p.householdId).filter((v): v is string => !!v))].slice(0, 3);
+  const matched = byPhone
+    ? people.filter((p) => (p.phone ?? "").replace(/\D/g, "").includes(digits.slice(-7)))
+    : people;
+  const householdIds = [...new Set(matched.map((p) => p.householdId).filter((v): v is string => !!v))].slice(0, 3);
   if (householdIds.length === 0) return [];
 
   const households = await tenantDb.household.findMany({

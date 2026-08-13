@@ -7,6 +7,7 @@ import {
   eventService,
   summarizeByEvent,
   weeklyBuckets,
+  kioskService,
 } from "@cms/database";
 import { buttonClasses } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -14,6 +15,7 @@ import { EmptyState } from "../../../components/ui/EmptyState";
 import { Select } from "../../../components/ui/Input";
 import { MetricCard } from "../../../components/ui/MetricCard";
 import { canCheckin } from "../../../lib/checkin-access";
+import { KioskManagerCard } from "../../../components/KioskManagerCard";
 import { getCurrentOrganization } from "../../../lib/session";
 
 const RANGES = [
@@ -58,6 +60,12 @@ export default async function AttendancePage({
     campusService.listCampuses(organization.id),
     checkinService.listAttendanceRows(organization.id, { from, to: now, campusId }),
     eventService.listEvents(organization.id, { includeArchived: true }),
+  ]);
+
+  const [kiosks, kioskCalendars, canManageKiosks] = await Promise.all([
+    kioskService.listKiosks(organization.id),
+    eventService.listCalendars(organization.id),
+    canCheckin(organization.id, "checkin.manage"),
   ]);
 
   const eventTitles = new Map(events.map((e) => [e.id, e.title]));
@@ -189,6 +197,20 @@ export default async function AttendancePage({
           </div>
         )}
       </Card>
+
+      <div className="mt-6">
+        <KioskManagerCard
+          kiosks={kiosks.map((k) => ({
+            id: k.id,
+            name: k.name,
+            enabled: k.enabled,
+            publicKioskKey: k.publicKioskKey,
+            calendarName: k.calendar?.name ?? null,
+          }))}
+          calendars={kioskCalendars.map((c) => ({ id: c.id, name: c.name }))}
+          canManage={canManageKiosks}
+        />
+      </div>
     </div>
   );
 }
