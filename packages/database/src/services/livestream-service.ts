@@ -22,6 +22,58 @@ export async function getLivestreamConfig(organizationId: string) {
   return tenantDb.livestreamConfig.findFirst({ where: { organizationId } });
 }
 
+const HTTPS_URL = /^https:\/\/.+/;
+
+/**
+ * "I already have a stream": store the church's existing ingest credentials
+ * (reference for the AV team) and the provider's watch/embed URL (what the
+ * app and website actually display). Replaces any Cloudflare-managed input.
+ */
+export async function saveManualStream(
+  organizationId: string,
+  input: {
+    playbackEmbedUrl?: string | null;
+    rtmpsUrl?: string | null;
+    rtmpsStreamKey?: string | null;
+    srtUrl?: string | null;
+    srtStreamId?: string | null;
+    srtPassphrase?: string | null;
+  },
+) {
+  const clean = (v: string | null | undefined, max = 500) => {
+    const t = v?.trim() ?? "";
+    return t ? t.slice(0, max) : null;
+  };
+  const playbackEmbedUrl = clean(input.playbackEmbedUrl, 1000);
+  if (playbackEmbedUrl && !HTTPS_URL.test(playbackEmbedUrl)) {
+    throw new Error("The watch URL must start with https://");
+  }
+  const rtmpsUrl = clean(input.rtmpsUrl);
+  const srtUrl = clean(input.srtUrl);
+  if (rtmpsUrl && !/^rtmps?:\/\//.test(rtmpsUrl)) throw new Error("The RTMPS server should start with rtmps://");
+  if (srtUrl && !/^srt:\/\//.test(srtUrl)) throw new Error("The SRT URL should start with srt://");
+  if (!playbackEmbedUrl && !rtmpsUrl && !srtUrl) {
+    throw new Error("Enter a watch URL or at least one set of stream credentials.");
+  }
+
+  const data = {
+    mode: "MANUAL",
+    liveInputId: null,
+    playbackEmbedUrl,
+    rtmpsUrl,
+    rtmpsStreamKey: clean(input.rtmpsStreamKey),
+    srtUrl,
+    srtStreamId: clean(input.srtStreamId),
+    srtPassphrase: clean(input.srtPassphrase),
+  };
+  const existing = await tenantDb.livestreamConfig.findFirst({ where: { organizationId } });
+  if (!existing) {
+    return tenantDb.livestreamConfig.create({ data: { organizationId, ...data } });
+  }
+  await tenantDb.livestreamConfig.updateMany({ where: { id: existing.id, organizationId }, data });
+  return getLivestreamConfig(organizationId);
+}
+
 /** Save credentials; a blank token keeps the stored one (write-only field). */
 export async function saveLivestreamCredentials(
   organizationId: string,
@@ -34,11 +86,14 @@ export async function saveLivestreamCredentials(
   const existing = await tenantDb.livestreamConfig.findFirst({ where: { organizationId } });
   if (!existing) {
     if (!token) throw new Error("An API token is required to connect Cloudflare Stream.");
-    return tenantDb.livestreamConfig.create({ data: { organizationId, cfAccountId, cfApiToken: token } });
+    return tenantDb.livestreamConfig.create({ data: { organizationId, mode: "CLOUDFLARE", cfAccountId, cfApiToken: token } });
+  }
+  if (existing.mode !== "CLOUDFLARE" && !token) {
+    throw new Error("An API token is required to connect Cloudflare Stream.");
   }
   await tenantDb.livestreamConfig.updateMany({
     where: { id: existing.id, organizationId },
-    data: { cfAccountId, ...(token ? { cfApiToken: token } : {}) },
+    data: { mode: "CLOUDFLARE", cfAccountId, ...(token ? { cfApiToken: token } : {}) },
   });
   return getLivestreamConfig(organizationId);
 }

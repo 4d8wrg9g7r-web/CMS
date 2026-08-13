@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "LivestreamConfig" ADD COLUMN     "mode" TEXT NOT NULL DEFAULT 'CLOUDFLARE',
+ALTER COLUMN "cfAccountId" DROP NOT NULL,
+ALTER COLUMN "cfApiToken" DROP NOT NULL;
+

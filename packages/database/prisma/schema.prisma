@@ -795,8 +795,12 @@ model SermonDocument {
 model LivestreamConfig {
   id             String  @id @default(cuid())
   organizationId String  @unique
-  cfAccountId    String
-  cfApiToken     String
+  /// "MANUAL": the church's existing stream — its ingest credentials and
+  /// playback URL are entered directly. "CLOUDFLARE": we create the live
+  /// input through their Cloudflare Stream account.
+  mode           String  @default("CLOUDFLARE")
+  cfAccountId    String?
+  cfApiToken     String?
   liveInputId    String?
   rtmpsUrl       String?
   rtmpsStreamKey String?

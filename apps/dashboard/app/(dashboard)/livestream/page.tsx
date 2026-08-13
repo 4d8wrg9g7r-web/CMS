@@ -1,12 +1,16 @@
 import { Lock, Radio } from "lucide-react";
-import { livestreamService } from "@cms/database";
+import { livestreamService, videoEmbedUrl } from "@cms/database";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { LivestreamSetup } from "../../../components/LivestreamSetup";
 import { canApp } from "../../../lib/app-access";
 import { getCurrentOrganization } from "../../../lib/session";
 
-/** Livestream ingest (docs/domain/app.md): Cloudflare Stream RTMPS/SRT setup. */
+/**
+ * Livestream (docs/domain/app.md). Two paths: enter an existing stream's
+ * credentials + watch URL directly (default), or create an ingest endpoint
+ * through the church's own Cloudflare Stream account.
+ */
 export default async function LivestreamPage() {
   const organization = await getCurrentOrganization();
   if (!organization) return null;
@@ -20,6 +24,7 @@ export default async function LivestreamPage() {
   }
 
   const config = await livestreamService.getLivestreamConfig(organization.id);
+  const hasStream = Boolean(config && (config.liveInputId || config.mode === "MANUAL"));
 
   return (
     <div>
@@ -28,15 +33,16 @@ export default async function LivestreamPage() {
           <Radio size={22} /> Livestream
         </h1>
         <p className="text-sm text-ink-secondary">
-          Stream services straight from your encoder over RTMPS or SRT, with playback in your app and on your
-          website — and live chat moderated from Community.
+          Bring the stream you already run — or let us create an endpoint for you — with playback in your app and
+          website and live chat moderated from Community.
         </p>
       </div>
       <LivestreamSetup
+        mode={config ? (config.mode === "MANUAL" ? "MANUAL" : "CLOUDFLARE") : null}
         connected={Boolean(config)}
         cfAccountId={config?.cfAccountId ?? ""}
         liveInput={
-          config?.liveInputId
+          hasStream && config
             ? {
                 rtmpsUrl: config.rtmpsUrl,
                 rtmpsStreamKey: config.rtmpsStreamKey,
@@ -47,6 +53,7 @@ export default async function LivestreamPage() {
               }
             : null
         }
+        playbackFrameUrl={hasStream ? videoEmbedUrl(config?.playbackEmbedUrl) : null}
       />
     </div>
   );

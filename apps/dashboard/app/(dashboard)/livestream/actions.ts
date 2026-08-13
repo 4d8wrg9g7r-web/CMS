@@ -51,7 +51,7 @@ export async function createLiveInputAction(_prev: LivestreamFormState, _formDat
   await requireApp(organization.id, "app.manage");
 
   const config = await livestreamService.getLivestreamConfig(organization.id);
-  if (!config) return { error: "Connect your Cloudflare account first." };
+  if (!config?.cfAccountId || !config.cfApiToken) return { error: "Connect your Cloudflare account first." };
 
   try {
     const input = await createLiveInput(config.cfAccountId, config.cfApiToken, `${organization.name} livestream`);
@@ -80,4 +80,30 @@ export async function disconnectLivestreamAction(): Promise<void> {
   await livestreamService.disconnectLivestream(organization.id);
   await audit(organization.id, "livestream.disconnected");
   revalidatePath("/livestream");
+}
+
+/** "I already have a stream": store its credentials + watch URL directly. */
+export async function saveManualStreamAction(
+  _prev: LivestreamFormState,
+  formData: FormData,
+): Promise<LivestreamFormState> {
+  const organization = await getCurrentOrganization();
+  if (!organization) return { error: "No organization" };
+  await requireApp(organization.id, "app.manage");
+  const field = (name: string) => String(formData.get(name) ?? "");
+  try {
+    await livestreamService.saveManualStream(organization.id, {
+      playbackEmbedUrl: field("playbackEmbedUrl"),
+      rtmpsUrl: field("rtmpsUrl"),
+      rtmpsStreamKey: field("rtmpsStreamKey"),
+      srtUrl: field("srtUrl"),
+      srtStreamId: field("srtStreamId"),
+      srtPassphrase: field("srtPassphrase"),
+    });
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "Could not save" };
+  }
+  await audit(organization.id, "livestream.manual_stream_saved");
+  revalidatePath("/livestream");
+  return { error: null, ok: true };
 }
