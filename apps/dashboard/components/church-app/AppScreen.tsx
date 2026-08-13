@@ -38,6 +38,8 @@ export interface AppSermonItem {
   passage: string | null;
   when: string;
   videoUrl: string | null;
+  audioUrl: string | null;
+  links: { label: string; url: string }[];
 }
 export interface AppGroupItem {
   id: string;
@@ -138,6 +140,24 @@ function SermonCard({ sermon, accent }: { sermon: AppSermonItem; accent: string 
         >
           <PlayCircle size={16} /> Watch
         </a>
+      )}
+      {sermon.audioUrl && (
+        <audio controls preload="none" src={sermon.audioUrl} className="mt-2 w-full" data-sermon-audio />
+      )}
+      {sermon.links.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5" data-sermon-links>
+          {sermon.links.map((link, i) => (
+            <a
+              key={i}
+              href={link.url}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg border border-neutral-200 px-2.5 py-1 text-xs font-semibold text-neutral-700"
+            >
+              {link.label}
+            </a>
+          ))}
+        </div>
       )}
     </div>
   );

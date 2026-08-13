@@ -34,6 +34,7 @@ export const TENANT_SCOPED_MODELS = new Set([
   "SavedPersonFilter",
   "DashboardPreference",
   "Sermon",
+  "SermonDocument",
   "ChurchApp",
   "AppPost",
   "AppPostLike",

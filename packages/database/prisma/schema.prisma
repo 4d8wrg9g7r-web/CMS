@@ -93,6 +93,7 @@ model Organization {
   savedPersonFilters     SavedPersonFilter[]
   dashboardPreferences   DashboardPreference[]
   sermons                Sermon[]
+  sermonDocuments SermonDocument[]
   churchApp              ChurchApp?
   appPosts               AppPost[]
   appPostLikes           AppPostLike[]
@@ -730,20 +731,47 @@ model SavedPersonFilter {
 model Sermon {
   id             String    @id @default(cuid())
   organizationId String
+  /// Public URL key — /s/<publicId> share/embed page; unguessable, like publicSiteKey.
+  publicId       String    @unique @default(cuid())
   title          String
   speaker        String?
   series         String?
   passage        String?
   description    String?
   videoUrl       String?
+  /// Direct audio file (public storage) for audio-only listeners.
+  audioUrl       String?
+  /// Sermon graphic from the media library (public storage).
+  artworkUrl     String?
+  /// Custom links [{label,url}] — validated in the service, max 10, http(s) only.
+  links          Json      @default("[]")
   preachedAt     DateTime
   archivedAt     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  documents    SermonDocument[]
 
   @@index([organizationId, preachedAt])
+}
+
+/// Documents attached to a sermon (notes, discussion guides) — public storage.
+model SermonDocument {
+  id             String   @id @default(cuid())
+  organizationId String
+  sermonId       String
+  name           String
+  url            String
+  contentType    String
+  sizeBytes      Int
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sermon       Sermon       @relation(fields: [sermonId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([sermonId])
 }
 
 /**

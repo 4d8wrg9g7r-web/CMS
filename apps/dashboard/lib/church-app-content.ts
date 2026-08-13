@@ -1,4 +1,4 @@
-import { appPageService, eventService, formService, groupService, sermonService, nextOccurrence } from "@cms/database";
+import { parseSermonLinks, appPageService, eventService, formService, groupService, sermonService, nextOccurrence } from "@cms/database";
 import type { AppContent } from "../components/church-app/AppScreen";
 
 /**
@@ -44,6 +44,8 @@ export async function buildAppContent(organizationId: string): Promise<AppConten
       passage: sermon.passage,
       when: sermon.preachedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
       videoUrl: sermon.videoUrl,
+      audioUrl: sermon.audioUrl,
+      links: parseSermonLinks(sermon.links),
     })),
     groups: groups.map((group) => ({
       id: group.id,

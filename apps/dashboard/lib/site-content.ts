@@ -1,4 +1,4 @@
-import { eventService, groupService, nextOccurrence, sermonService, type SiteSection } from "@cms/database";
+import { parseSermonLinks, eventService, groupService, nextOccurrence, sermonService, type SiteSection } from "@cms/database";
 
 /**
  * Live data for the website's dynamic sections (docs/domain/website.md).
@@ -9,7 +9,16 @@ import { eventService, groupService, nextOccurrence, sermonService, type SiteSec
 
 export interface SiteLiveContent {
   events: { id: string; title: string; when: string; location: string | null }[];
-  sermons: { id: string; title: string; speaker: string | null; series: string | null; when: string; videoUrl: string | null }[];
+  sermons: {
+    id: string;
+    title: string;
+    speaker: string | null;
+    series: string | null;
+    when: string;
+    videoUrl: string | null;
+    audioUrl: string | null;
+    links: { label: string; url: string }[];
+  }[];
   groups: { id: string; name: string; description: string | null }[];
 }
 
@@ -41,6 +50,8 @@ export async function buildSiteLiveContent(organizationId: string, sections: Sit
       series: sermon.series,
       when: sermon.preachedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
       videoUrl: sermon.videoUrl,
+      audioUrl: sermon.audioUrl,
+      links: parseSermonLinks(sermon.links),
     })),
     groups: groups.map((group) => ({ id: group.id, name: group.name, description: group.description ?? null })),
   };

@@ -281,6 +281,27 @@ function Section({
                     ) : null}
                     <p className="mt-1 text-sm font-semibold text-slate-900">{featured.title}</p>
                     <p className="mt-0.5 text-sm text-slate-500">{[featured.speaker, featured.when].filter(Boolean).join(" · ")}</p>
+                    {featured.audioUrl ? (
+                      <div className="mt-3" data-live="sermon-audio">
+                        <p className="mb-1 text-xs font-medium text-slate-500">Listen (audio only)</p>
+                        <audio controls preload="none" src={featured.audioUrl} className="w-full" />
+                      </div>
+                    ) : null}
+                    {featured.links.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-2" data-live="sermon-links">
+                        {featured.links.map((link, li) => (
+                          <a
+                            key={li}
+                            href={link.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-400"
+                          >
+                            {link.label}
+                          </a>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ) : null}

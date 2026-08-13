@@ -48,6 +48,8 @@ export * as givingService from "./services/giving-service";
 export * as reportingService from "./services/reporting-service";
 export * as dashboardService from "./services/dashboard-service";
 export * as sermonService from "./services/sermon-service";
+export { parseSermonLinks, MAX_SERMON_LINKS } from "./services/sermon-service";
+export type { SermonLink } from "./services/sermon-service";
 export * as appService from "./services/app-service";
 export type { PublicApp, DirectoryEntry } from "./services/app-service";
 export * as appMemberService from "./services/app-member-service";
