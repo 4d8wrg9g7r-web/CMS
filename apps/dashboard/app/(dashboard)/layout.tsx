@@ -110,13 +110,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <SidebarNavGroup
           label="Digital"
           icon={<MonitorSmartphone size={17} strokeWidth={1.75} />}
-          childHrefs={["/app-studio", "/website"]}
+          childHrefs={["/app-studio", "/website", "/livestream"]}
         >
           <SidebarNavItem nested href="/app-studio" label="Church App" icon={null} />
           {/* The builder is a full-page workspace — it opens in its own tab
               (Wix-style). Site settings stay at /website, reachable from the
               builder's top bar. */}
           <SidebarNavItem nested newTab href="/studio/website" label="Website" icon={null} />
+          <SidebarNavItem nested href="/livestream" label="Livestream" icon={null} />
         </SidebarNavGroup>
 
         <SidebarNavGroup

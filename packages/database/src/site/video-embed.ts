@@ -36,5 +36,10 @@ export function videoEmbedUrl(url: string | null | undefined): string | null {
     const id = match?.[1] ?? null;
     return id && VIMEO_ID.test(id) ? `https://player.vimeo.com/video/${id}` : null;
   }
+  // Cloudflare Stream (live inputs + videos): customer-<code>.cloudflarestream.com/<uid>[/iframe].
+  if (/^customer-[a-z0-9]+\.cloudflarestream\.com$/.test(host)) {
+    const match = /^\/([a-f0-9]{16,64})(?:\/iframe)?\/?$/.exec(parsed.pathname);
+    return match ? `https://${host}/${match[1]}/iframe` : null;
+  }
   return null;
 }

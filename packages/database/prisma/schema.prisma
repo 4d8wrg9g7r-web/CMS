@@ -97,6 +97,7 @@ model Organization {
   mediaAssets            MediaAsset[]
   livestreamChatMessages LivestreamChatMessage[]
   livestreamChatRoles    LivestreamChatRole[]
+  livestreamConfig       LivestreamConfig?
   churchApp              ChurchApp?
   appPosts               AppPost[]
   appPostLikes           AppPostLike[]
@@ -785,6 +786,29 @@ model SermonDocument {
 
   @@index([organizationId])
   @@index([sermonId])
+}
+
+/// Livestream ingest via Cloudflare Stream (docs/domain/app.md): the church
+/// brings its own Cloudflare account; we create a live input and store the
+/// RTMPS/SRT credentials it returns. API token is write-only in the UI, same
+/// pattern as the Stripe keys on OnlineGivingConfig.
+model LivestreamConfig {
+  id             String  @id @default(cuid())
+  organizationId String  @unique
+  cfAccountId    String
+  cfApiToken     String
+  liveInputId    String?
+  rtmpsUrl       String?
+  rtmpsStreamKey String?
+  srtUrl         String?
+  srtStreamId    String?
+  srtPassphrase  String?
+  /// Cloudflare Stream iframe player URL for this live input.
+  playbackEmbedUrl String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 enum LivestreamChatRoleKind {

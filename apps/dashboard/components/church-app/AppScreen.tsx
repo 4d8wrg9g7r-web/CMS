@@ -115,6 +115,10 @@ function embedUrl(url: string): string | null {
       return /^\d+$/.test(id) ? `https://player.vimeo.com/video/${id}` : null;
     }
     if (host === "player.vimeo.com") return url;
+    if (/^customer-[a-z0-9]+\.cloudflarestream\.com$/.test(host)) {
+      const match = /^\/([a-f0-9]{16,64})(?:\/iframe)?\/?$/.exec(parsed.pathname);
+      return match ? `https://${host}/${match[1]}/iframe` : null;
+    }
     return null;
   } catch {
     return null;

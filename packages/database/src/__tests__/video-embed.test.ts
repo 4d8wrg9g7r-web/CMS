@@ -48,4 +48,16 @@ describe("videoEmbedUrl", () => {
     expect(videoEmbedUrl(null)).toBeNull();
     expect(videoEmbedUrl(undefined)).toBeNull();
   });
+
+  it("passes Cloudflare Stream player URLs through as iframes", () => {
+    const uid = "0e123456789abcdef0123456789abcde";
+    expect(videoEmbedUrl(`https://customer-abc123.cloudflarestream.com/${uid}/iframe`)).toBe(
+      `https://customer-abc123.cloudflarestream.com/${uid}/iframe`,
+    );
+    expect(videoEmbedUrl(`https://customer-abc123.cloudflarestream.com/${uid}`)).toBe(
+      `https://customer-abc123.cloudflarestream.com/${uid}/iframe`,
+    );
+    expect(videoEmbedUrl("https://customer-abc123.cloudflarestream.com/not-a-uid")).toBeNull();
+    expect(videoEmbedUrl("https://evil.example.com/0e123456789abcdef0123456789abcde/iframe")).toBeNull();
+  });
 });

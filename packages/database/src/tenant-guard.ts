@@ -38,6 +38,7 @@ export const TENANT_SCOPED_MODELS = new Set([
   "MediaAsset",
   "LivestreamChatMessage",
   "LivestreamChatRole",
+  "LivestreamConfig",
   "ChurchApp",
   "AppPost",
   "AppPostLike",
