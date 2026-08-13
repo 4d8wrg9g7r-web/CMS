@@ -35,7 +35,7 @@ the standard on-ramp from spreadsheets and other ChMS exports.
 - **No file storage.** The CSV is parsed in-request and discarded; only the summary
   persists. Files uploaded here are membership PII — not keeping the raw file is the
   privacy-preserving default (BLUEPRINT §63).
-- Caps: 2,000 rows / 1 MB per import (one pastoral database at a time, not a data
+- Caps: 10,000 rows / 5 MB per import (one pastoral database at a time, not a data
   warehouse); larger files get a clear error telling the user to split them.
 
 ## Import wizard

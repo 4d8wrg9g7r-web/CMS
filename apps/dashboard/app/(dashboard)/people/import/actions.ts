@@ -65,14 +65,14 @@ async function readCsv(formData: FormData): Promise<{ csvText: string; fileName:
   let fileName: string | null = null;
   if (file instanceof File && file.size > 0) {
     if (file.size > MAX_IMPORT_BYTES) {
-      throw new Error("That file is larger than 1 MB — split it and import in parts.");
+      throw new Error("That file is larger than 5 MB — split it and import in parts.");
     }
     csvText = await file.text();
     fileName = file.name;
   }
   if (!csvText) throw new Error("Choose a CSV file or paste CSV text.");
   if (csvText.length > MAX_IMPORT_BYTES) {
-    throw new Error("That CSV is larger than 1 MB — split it and import in parts.");
+    throw new Error("That CSV is larger than 5 MB — split it and import in parts.");
   }
   return { csvText, fileName };
 }

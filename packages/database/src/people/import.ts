@@ -7,8 +7,10 @@ import { MembershipStatus } from "@prisma/client";
  * whole pipeline is unit-testable.
  */
 
-export const MAX_IMPORT_ROWS = 2000;
-export const MAX_IMPORT_BYTES = 1024 * 1024; // 1 MB
+export const MAX_IMPORT_ROWS = 10000;
+// Scales with the row cap (~500 bytes/row budget). Server-action uploads must
+// also fit next.config's serverActions.bodySizeLimit — keep the two in step.
+export const MAX_IMPORT_BYTES = 5 * 1024 * 1024; // 5 MB
 
 /** Recognized headers (case-insensitive). Extra columns are ignored. */
 export const IMPORT_HEADERS = [

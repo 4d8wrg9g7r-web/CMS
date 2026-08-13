@@ -10,6 +10,14 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    serverActions: {
+      // CSV imports are capped at MAX_IMPORT_BYTES (5 MB) in the import
+      // actions; 8 MB here leaves room for multipart overhead. Next's
+      // default (1 MB) would reject large uploads before our code runs.
+      bodySizeLimit: "8mb",
+    },
+  },
   transpilePackages: [
     "@cms/ai",
     "@cms/database",

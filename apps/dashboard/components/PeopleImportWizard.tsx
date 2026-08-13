@@ -326,7 +326,7 @@ export function PeopleImportWizard() {
             <h2 className="mb-2 text-3xl font-bold tracking-tight text-ink">Let’s bring in your people.</h2>
             <p className="mx-auto mb-8 max-w-md text-sm leading-6 text-ink-secondary">
               Any spreadsheet export works — the columns don’t need to match anything. We’ll confirm what each one
-              means together, one question at a time. Up to 2,000 rows per run.
+              means together, one question at a time. Up to 10,000 rows per run.
             </p>
             <form action={startFormAction} className="mx-auto flex max-w-sm flex-col gap-4 text-left">
               <label className="block cursor-pointer rounded-2xl border-2 border-dashed border-border bg-surface px-6 py-8 text-center transition-colors hover:border-accent">

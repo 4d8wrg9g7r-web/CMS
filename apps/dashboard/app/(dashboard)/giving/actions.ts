@@ -188,7 +188,7 @@ export async function importContributionsAction(
     const file = formData.get("file");
     let csvText = String(formData.get("csv") ?? "").trim();
     if (file instanceof File && file.size > 0) {
-      if (file.size > MAX_IMPORT_BYTES) throw new Error("That file is larger than 1 MB.");
+      if (file.size > MAX_IMPORT_BYTES) throw new Error("That file is larger than 5 MB.");
       csvText = await file.text();
     }
     if (!csvText) throw new Error("Choose a CSV file or paste CSV text.");
