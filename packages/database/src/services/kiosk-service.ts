@@ -158,6 +158,102 @@ export async function kioskCheckIn(
   return { eventTitle: event.title, checkIns: results };
 }
 
+/**
+ * Member self check-in from the church app (Event.allowAppCheckIn). Window:
+ * an hour before the occurrence through its end — or two hours after start
+ * when the event has no duration. Geolocation is captured only at this
+ * moment and only if the member granted it; it feeds the on-site vs remote
+ * attendance split, never continuous tracking.
+ */
+export async function appSelfCheckIn(
+  organizationId: string,
+  input: {
+    eventId: string;
+    occurrenceAt: Date;
+    personId: string;
+    latitude?: number | null;
+    longitude?: number | null;
+  },
+) {
+  const event = await tenantDb.event.findFirst({
+    where: { id: input.eventId, organizationId, archivedAt: null },
+    select: { id: true, title: true, allowAppCheckIn: true, startAt: true, endAt: true },
+  });
+  if (!event || !event.allowAppCheckIn) return { ok: false as const, error: "not_allowed" as const };
+
+  const durationMs = event.endAt
+    ? Math.max(0, event.endAt.getTime() - event.startAt.getTime())
+    : 2 * 3600 * 1000;
+  const now = Date.now();
+  if (now < input.occurrenceAt.getTime() - 3600 * 1000 || now > input.occurrenceAt.getTime() + durationMs) {
+    return { ok: false as const, error: "outside_window" as const };
+  }
+
+  const existing = await tenantDb.checkIn.findFirst({
+    where: { organizationId, eventId: event.id, occurrenceAt: input.occurrenceAt, personId: input.personId },
+  });
+  if (!existing) {
+    await tenantDb.checkIn.create({
+      data: {
+        organizationId,
+        eventId: event.id,
+        occurrenceAt: input.occurrenceAt,
+        personId: input.personId,
+        method: "APP",
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
+      },
+    });
+  }
+  return { ok: true as const, eventTitle: event.title, alreadyCheckedIn: Boolean(existing) };
+}
+
+/** Great-circle distance in meters (haversine). */
+function distanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad;
+  const dLon = (lon2 - lon1) * rad;
+  const a =
+    Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+  return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const ON_SITE_RADIUS_METERS = 500;
+
+/**
+ * On-site vs remote split for app check-ins in the last `days` (default 90):
+ * a check-in counts as on-site when its coordinates land within 500m of any
+ * campus that has coordinates. Without campus coordinates (or when the
+ * member declined location) the check-in is only counted in the totals.
+ */
+export async function appCheckInGeoSummary(organizationId: string, opts: { days?: number } = {}) {
+  const since = new Date(Date.now() - (opts.days ?? 90) * 24 * 3600 * 1000);
+  const [checkIns, campuses] = await Promise.all([
+    tenantDb.checkIn.findMany({
+      where: { organizationId, method: "APP", checkedInAt: { gte: since } },
+      select: { latitude: true, longitude: true },
+    }),
+    tenantDb.campus.findMany({
+      where: { organizationId, archivedAt: null, latitude: { not: null }, longitude: { not: null } },
+      select: { latitude: true, longitude: true },
+    }),
+  ]);
+  let onSite = 0;
+  let remote = 0;
+  let located = 0;
+  for (const c of checkIns) {
+    if (c.latitude === null || c.longitude === null) continue;
+    located += 1;
+    const near = campuses.some(
+      (campus) =>
+        distanceMeters(c.latitude!, c.longitude!, campus.latitude!, campus.longitude!) <= ON_SITE_RADIUS_METERS,
+    );
+    if (near) onSite += 1;
+    else remote += 1;
+  }
+  return { total: checkIns.length, located, onSite, remote, campusesWithCoordinates: campuses.length };
+}
+
 /** Pickup: mark checked out when the presented code matches. */
 export async function kioskCheckOut(
   organizationId: string,

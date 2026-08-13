@@ -56,6 +56,7 @@ function readEventInput(formData: FormData) {
     capacity: Number.isFinite(capacityRaw) && capacityRaw > 0 ? capacityRaw : null,
     campusId: str(formData, "campusId") || null,
     calendarId: str(formData, "calendarId") || null,
+    allowAppCheckIn: formData.get("allowAppCheckIn") === "on",
   };
 }
 

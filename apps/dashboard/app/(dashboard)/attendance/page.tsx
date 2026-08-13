@@ -62,10 +62,11 @@ export default async function AttendancePage({
     eventService.listEvents(organization.id, { includeArchived: true }),
   ]);
 
-  const [kiosks, kioskCalendars, canManageKiosks] = await Promise.all([
+  const [kiosks, kioskCalendars, canManageKiosks, appGeo] = await Promise.all([
     kioskService.listKiosks(organization.id),
     eventService.listCalendars(organization.id),
     canCheckin(organization.id, "checkin.manage"),
+    kioskService.appCheckInGeoSummary(organization.id, { days }),
   ]);
 
   const eventTitles = new Map(events.map((e) => [e.id, e.title]));
@@ -197,6 +198,39 @@ export default async function AttendancePage({
           </div>
         )}
       </Card>
+
+      {appGeo.total > 0 && (
+        <Card padding="md" className="mt-6" data-section="app-checkins">
+          <h2 className="mb-1 text-sm font-semibold text-ink">App check-ins</h2>
+          <p className="mb-3 text-xs text-ink-muted">
+            Members checking in from the church app over this range.
+            {appGeo.campusesWithCoordinates === 0 &&
+              " Add campus coordinates in Settings to split these into on-site vs remote."}
+          </p>
+          <div className="flex flex-wrap gap-6 text-sm">
+            <div>
+              <p className="text-2xl font-semibold text-ink">{appGeo.total}</p>
+              <p className="text-xs text-ink-muted">Total</p>
+            </div>
+            {appGeo.campusesWithCoordinates > 0 && (
+              <>
+                <div>
+                  <p className="text-2xl font-semibold text-ink">{appGeo.onSite}</p>
+                  <p className="text-xs text-ink-muted">On-site (within 500m of a campus)</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-semibold text-ink">{appGeo.remote}</p>
+                  <p className="text-xs text-ink-muted">Remote</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-semibold text-ink">{appGeo.total - appGeo.located}</p>
+                  <p className="text-xs text-ink-muted">No location shared</p>
+                </div>
+              </>
+            )}
+          </div>
+        </Card>
+      )}
 
       <div className="mt-6">
         <KioskManagerCard

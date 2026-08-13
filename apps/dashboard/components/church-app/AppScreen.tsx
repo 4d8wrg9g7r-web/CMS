@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { AppLinkTarget, AppManifest, AppPageBlock, AppTab } from "@cms/database";
 import { appTabLabelUi as appTabLabel } from "../../lib/app-manifest-ui";
+import { EventCheckInButton } from "./EventCheckInButton";
 import { PageBlocksView, type ResolvedLink } from "./PageBlocksView";
 
 /**
@@ -30,6 +31,10 @@ export interface AppEventItem {
   when: string;
   location: string | null;
   imageUrl: string | null;
+  /** Next occurrence (ISO) + close of its check-in window, for app check-in. */
+  occurrenceAt?: string | null;
+  endsAt?: string | null;
+  allowAppCheckIn?: boolean;
 }
 export interface AppSermonItem {
   id: string;
@@ -188,6 +193,7 @@ export function AppScreen({
   myGroupsNav,
   givingPanel,
   livestreamChat,
+  checkIn,
 }: {
   manifest: AppManifest;
   organizationName: string;
@@ -205,6 +211,8 @@ export function AppScreen({
   givingPanel?: React.ReactNode;
   /** Live chat panel under the Livestream tab (public mode only). */
   livestreamChat?: React.ReactNode;
+  /** Public mode: enables member self check-in buttons on event cards. */
+  checkIn?: { publicAppId: string; signedIn: boolean };
 }) {
   const accent = manifest.themeColor;
   const active = manifest.tabs[activeIndex] ?? manifest.tabs[0]!;
@@ -283,6 +291,16 @@ export function AppScreen({
                   <p className="mt-0.5 flex items-center gap-1 text-xs text-neutral-500">
                     <MapPin size={12} /> {event.location}
                   </p>
+                )}
+                {checkIn && event.allowAppCheckIn && event.occurrenceAt && (
+                  <EventCheckInButton
+                    publicAppId={checkIn.publicAppId}
+                    eventId={event.id}
+                    occurrenceAt={event.occurrenceAt}
+                    endsAt={event.endsAt ?? null}
+                    signedIn={checkIn.signedIn}
+                    accent={accent}
+                  />
                 )}
               </div>
             ))}

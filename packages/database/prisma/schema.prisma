@@ -344,6 +344,9 @@ model Campus {
   organizationId String
   name           String
   address        String?
+  // Coordinates power the on-site vs remote split for app check-ins.
+  latitude       Float?
+  longitude      Float?
   archivedAt     DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt

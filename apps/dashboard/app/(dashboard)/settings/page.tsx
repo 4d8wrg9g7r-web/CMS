@@ -92,7 +92,11 @@ async function createCampusAction(formData: FormData) {
   if (!name) throw new Error("Campus name is required.");
   const address = String(formData.get("address") ?? "").trim() || null;
 
-  const campus = await campusService.createCampus(organization.id, { name, address });
+  const campus = await campusService.createCampus(organization.id, {
+    name,
+    address,
+    ...readCampusCoordinates(formData),
+  });
 
   const user = await getCurrentUser();
   await auditService.recordAuditEvent({
@@ -102,6 +106,37 @@ async function createCampusAction(formData: FormData) {
     targetType: "Campus",
     targetId: campus.id,
     metadata: { name },
+  });
+
+  revalidatePath("/settings");
+}
+
+function readCampusCoordinates(formData: FormData) {
+  const parse = (key: string, min: number, max: number) => {
+    const value = Number.parseFloat(String(formData.get(key) ?? "").trim());
+    return Number.isFinite(value) && value >= min && value <= max ? value : null;
+  };
+  const latitude = parse("latitude", -90, 90);
+  const longitude = parse("longitude", -180, 180);
+  // Both or neither — a lone coordinate can't place the campus.
+  return latitude !== null && longitude !== null ? { latitude, longitude } : { latitude: null, longitude: null };
+}
+
+async function setCampusCoordinatesAction(campusId: string, formData: FormData) {
+  "use server";
+  const organization = await getCurrentOrganization();
+  if (!organization) throw new Error("No organization");
+  await requireOrgRole(organization.id, ["OWNER", "ADMIN"]);
+
+  await campusService.updateCampus(organization.id, campusId, readCampusCoordinates(formData));
+
+  const user = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: user?.id,
+    action: "campus.updated",
+    targetType: "Campus",
+    targetId: campusId,
   });
 
   revalidatePath("/settings");
@@ -262,10 +297,21 @@ export default async function SettingsPage({
             Address <span className="text-ink-muted">(optional)</span>
             <Input name="address" placeholder="123 Main St" className="mt-1 w-72" />
           </label>
+          <label className="text-sm text-ink-secondary">
+            Latitude <span className="text-ink-muted">(optional)</span>
+            <Input name="latitude" type="number" step="any" placeholder="41.2565" className="mt-1 w-32" />
+          </label>
+          <label className="text-sm text-ink-secondary">
+            Longitude <span className="text-ink-muted">(optional)</span>
+            <Input name="longitude" type="number" step="any" placeholder="-95.9345" className="mt-1 w-32" />
+          </label>
           <button type="submit" className={buttonClasses("primary", "sm")}>
             Add campus
           </button>
         </form>
+        <p className="mb-3 -mt-1 text-xs text-ink-muted">
+          Coordinates let app check-ins count as on-site (within 500m of a campus) vs remote on the attendance page.
+        </p>
         {campuses.length === 0 ? (
           <p className="text-sm text-ink-muted">No campuses yet — single-site churches don&rsquo;t need any.</p>
         ) : (
@@ -278,11 +324,41 @@ export default async function SettingsPage({
                   </span>
                   {campus.address && <span className="ml-2 text-xs text-ink-muted">{campus.address}</span>}
                 </div>
-                <form action={setCampusArchivedAction.bind(null, campus.id, !campus.archivedAt)}>
-                  <button type="submit" className={buttonClasses("ghost", "sm")}>
-                    {campus.archivedAt ? "Restore" : "Archive"}
-                  </button>
-                </form>
+                <div className="flex flex-wrap items-center gap-2">
+                  {!campus.archivedAt && (
+                    <form
+                      action={setCampusCoordinatesAction.bind(null, campus.id)}
+                      className="flex items-center gap-1.5"
+                    >
+                      <Input
+                        name="latitude"
+                        type="number"
+                        step="any"
+                        placeholder="Lat"
+                        defaultValue={campus.latitude ?? ""}
+                        aria-label={`${campus.name} latitude`}
+                        className="w-24 text-xs"
+                      />
+                      <Input
+                        name="longitude"
+                        type="number"
+                        step="any"
+                        placeholder="Lng"
+                        defaultValue={campus.longitude ?? ""}
+                        aria-label={`${campus.name} longitude`}
+                        className="w-24 text-xs"
+                      />
+                      <button type="submit" className={buttonClasses("ghost", "sm")}>
+                        Save
+                      </button>
+                    </form>
+                  )}
+                  <form action={setCampusArchivedAction.bind(null, campus.id, !campus.archivedAt)}>
+                    <button type="submit" className={buttonClasses("ghost", "sm")}>
+                      {campus.archivedAt ? "Restore" : "Archive"}
+                    </button>
+                  </form>
+                </div>
               </li>
             ))}
           </ul>

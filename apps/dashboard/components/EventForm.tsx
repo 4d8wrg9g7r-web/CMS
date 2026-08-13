@@ -15,6 +15,7 @@ interface EventFormValues {
   capacity?: number | null;
   campusId?: string | null;
   calendarId?: string | null;
+  allowAppCheckIn?: boolean;
 }
 
 function toLocalInput(date: Date | null | undefined): string {
@@ -126,6 +127,18 @@ export function EventForm({
           className="h-4 w-4 rounded border-border-strong text-accent"
         />
         All-day event
+      </label>
+      <label className="flex items-center gap-2 text-sm text-ink-secondary sm:col-span-2">
+        <input
+          type="checkbox"
+          name="allowAppCheckIn"
+          defaultChecked={event?.allowAppCheckIn ?? false}
+          className="h-4 w-4 rounded border-border-strong text-accent"
+        />
+        <span>
+          Allow check-in from the app{" "}
+          <span className="text-ink-muted">(members can check in starting an hour before)</span>
+        </span>
       </label>
       <div className="sm:col-span-2">
         <button type="submit" className={buttonClasses("primary", "md")}>

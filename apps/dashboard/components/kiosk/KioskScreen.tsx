@@ -38,11 +38,14 @@ export function KioskScreen({
   calendarName: string | null;
   events: KioskEvent[];
 }) {
+  const [mode, setMode] = useState<"checkin" | "pickup">("checkin");
   const [eventKey, setEventKey] = useState(events[0] ? `${events[0].id}|${events[0].occurrenceAt}` : "");
   const [query, setQuery] = useState("");
   const [households, setHouseholds] = useState<HouseholdHit[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [result, setResult] = useState<CheckInResult | null>(null);
+  const [pickupCode, setPickupCode] = useState("");
+  const [pickedUp, setPickedUp] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const api = `/api/kiosk/${kioskKey}`;
@@ -88,11 +91,49 @@ export function KioskScreen({
     }
   };
 
+  const checkOut = async () => {
+    if (!active || selected.size === 0 || pickupCode.trim().length < 4) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const names: string[] = [];
+      for (const personId of selected) {
+        const res = await fetch(api, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            op: "checkout",
+            eventId: active.id,
+            occurrenceAt: active.occurrenceAt,
+            personId,
+            securityCode: pickupCode,
+          }),
+        });
+        const data = (await res.json()) as { ok?: boolean; error?: string };
+        if (!res.ok || !data.ok) {
+          setError(
+            data.error === "code_mismatch"
+              ? "That code doesn't match — check the guardian receipt."
+              : "No open check-in found for that child.",
+          );
+          return;
+        }
+        const kid = households?.flatMap((h) => h.kids).find((k) => k.id === personId);
+        names.push(kid?.name ?? "Child");
+      }
+      setPickedUp(names);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const reset = () => {
     setQuery("");
     setHouseholds(null);
     setSelected(new Set());
     setResult(null);
+    setPickupCode("");
+    setPickedUp([]);
     setError(null);
   };
 
@@ -113,7 +154,16 @@ export function KioskScreen({
           {calendarName ? ` · ${calendarName}` : ""}
         </p>
 
-        {result ? (
+        {pickedUp.length > 0 ? (
+          <div className="mt-10 text-center" data-kiosk-pickup-success>
+            <p className="text-4xl">👋</p>
+            <h1 className="mt-3 text-3xl font-bold">Checked out</h1>
+            <p className="mt-2 text-slate-300">{pickedUp.join(", ")} — have a great day!</p>
+            <button type="button" onClick={reset} className="mt-8 rounded-xl bg-white px-6 py-3 text-lg font-semibold text-slate-900" data-kiosk-done>
+              Done
+            </button>
+          </div>
+        ) : result ? (
           <div className="mt-10 text-center" data-kiosk-success>
             <p className="text-4xl">✅</p>
             <h1 className="mt-3 text-3xl font-bold">You&rsquo;re all set!</h1>
@@ -130,9 +180,24 @@ export function KioskScreen({
           </div>
         ) : (
           <>
-            <h1 className="mt-4 text-3xl font-bold" data-kiosk-title>
-              Check in
-            </h1>
+            <div className="mt-4 flex items-center gap-3">
+              <h1 className="text-3xl font-bold" data-kiosk-title>
+                {mode === "checkin" ? "Check in" : "Pickup"}
+              </h1>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode(mode === "checkin" ? "pickup" : "checkin");
+                  setSelected(new Set());
+                  setPickupCode("");
+                  setError(null);
+                }}
+                className="rounded-full bg-slate-800 px-4 py-1.5 text-sm font-semibold text-slate-200"
+                data-kiosk-mode
+              >
+                {mode === "checkin" ? "Picking up? →" : "← Back to check-in"}
+              </button>
+            </div>
 
             {events.length === 0 ? (
               <p className="mt-6 text-slate-300" data-kiosk-noevents>
@@ -214,10 +279,30 @@ export function KioskScreen({
                         </div>
                       ))
                     )}
-                    {selected.size > 0 && (
+                    {selected.size > 0 && mode === "checkin" && (
                       <button type="button" onClick={() => void checkIn()} disabled={busy} className="w-full rounded-xl bg-emerald-400 px-6 py-4 text-xl font-bold text-slate-900 disabled:opacity-50" data-kiosk-checkin>
                         {busy ? "Checking in…" : `Check in ${selected.size} ${selected.size === 1 ? "child" : "kids"}`}
                       </button>
+                    )}
+                    {selected.size > 0 && mode === "pickup" && (
+                      <div className="space-y-2">
+                        <input
+                          value={pickupCode}
+                          onChange={(e) => setPickupCode(e.target.value.toUpperCase())}
+                          placeholder="Pickup code (e.g. ACD-42)"
+                          className="w-full rounded-xl border-0 bg-slate-800 px-4 py-3.5 text-center font-mono text-xl tracking-widest text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/60"
+                          data-kiosk-pickup-code
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void checkOut()}
+                          disabled={busy || pickupCode.trim().length < 4}
+                          className="w-full rounded-xl bg-emerald-400 px-6 py-4 text-xl font-bold text-slate-900 disabled:opacity-50"
+                          data-kiosk-checkout
+                        >
+                          {busy ? "Verifying…" : "Verify & check out"}
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}

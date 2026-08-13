@@ -36,6 +36,12 @@ export async function buildAppContent(organizationId: string): Promise<AppConten
       }),
       location: event.location ?? null,
       imageUrl: event.imageUrl ?? null,
+      occurrenceAt: next.toISOString(),
+      endsAt: new Date(
+        next.getTime() +
+          (event.endAt ? Math.max(0, event.endAt.getTime() - event.startAt.getTime()) : 2 * 3600 * 1000),
+      ).toISOString(),
+      allowAppCheckIn: event.allowAppCheckIn,
     })),
     sermons: sermons.map((sermon) => ({
       id: sermon.id,

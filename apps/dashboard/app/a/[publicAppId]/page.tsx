@@ -116,6 +116,7 @@ export default async function PublicAppPage({ params, searchParams }: Props) {
         activeIndex={activeIndex}
         tabHref={(i) => `/a/${publicAppId}?tab=${i}`}
         myGroupsNav={myGroupsNav}
+        checkIn={{ publicAppId, signedIn: Boolean(member) }}
         livestreamChat={
           <LivestreamChat publicAppId={publicAppId} accent={app.manifest.themeColor} signedIn={Boolean(member)} />
         }

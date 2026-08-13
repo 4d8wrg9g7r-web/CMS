@@ -17,16 +17,25 @@ export async function getCampus(organizationId: string, campusId: string) {
   return tenantDb.campus.findFirst({ where: { organizationId, id: campusId } });
 }
 
-export async function createCampus(organizationId: string, params: { name: string; address?: string | null }) {
+export async function createCampus(
+  organizationId: string,
+  params: { name: string; address?: string | null; latitude?: number | null; longitude?: number | null },
+) {
   return tenantDb.campus.create({
-    data: { organizationId, name: params.name, address: params.address ?? null },
+    data: {
+      organizationId,
+      name: params.name,
+      address: params.address ?? null,
+      latitude: params.latitude ?? null,
+      longitude: params.longitude ?? null,
+    },
   });
 }
 
 export async function updateCampus(
   organizationId: string,
   campusId: string,
-  params: { name?: string; address?: string | null },
+  params: { name?: string; address?: string | null; latitude?: number | null; longitude?: number | null },
 ) {
   return tenantDb.campus.updateMany({ where: { organizationId, id: campusId }, data: params });
 }

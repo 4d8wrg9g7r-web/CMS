@@ -26,6 +26,7 @@ export interface EventInput {
   capacity?: number | null;
   campusId?: string | null;
   calendarId?: string | null;
+  allowAppCheckIn?: boolean;
 }
 
 export async function listEvents(
@@ -127,6 +128,7 @@ function eventData(input: EventInput) {
     capacity: input.capacity ?? null,
     campusId: input.campusId ?? null,
     calendarId: input.calendarId ?? null,
+    allowAppCheckIn: input.allowAppCheckIn ?? false,
   };
 }
 
