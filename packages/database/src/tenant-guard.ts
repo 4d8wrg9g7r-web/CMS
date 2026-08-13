@@ -35,6 +35,7 @@ export const TENANT_SCOPED_MODELS = new Set([
   "DashboardPreference",
   "Sermon",
   "SermonDocument",
+  "MediaAsset",
   "ChurchApp",
   "AppPost",
   "AppPostLike",

@@ -35,6 +35,7 @@ export async function buildAppContent(organizationId: string): Promise<AppConten
         minute: "2-digit",
       }),
       location: event.location ?? null,
+      imageUrl: event.imageUrl ?? null,
     })),
     sermons: sermons.map((sermon) => ({
       id: sermon.id,
@@ -45,6 +46,7 @@ export async function buildAppContent(organizationId: string): Promise<AppConten
       when: sermon.preachedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
       videoUrl: sermon.videoUrl,
       audioUrl: sermon.audioUrl,
+      artworkUrl: sermon.artworkUrl,
       links: parseSermonLinks(sermon.links),
     })),
     groups: groups.map((group) => ({

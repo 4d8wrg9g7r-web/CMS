@@ -94,6 +94,7 @@ model Organization {
   dashboardPreferences   DashboardPreference[]
   sermons                Sermon[]
   sermonDocuments SermonDocument[]
+  mediaAssets            MediaAsset[]
   churchApp              ChurchApp?
   appPosts               AppPost[]
   appPostLikes           AppPostLike[]
@@ -773,6 +774,24 @@ model SermonDocument {
 
   @@index([organizationId])
   @@index([sermonId])
+}
+
+/// Media library graphics (public storage), organized into collections —
+/// "event" and "sermon" — and attached to items via Event.imageUrl /
+/// Sermon.artworkUrl.
+model MediaAsset {
+  id             String   @id @default(cuid())
+  organizationId String
+  collection     String
+  name           String
+  url            String
+  contentType    String
+  sizeBytes      Int
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, collection, createdAt])
 }
 
 /**

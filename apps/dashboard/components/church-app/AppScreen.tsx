@@ -29,6 +29,7 @@ export interface AppEventItem {
   title: string;
   when: string;
   location: string | null;
+  imageUrl: string | null;
 }
 export interface AppSermonItem {
   id: string;
@@ -39,6 +40,7 @@ export interface AppSermonItem {
   when: string;
   videoUrl: string | null;
   audioUrl: string | null;
+  artworkUrl: string | null;
   links: { label: string; url: string }[];
 }
 export interface AppGroupItem {
@@ -121,7 +123,11 @@ function embedUrl(url: string): string | null {
 
 function SermonCard({ sermon, accent }: { sermon: AppSermonItem; accent: string }) {
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-4">
+    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white p-4">
+      {sermon.artworkUrl && (
+        // eslint-disable-next-line @next/next/no-img-element -- church-managed graphic
+        <img src={sermon.artworkUrl} alt="" className="-mx-4 -mt-4 mb-3 aspect-video w-[calc(100%+2rem)] max-w-none object-cover" data-sermon-artwork loading="lazy" />
+      )}
       <p className="text-xs text-neutral-500">
         {sermon.when}
         {sermon.series && ` · ${sermon.series}`}
@@ -255,7 +261,11 @@ export function AppScreen({
         ) : (
           <div className="flex flex-col gap-2">
             {content.events.map((event) => (
-              <div key={event.id} className="rounded-xl border border-neutral-200 bg-white p-4">
+              <div key={event.id} className="overflow-hidden rounded-xl border border-neutral-200 bg-white p-4">
+                {event.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element -- church-managed graphic
+                  <img src={event.imageUrl} alt="" className="-mx-4 -mt-4 mb-3 aspect-video w-[calc(100%+2rem)] max-w-none object-cover" data-event-image loading="lazy" />
+                )}
                 <p className="font-semibold text-neutral-900">{event.title}</p>
                 <p className="text-sm text-neutral-600">{event.when}</p>
                 {event.location && (

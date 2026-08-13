@@ -2,8 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { ArrowLeft, CalendarClock, ExternalLink, Eye, EyeOff, MapPin, Trash2, Undo2, UserCheck } from "lucide-react";
-import { checkinService, eventService, expandOccurrences, personDisplayName } from "@cms/database";
+import { checkinService, eventService, expandOccurrences, mediaService, personDisplayName } from "@cms/database";
 import { campusService } from "@cms/database";
+import { GraphicPicker } from "../../../../components/GraphicPicker";
 import { Badge } from "../../../../components/ui/Badge";
 import { buttonClasses } from "../../../../components/ui/Button";
 import { Card } from "../../../../components/ui/Card";
@@ -66,11 +67,12 @@ export default async function EventDetailPage({
             : "attendance"
           : requested;
 
-  const [campuses, calendars, registrations, attendanceHistory] = await Promise.all([
+  const [campuses, calendars, registrations, attendanceHistory, graphics] = await Promise.all([
     campusService.listCampuses(organization.id),
     eventService.listCalendars(organization.id),
     canViewRegistrations ? eventService.listRegistrations(organization.id, eventId) : Promise.resolve([]),
     canViewAttendance ? checkinService.attendanceByOccurrence(organization.id, eventId) : Promise.resolve([]),
+    canManage ? mediaService.listMediaAssets(organization.id, { collection: "event" }) : Promise.resolve([]),
   ]);
 
   const now = new Date();
@@ -279,6 +281,14 @@ export default async function EventDetailPage({
                 <ShareCard itemTitle={event.title} variants={[{ label: event.title, url: publicUrl }]} canNotify={canNotify} />
               </Card>
             )}
+
+            <Card padding="md">
+              <GraphicPicker
+                target={{ kind: "event", id: event.id }}
+                currentUrl={event.imageUrl}
+                assets={graphics.map((g) => ({ id: g.id, name: g.name, url: g.url }))}
+              />
+            </Card>
 
             <Card padding="md">
               <h2 className="mb-2 text-sm font-semibold text-ink">Status</h2>

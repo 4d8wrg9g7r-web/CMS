@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, FileText, Headphones, Lock, Trash2, Upload } from "lucide-react";
-import { parseSermonLinks, sermonService } from "@cms/database";
+import { mediaService, parseSermonLinks, sermonService } from "@cms/database";
 import { Card } from "../../../../components/ui/Card";
 import { EmptyState } from "../../../../components/ui/EmptyState";
+import { GraphicPicker } from "../../../../components/GraphicPicker";
 import { SermonDetailEditor } from "../../../../components/SermonDetailEditor";
 import { buttonClasses } from "../../../../components/ui/Button";
 import { canApp } from "../../../../lib/app-access";
@@ -45,6 +46,7 @@ export default async function SermonDetailPage({ params }: { params: Promise<{ s
   if (!sermon) notFound();
 
   const all = await sermonService.listSermons(organization.id, { includeArchived: true });
+  const graphics = canManage ? await mediaService.listMediaAssets(organization.id, { collection: "sermon" }) : [];
   const h = await headers();
   const host = h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
@@ -89,6 +91,16 @@ export default async function SermonDetailPage({ params }: { params: Promise<{ s
           <Card padding="md">
             <ShareCard itemTitle={sermon.title} variants={[{ label: sermon.title, url: publicUrl }]} canNotify={canNotify} />
           </Card>
+
+          {canManage && (
+            <Card padding="md">
+              <GraphicPicker
+                target={{ kind: "sermon", id: sermon.id }}
+                currentUrl={sermon.artworkUrl}
+                assets={graphics.map((g) => ({ id: g.id, name: g.name, url: g.url }))}
+              />
+            </Card>
+          )}
 
           <Card padding="md" data-section="sermon-audio">
             <h2 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink">

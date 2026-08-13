@@ -143,6 +143,11 @@ export async function updateEvent(organizationId: string, eventId: string, input
   return getEvent(organizationId, eventId);
 }
 
+export async function setEventImage(organizationId: string, eventId: string, imageUrl: string | null) {
+  const result = await tenantDb.event.updateMany({ where: { id: eventId, organizationId }, data: { imageUrl } });
+  return result.count > 0;
+}
+
 export async function setPublished(organizationId: string, eventId: string, isPublished: boolean) {
   const result = await tenantDb.event.updateMany({ where: { id: eventId, organizationId }, data: { isPublished } });
   return result.count > 0;
@@ -178,6 +183,7 @@ export interface PublicEvent {
   recurrenceUntil: Date | null;
   capacity: number | null;
   registeredCount: number;
+  imageUrl: string | null;
 }
 
 /**
@@ -204,6 +210,7 @@ export async function resolvePublicEvent(publicId: string): Promise<PublicEvent 
     recurrenceUntil: event.recurrenceUntil,
     capacity: event.capacity,
     registeredCount: event._count.registrations,
+    imageUrl: event.imageUrl,
   };
 }
 

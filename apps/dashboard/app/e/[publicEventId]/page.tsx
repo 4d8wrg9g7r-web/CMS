@@ -86,6 +86,15 @@ export default async function PublicEventPage({
   return (
     <div className="min-h-screen bg-surface-muted">
       <main className="mx-auto max-w-xl px-6 py-12">
+        {event.imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element -- church-managed graphic
+          <img
+            src={event.imageUrl}
+            alt=""
+            className="mb-5 aspect-video w-full rounded-2xl border border-border object-cover"
+            data-public-event-image
+          />
+        )}
         <h1 className="mb-2 text-2xl font-semibold tracking-tight text-ink">{event.title}</h1>
         <p className="mb-1 flex items-center gap-1.5 text-sm text-ink-secondary">
           <CalendarDays size={15} className="text-ink-muted" />

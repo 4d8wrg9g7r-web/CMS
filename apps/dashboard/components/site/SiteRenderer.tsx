@@ -231,7 +231,11 @@ function Section({
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {live.events.slice(0, section.limit).map((event) => (
-                <div key={event.id} className="rounded-xl border border-slate-200 p-5" data-live="event">
+                <div key={event.id} className="overflow-hidden rounded-xl border border-slate-200 p-5" data-live="event">
+                  {event.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- church-managed graphic
+                    <img src={event.imageUrl} alt="" className="-mx-5 -mt-5 mb-4 aspect-video w-[calc(100%+2.5rem)] max-w-none object-cover" data-live="event-image" loading="lazy" />
+                  ) : null}
                   <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: accent }}>
                     {event.when}
                   </p>
@@ -308,7 +312,11 @@ function Section({
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {shown.filter((s) => s.id !== featured?.id).map((sermon) => {
                 const card = (
-                  <div className="h-full rounded-xl border border-slate-200 bg-white p-5" data-live="sermon">
+                  <div className="h-full overflow-hidden rounded-xl border border-slate-200 bg-white p-5" data-live="sermon">
+                    {sermon.artworkUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- church-managed graphic
+                      <img src={sermon.artworkUrl} alt="" className="-mx-5 -mt-5 mb-4 aspect-video w-[calc(100%+2.5rem)] max-w-none object-cover" data-live="sermon-artwork" loading="lazy" />
+                    ) : null}
                     {sermon.series ? (
                       <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: accent }}>
                         {sermon.series}

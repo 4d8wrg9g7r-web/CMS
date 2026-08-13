@@ -8,7 +8,7 @@ import { parseSermonLinks, eventService, groupService, nextOccurrence, sermonSer
  */
 
 export interface SiteLiveContent {
-  events: { id: string; title: string; when: string; location: string | null }[];
+  events: { id: string; title: string; when: string; location: string | null; imageUrl: string | null }[];
   sermons: {
     id: string;
     title: string;
@@ -17,6 +17,7 @@ export interface SiteLiveContent {
     when: string;
     videoUrl: string | null;
     audioUrl: string | null;
+    artworkUrl: string | null;
     links: { label: string; url: string }[];
   }[];
   groups: { id: string; name: string; description: string | null }[];
@@ -42,6 +43,7 @@ export async function buildSiteLiveContent(organizationId: string, sections: Sit
       title: event.title,
       when: next.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
       location: event.location ?? null,
+      imageUrl: event.imageUrl ?? null,
     })),
     sermons: sermons.map((sermon) => ({
       id: sermon.id,
@@ -51,6 +53,7 @@ export async function buildSiteLiveContent(organizationId: string, sections: Sit
       when: sermon.preachedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
       videoUrl: sermon.videoUrl,
       audioUrl: sermon.audioUrl,
+      artworkUrl: sermon.artworkUrl,
       links: parseSermonLinks(sermon.links),
     })),
     groups: groups.map((group) => ({ id: group.id, name: group.name, description: group.description ?? null })),

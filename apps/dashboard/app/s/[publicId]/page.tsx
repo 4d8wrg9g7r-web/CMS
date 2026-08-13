@@ -21,6 +21,15 @@ export default async function PublicSermonPage({ params }: { params: Promise<{ p
       <main className="mx-auto max-w-2xl px-6 py-10">
         <p className="mb-6 text-sm font-semibold text-ink-secondary">{sermon.organization.name}</p>
 
+        {!embed && sermon.artworkUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- church-managed graphic
+          <img
+            src={sermon.artworkUrl}
+            alt=""
+            className="mb-6 aspect-video w-full rounded-2xl border border-border object-cover"
+            data-public-artwork
+          />
+        ) : null}
         {embed ? (
           <div className="mb-6 overflow-hidden rounded-2xl border border-border bg-black">
             <div className="aspect-video w-full">
