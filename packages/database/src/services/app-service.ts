@@ -115,6 +115,7 @@ export interface PublicApp {
   organizationName: string;
   publicSiteId: string;
   manifest: AppManifest;
+  chatSlowModeSeconds: number;
 }
 
 /** Public resolution for /a/<id>: enabled apps only; invalid stored manifests 404. */
@@ -131,5 +132,6 @@ export async function resolvePublicApp(publicAppId: string): Promise<PublicApp |
     organizationName: app.organization.name,
     publicSiteId: app.organization.publicSiteId,
     manifest: validated.manifest,
+    chatSlowModeSeconds: app.chatSlowModeSeconds,
   };
 }

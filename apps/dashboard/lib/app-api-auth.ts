@@ -17,11 +17,18 @@ export function bearerToken(req: Request): string {
   return header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
 }
 
+/** The web PWA's session cookie (same token the native app sends as Bearer). */
+function cookieToken(req: Request, publicAppId: string): string {
+  const cookie = req.headers.get("cookie") ?? "";
+  const match = cookie.match(new RegExp(`(?:^|;\\s*)app_session_${publicAppId}=([^;]+)`));
+  return match?.[1] ? decodeURIComponent(match[1]) : "";
+}
+
 /** Null when the app doesn't exist or isn't published (caller 404s). */
 export async function resolveAppRequest(req: Request, publicAppId: string): Promise<ResolvedAppRequest | null> {
   const app = await appService.resolvePublicApp(publicAppId);
   if (!app) return null;
-  const token = bearerToken(req);
+  const token = bearerToken(req) || cookieToken(req, publicAppId);
   const member = token ? await appMemberService.getSessionMember(app.organizationId, token) : null;
   return { app, member };
 }

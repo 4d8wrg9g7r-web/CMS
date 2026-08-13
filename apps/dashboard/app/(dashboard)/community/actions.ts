@@ -4,7 +4,7 @@ import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { after } from "next/server";
-import { appFeedService, appService, auditService } from "@cms/database";
+import { appFeedService, appService, auditService, livestreamChatService } from "@cms/database";
 import { getStorageProvider } from "@cms/storage";
 import { getCurrentOrganization, getCurrentUser } from "../../../lib/session";
 import { requireApp } from "../../../lib/app-access";
@@ -111,6 +111,75 @@ export async function setPostHiddenAction(postId: string, hidden: boolean): Prom
     action: hidden ? "app.post_hidden" : "app.post_unhidden",
     targetType: "AppPost",
     targetId: postId,
+  });
+  revalidatePath("/community");
+}
+
+// ---------------------------------------------------------------------------
+// Livestream chat: roles, slow mode, moderation (docs/domain/app.md)
+// ---------------------------------------------------------------------------
+
+export async function assignChatRoleAction(formData: FormData): Promise<void> {
+  const organization = await getCurrentOrganization();
+  if (!organization) return;
+  await requireApp(organization.id, "app.manage");
+  const personId = String(formData.get("personId") ?? "");
+  const role = String(formData.get("role") ?? "");
+  if (!personId || (role !== "HOST" && role !== "MODERATOR")) throw new Error("Pick a person and a role.");
+  await livestreamChatService.assignChatRole(organization.id, personId, role);
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: "livestream_chat.role_assigned",
+    targetType: "Person",
+    targetId: personId,
+    metadata: { role },
+  });
+  revalidatePath("/community");
+}
+
+export async function removeChatRoleAction(personId: string): Promise<void> {
+  const organization = await getCurrentOrganization();
+  if (!organization) return;
+  await requireApp(organization.id, "app.manage");
+  await livestreamChatService.removeChatRole(organization.id, personId);
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: "livestream_chat.role_removed",
+    targetType: "Person",
+    targetId: personId,
+  });
+  revalidatePath("/community");
+}
+
+export async function setChatSlowModeAction(formData: FormData): Promise<void> {
+  const organization = await getCurrentOrganization();
+  if (!organization) return;
+  await requireApp(organization.id, "app.manage");
+  const seconds = Number(formData.get("seconds") ?? 0);
+  await livestreamChatService.setChatSlowMode(organization.id, Number.isFinite(seconds) ? seconds : 0);
+  revalidatePath("/community");
+}
+
+export async function setChatMessageHiddenAction(messageId: string, hidden: boolean): Promise<void> {
+  const organization = await getCurrentOrganization();
+  if (!organization) return;
+  await requireApp(organization.id, "app.manage");
+  await livestreamChatService.setChatMessageHidden(organization.id, messageId, hidden);
+  revalidatePath("/community");
+}
+
+/** Post into the livestream chat as the church (Team badge). */
+export async function postStaffChatMessageAction(formData: FormData): Promise<void> {
+  const organization = await getCurrentOrganization();
+  if (!organization) return;
+  await requireApp(organization.id, "app.manage");
+  await livestreamChatService.postStaffChatMessage(organization.id, {
+    displayName: organization.name,
+    body: String(formData.get("body") ?? ""),
   });
   revalidatePath("/community");
 }

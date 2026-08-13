@@ -95,6 +95,8 @@ model Organization {
   sermons                Sermon[]
   sermonDocuments SermonDocument[]
   mediaAssets            MediaAsset[]
+  livestreamChatMessages LivestreamChatMessage[]
+  livestreamChatRoles    LivestreamChatRole[]
   churchApp              ChurchApp?
   appPosts               AppPost[]
   appPostLikes           AppPostLike[]
@@ -518,6 +520,8 @@ model Person {
   eventRegistrations EventRegistration[]
   messages          Message[]
   checkIns          CheckIn[]
+  livestreamChatMessages LivestreamChatMessage[]
+  livestreamChatRoles    LivestreamChatRole[]
   servingAssignments ServingAssignment[]
   qualifications    PersonQualification[]
   files             File[]
@@ -783,6 +787,43 @@ model SermonDocument {
   @@index([sermonId])
 }
 
+enum LivestreamChatRoleKind {
+  HOST
+  MODERATOR
+}
+
+/// Livestream chat (docs/domain/app.md): messages during services. Members
+/// post from the app's livestream tab; staff can post from the dashboard
+/// (personId null, displayName carries the name). Hidden = moderated out.
+model LivestreamChatMessage {
+  id             String    @id @default(cuid())
+  organizationId String
+  personId       String?
+  displayName    String
+  body           String
+  hiddenAt       DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  person       Person?      @relation(fields: [personId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+}
+
+/// Assignable chat roles: HOST (badge + moderation) and MODERATOR (moderation).
+model LivestreamChatRole {
+  id             String                 @id @default(cuid())
+  organizationId String
+  personId       String
+  role           LivestreamChatRoleKind
+  createdAt      DateTime               @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, personId])
+}
+
 /// Media library graphics (public storage), organized into collections —
 /// "event" and "sermon" — and attached to items via Event.imageUrl /
 /// Sermon.artworkUrl.
@@ -815,6 +856,9 @@ model ChurchApp {
   // Discoverable in the container app's "find your church" directory. Direct
   // links and QR codes keep working when false — this only affects search.
   listedInDirectory Boolean @default(true)
+  // Livestream chat slow mode: members without a chat role wait this many
+  // seconds between messages (0 = off).
+  chatSlowModeSeconds Int @default(0)
   config         Json
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt

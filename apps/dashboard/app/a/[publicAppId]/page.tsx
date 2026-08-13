@@ -8,6 +8,7 @@ import { AppFeed } from "../../../components/church-app/AppFeed";
 import { AppScreen } from "../../../components/church-app/AppScreen";
 import { CampaignCard } from "../../../components/church-app/CampaignCard";
 import { GiveOnlinePanel } from "../../../components/church-app/GiveOnlinePanel";
+import { LivestreamChat } from "../../../components/church-app/LivestreamChat";
 import { MyGivingPanel } from "../../../components/church-app/MyGivingPanel";
 import { buildAppContent } from "../../../lib/church-app-content";
 import { webPushPublicKey } from "../../../lib/app-push";
@@ -115,6 +116,9 @@ export default async function PublicAppPage({ params, searchParams }: Props) {
         activeIndex={activeIndex}
         tabHref={(i) => `/a/${publicAppId}?tab=${i}`}
         myGroupsNav={myGroupsNav}
+        livestreamChat={
+          <LivestreamChat publicAppId={publicAppId} accent={app.manifest.themeColor} signedIn={Boolean(member)} />
+        }
         givingPanel={
           (givingLive && onlineFunds.length > 0) || campaigns.length > 0 ? (
             <>

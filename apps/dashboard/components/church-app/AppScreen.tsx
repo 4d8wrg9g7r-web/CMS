@@ -179,6 +179,7 @@ export function AppScreen({
   homeFeed,
   myGroupsNav,
   givingPanel,
+  livestreamChat,
 }: {
   manifest: AppManifest;
   organizationName: string;
@@ -194,6 +195,8 @@ export function AppScreen({
   myGroupsNav?: React.ReactNode;
   /** In-app giving panel (Stripe); when set it replaces the static giving-link screen. */
   givingPanel?: React.ReactNode;
+  /** Live chat panel under the Livestream tab (public mode only). */
+  livestreamChat?: React.ReactNode;
 }) {
   const accent = manifest.themeColor;
   const active = manifest.tabs[activeIndex] ?? manifest.tabs[0]!;
@@ -393,6 +396,7 @@ export function AppScreen({
             >
               Watch on the streaming site <ExternalLink size={14} />
             </a>
+            {livestreamChat}
           </div>
         );
       }

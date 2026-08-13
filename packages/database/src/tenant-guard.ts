@@ -36,6 +36,8 @@ export const TENANT_SCOPED_MODELS = new Set([
   "Sermon",
   "SermonDocument",
   "MediaAsset",
+  "LivestreamChatMessage",
+  "LivestreamChatRole",
   "ChurchApp",
   "AppPost",
   "AppPostLike",
