@@ -477,6 +477,9 @@ export default async function PersonDetailPage({
                   <ReadField label="Email" value={person.email} />
                   <ReadField label="Phone" value={person.phone} />
                   <ReadField label="Preferred name" value={person.preferredName} />
+                  <ReadField label="Middle name" value={person.middleName} />
+                  <ReadField label="Suffix" value={person.suffix} />
+                  <ReadField label="Gender" value={person.gender} />
                   <ReadField label="Home campus" value={person.campus?.name} />
                   <ReadField label="Tags" value={person.tags.join(", ") || null} />
                   <ReadField label="Notes" value={person.notes} />

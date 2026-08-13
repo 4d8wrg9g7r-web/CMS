@@ -383,6 +383,10 @@ enum HouseholdRole {
   ADULT
   CHILD
   OTHER
+  HEAD_OF_HOUSEHOLD
+  FATHER
+  MOTHER
+  GRANDPARENT
 }
 
 enum PersonRelationshipType {
@@ -479,8 +483,11 @@ model Person {
   campusId       String?
 
   firstName     String
+  middleName    String?
   lastName      String
+  suffix        String?
   preferredName String?
+  gender        String?
   email         String?
   phone         String?
   // Member-facing avatar (public storage URL) — uploadable from the church app.

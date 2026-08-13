@@ -147,6 +147,31 @@ const HEADER_ALIASES: Record<string, MappingTarget> = {
   lname: "lastName",
   surname: "lastName",
   familyname: "lastName",
+  middlename: "middleName",
+  middle: "middleName",
+  middleinitial: "middleName",
+  mname: "middleName",
+  suffix: "suffix",
+  namesuffix: "suffix",
+  generation: "suffix",
+  preferredname: "preferredName",
+  preferred: "preferredName",
+  nickname: "preferredName",
+  goesby: "preferredName",
+  knownas: "preferredName",
+  dateofbirth: "dateOfBirth",
+  dob: "dateOfBirth",
+  birthdate: "dateOfBirth",
+  birthday: "dateOfBirth",
+  borndate: "dateOfBirth",
+  gender: "gender",
+  sex: "gender",
+  familyposition: "familyPosition",
+  familyrole: "familyPosition",
+  householdposition: "familyPosition",
+  householdrole: "familyPosition",
+  position: "familyPosition",
+  role: "familyPosition",
   name: "fullName",
   fullname: "fullName",
   personname: "fullName",
@@ -197,9 +222,14 @@ export function guessMappingColumns(headers: string[]): MappingColumn[] {
   const suggestedKeys = new Set<string>();
   const guesses: MappingColumn[] = headers.map((header, i) => {
     const target = HEADER_ALIASES[normalized[i] ?? ""] ?? "ignore";
-    if (target !== "ignore" && !taken.has(target)) {
-      taken.add(target);
-      return { sourceHeader: header.trim(), target, nameOrder: target === "fullName" ? "firstLast" : null };
+    if (target !== "ignore") {
+      if (!taken.has(target)) {
+        taken.add(target);
+        return { sourceHeader: header.trim(), target, nameOrder: target === "fullName" ? "firstLast" : null };
+      }
+      // A second column for a taken built-in is a duplicate — don't resurrect
+      // it as a custom field via the catalog.
+      return { sourceHeader: header.trim(), target: "ignore", nameOrder: null };
     }
     const suggested = matchSuggestedField(header);
     if (suggested && !suggestedKeys.has(suggested.key)) {
@@ -397,7 +427,22 @@ export function applyMappingPlan(records: string[][], plan: MappingPlan): string
       .map((t) => t.trim())
       .filter(Boolean)
       .join(";");
-    out.push([firstName, lastName, get(record, "email"), get(record, "phone"), status, tags, get(record, "campus")]);
+    // Order MUST match IMPORT_HEADERS.
+    out.push([
+      firstName,
+      get(record, "middleName"),
+      lastName,
+      get(record, "suffix"),
+      get(record, "preferredName"),
+      get(record, "email"),
+      get(record, "phone"),
+      get(record, "dateOfBirth"),
+      get(record, "gender"),
+      get(record, "familyPosition"),
+      status,
+      tags,
+      get(record, "campus"),
+    ]);
   }
   return out;
 }

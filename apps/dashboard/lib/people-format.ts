@@ -46,7 +46,11 @@ export function relationshipTypeLabel(type: PersonRelationshipType): string {
 }
 
 export const HOUSEHOLD_ROLE_OPTIONS: { value: HouseholdRole; label: string }[] = [
+  { value: "HEAD_OF_HOUSEHOLD", label: "Head of household" },
+  { value: "FATHER", label: "Father" },
+  { value: "MOTHER", label: "Mother" },
   { value: "ADULT", label: "Adult" },
+  { value: "GRANDPARENT", label: "Grandparent" },
   { value: "CHILD", label: "Child" },
   { value: "OTHER", label: "Other" },
 ];

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapImportRows, parseCsv } from "../people/import";
+import { mapImportRows, parseCsv, parseFamilyPosition, parseImportDate } from "../people/import";
 
 const CAMPUSES = [
   { id: "c1", name: "Main Campus" },
@@ -47,9 +47,15 @@ describe("mapImportRows", () => {
       {
         line: 2,
         firstName: "Dana",
+        middleName: null,
         lastName: "Whitfield",
+        suffix: null,
+        preferredName: null,
         email: "dana@example.org",
         phone: "555-1234",
+        birthdate: null,
+        gender: null,
+        householdRole: null,
         membershipStatus: "MEMBER",
         tags: ["greeter", "musician"],
         campusId: "c2",
@@ -108,5 +114,70 @@ describe("mapImportRows", () => {
   it("reports an empty file", () => {
     const { errors } = mapImportRows(parseCsv(""), []);
     expect(errors).toEqual([{ line: 1, message: "The file is empty." }]);
+  });
+});
+
+describe("new default fields (middle name, suffix, preferred, DOB, gender, family position)", () => {
+  const FULL_HEADER =
+    "firstName,middleName,lastName,suffix,preferredName,email,phone,dateOfBirth,gender,familyPosition,membershipStatus,tags,campus";
+
+  it("maps every new column onto the row", () => {
+    const records = parseCsv(
+      `${FULL_HEADER}\nDana,Rae,Whitfield,Jr.,Dee,d@example.org,555-1234,1990-05-17,Female,Mother,member,,`,
+    );
+    const { rows, errors } = mapImportRows(records, []);
+    expect(errors).toEqual([]);
+    expect(rows[0]!).toMatchObject({
+      middleName: "Rae",
+      suffix: "Jr.",
+      preferredName: "Dee",
+      gender: "Female",
+      householdRole: "MOTHER",
+    });
+    expect(rows[0]!.birthdate?.toISOString().slice(0, 10)).toBe("1990-05-17");
+  });
+
+  it("reports an unreadable dateOfBirth as a row error", () => {
+    const records = parseCsv(`${FULL_HEADER}\nDana,,Whitfield,,,,,not-a-date,,,,,`);
+    const { rows, errors } = mapImportRows(records, []);
+    expect(rows).toEqual([]);
+    expect(errors[0]!.message).toContain('Unreadable dateOfBirth "not-a-date"');
+  });
+
+  it("reports an unknown familyPosition with the accepted words", () => {
+    const records = parseCsv(`${FULL_HEADER}\nDana,,Whitfield,,,,,,,cousin twice removed,,,`);
+    const { rows, errors } = mapImportRows(records, []);
+    expect(rows).toEqual([]);
+    expect(errors[0]!.message).toContain('Unknown familyPosition "cousin twice removed"');
+  });
+});
+
+describe("parseFamilyPosition", () => {
+  it("matches the words churches actually type", () => {
+    expect(parseFamilyPosition("Father")).toBe("FATHER");
+    expect(parseFamilyPosition("dad")).toBe("FATHER");
+    expect(parseFamilyPosition("Mom")).toBe("MOTHER");
+    expect(parseFamilyPosition("Head of Household")).toBe("HEAD_OF_HOUSEHOLD");
+    expect(parseFamilyPosition("HOH")).toBe("HEAD_OF_HOUSEHOLD");
+    expect(parseFamilyPosition("daughter")).toBe("CHILD");
+    expect(parseFamilyPosition("Grandma")).toBe("GRANDPARENT");
+    expect(parseFamilyPosition("spouse")).toBe("ADULT");
+    expect(parseFamilyPosition("HEAD_OF_HOUSEHOLD")).toBe("HEAD_OF_HOUSEHOLD");
+    expect(parseFamilyPosition("neighbor")).toBeNull();
+  });
+});
+
+describe("parseImportDate", () => {
+  it("accepts ISO, US slash/dash, and written-month dates at UTC noon", () => {
+    expect(parseImportDate("1990-05-17")?.toISOString()).toBe("1990-05-17T12:00:00.000Z");
+    expect(parseImportDate("5/17/1990")?.toISOString().slice(0, 10)).toBe("1990-05-17");
+    expect(parseImportDate("05-17-1990")?.toISOString().slice(0, 10)).toBe("1990-05-17");
+    expect(parseImportDate("May 17, 1990")?.toISOString().slice(0, 10)).toBe("1990-05-17");
+  });
+
+  it("rejects garbage and calendar rollovers", () => {
+    expect(parseImportDate("not-a-date")).toBeNull();
+    expect(parseImportDate("2020-02-30")).toBeNull();
+    expect(parseImportDate("13/45/1990")).toBeNull();
   });
 });

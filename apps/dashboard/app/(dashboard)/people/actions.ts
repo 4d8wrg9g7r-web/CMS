@@ -62,8 +62,11 @@ export async function createPersonAction(formData: FormData) {
 
   const person = await peopleService.createPerson(organization.id, {
     firstName,
+    middleName: optionalStr(formData, "middleName"),
     lastName,
+    suffix: optionalStr(formData, "suffix"),
     preferredName: optionalStr(formData, "preferredName"),
+    gender: optionalStr(formData, "gender"),
     email: optionalStr(formData, "email"),
     phone: optionalStr(formData, "phone"),
     membershipStatus: (str(formData, "membershipStatus") || "VISITOR") as MembershipStatus,
@@ -106,8 +109,11 @@ export async function updatePersonAction(personId: string, formData: FormData) {
 
   const updated = await peopleService.updatePerson(organization.id, personId, {
     firstName,
+    middleName: optionalStr(formData, "middleName"),
     lastName,
+    suffix: optionalStr(formData, "suffix"),
     preferredName: optionalStr(formData, "preferredName"),
+    gender: optionalStr(formData, "gender"),
     email: optionalStr(formData, "email"),
     phone: optionalStr(formData, "phone"),
     membershipStatus: (str(formData, "membershipStatus") || "VISITOR") as MembershipStatus,

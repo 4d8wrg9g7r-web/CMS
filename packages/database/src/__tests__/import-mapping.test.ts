@@ -223,31 +223,45 @@ describe("applyMappingPlan", () => {
 
   it("rewrites records into the canonical import shape", () => {
     const out = applyMappingPlan(records, validated());
-    expect(out[0]).toEqual(["firstName", "lastName", "email", "phone", "membershipStatus", "tags", "campus"]);
-    expect(out[1]).toEqual(["Dana", "Whitfield", "dana@example.org", "555-0101", "ATTENDER", "", "North"]);
+    expect(out[0]).toEqual([
+      "firstName",
+      "middleName",
+      "lastName",
+      "suffix",
+      "preferredName",
+      "email",
+      "phone",
+      "dateOfBirth",
+      "gender",
+      "familyPosition",
+      "membershipStatus",
+      "tags",
+      "campus",
+    ]);
+    expect(out[1]).toEqual(["Dana", "", "Whitfield", "", "", "dana@example.org", "555-0101", "", "", "", "ATTENDER", "", "North"]);
   });
 
   it("splits 'Last, First' on the comma regardless of nameOrder", () => {
     const out = applyMappingPlan(records, validated());
-    expect(out[2]!.slice(0, 2)).toEqual(["Sam", "Ortiz"]);
+    expect([out[2]![0], out[2]![2]]).toEqual(["Sam", "Ortiz"]);
   });
 
   it("canonicalizes statuses that already match the enum, any casing", () => {
     const out = applyMappingPlan(records, validated());
-    expect(out[2]![4]).toBe("MEMBER");
+    expect(out[2]![10]).toBe("MEMBER");
   });
 
   it("passes unmapped status values through for downstream row errors", () => {
     const rows = [HEADERS, ["Dana Whitfield", "", "", "Sunday regular", ""]];
     const out = applyMappingPlan(rows, validated());
-    expect(out[1]![4]).toBe("Sunday regular");
+    expect(out[1]![10]).toBe("Sunday regular");
     const mapped = mapImportRows(out, []);
     expect(mapped.errors[0]!.message).toContain('Unknown membershipStatus "Sunday regular"');
   });
 
   it("single-word full names become a missing-lastName row error downstream", () => {
     const out = applyMappingPlan(records, validated());
-    expect(out[3]!.slice(0, 2)).toEqual(["Cher", ""]);
+    expect([out[3]![0], out[3]![2]]).toEqual(["Cher", ""]);
     const mapped = mapImportRows(out, []);
     expect(mapped.errors.some((e) => e.line === 4 && e.message.includes("required"))).toBe(true);
   });
@@ -270,7 +284,7 @@ describe("applyMappingPlan", () => {
     );
     if (!result.ok) throw new Error("plan invalid");
     const out = applyMappingPlan([HEADERS, ["Whitfield Dana Rae", "", "", "", ""]], result.plan);
-    expect(out[1]!.slice(0, 2)).toEqual(["Dana Rae", "Whitfield"]);
+    expect([out[1]![0], out[1]![2]]).toEqual(["Dana Rae", "Whitfield"]);
   });
 
   it("normalizes tag delimiters to ';'", () => {
@@ -286,6 +300,6 @@ describe("applyMappingPlan", () => {
     );
     if (!result.ok) throw new Error("plan invalid");
     const out = applyMappingPlan([HEADERS, ["Dana Whitfield", "", "", "", "youth, worship ,  greeter"]], result.plan);
-    expect(out[1]![5]).toBe("youth;worship;greeter");
+    expect(out[1]![11]).toBe("youth;worship;greeter");
   });
 });

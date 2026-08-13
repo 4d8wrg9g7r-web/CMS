@@ -4,8 +4,11 @@ import { MEMBERSHIP_STATUS_OPTIONS } from "../lib/people-format";
 
 interface PersonFormValues {
   firstName?: string;
+  middleName?: string | null;
   lastName?: string;
+  suffix?: string | null;
   preferredName?: string | null;
+  gender?: string | null;
   email?: string | null;
   phone?: string | null;
   membershipStatus?: string;
@@ -44,8 +47,20 @@ export function PersonForm({
         <Input name="lastName" required defaultValue={person?.lastName ?? ""} className="mt-1" />
       </label>
       <label className="text-sm text-ink-secondary">
+        Middle name
+        <Input name="middleName" defaultValue={person?.middleName ?? ""} className="mt-1" />
+      </label>
+      <label className="text-sm text-ink-secondary">
+        Suffix
+        <Input name="suffix" defaultValue={person?.suffix ?? ""} className="mt-1" placeholder="Jr., Sr., III" />
+      </label>
+      <label className="text-sm text-ink-secondary">
         Preferred name
         <Input name="preferredName" defaultValue={person?.preferredName ?? ""} className="mt-1" />
+      </label>
+      <label className="text-sm text-ink-secondary">
+        Gender
+        <Input name="gender" defaultValue={person?.gender ?? ""} className="mt-1" />
       </label>
       <label className="text-sm text-ink-secondary">
         Membership status

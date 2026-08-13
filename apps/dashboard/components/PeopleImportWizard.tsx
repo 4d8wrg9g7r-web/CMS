@@ -36,10 +36,16 @@ type Question =
 
 const TARGET_OPTIONS: { value: MappingTarget; label: string; hint?: string }[] = [
   { value: "firstName", label: "First name" },
+  { value: "middleName", label: "Middle name" },
   { value: "lastName", label: "Last name" },
+  { value: "suffix", label: "Suffix", hint: "Jr., Sr., III…" },
+  { value: "preferredName", label: "Preferred name", hint: "The name they go by" },
   { value: "fullName", label: "Full name", hint: "We’ll split it into first + last" },
   { value: "email", label: "Email" },
   { value: "phone", label: "Phone" },
+  { value: "dateOfBirth", label: "Date of birth" },
+  { value: "gender", label: "Gender" },
+  { value: "familyPosition", label: "Family position", hint: "Father, mother, head of household, child…" },
   { value: "membershipStatus", label: "Membership status" },
   { value: "tags", label: "Tags" },
   { value: "campus", label: "Campus" },

@@ -16,8 +16,11 @@ import { emit } from "./outbox-service";
 
 export interface PersonInput {
   firstName: string;
+  middleName?: string | null;
   lastName: string;
+  suffix?: string | null;
   preferredName?: string | null;
+  gender?: string | null;
   email?: string | null;
   phone?: string | null;
   membershipStatus?: MembershipStatus;
@@ -105,8 +108,11 @@ export async function createPerson(organizationId: string, input: PersonInput) {
       data: {
         organizationId,
         firstName: input.firstName.trim(),
+        middleName: input.middleName?.trim() || null,
         lastName: input.lastName.trim(),
+        suffix: input.suffix?.trim() || null,
         preferredName: input.preferredName?.trim() || null,
+        gender: input.gender?.trim() || null,
         email: input.email?.trim() || null,
         phone: input.phone?.trim() || null,
         membershipStatus: input.membershipStatus ?? MembershipStatus.VISITOR,
@@ -139,7 +145,10 @@ export async function updatePerson(organizationId: string, personId: string, inp
   const data: Prisma.PersonUncheckedUpdateManyInput = {};
   if (input.firstName !== undefined) data.firstName = input.firstName.trim();
   if (input.lastName !== undefined) data.lastName = input.lastName.trim();
+  if (input.middleName !== undefined) data.middleName = input.middleName?.trim() || null;
+  if (input.suffix !== undefined) data.suffix = input.suffix?.trim() || null;
   if (input.preferredName !== undefined) data.preferredName = input.preferredName?.trim() || null;
+  if (input.gender !== undefined) data.gender = input.gender?.trim() || null;
   if (input.email !== undefined) data.email = input.email?.trim() || null;
   if (input.phone !== undefined) data.phone = input.phone?.trim() || null;
   if (input.membershipStatus !== undefined) data.membershipStatus = input.membershipStatus;
@@ -297,6 +306,12 @@ export async function importPeople(
         organizationId,
         firstName: r.firstName,
         lastName: r.lastName,
+        middleName: r.middleName,
+        suffix: r.suffix,
+        preferredName: r.preferredName,
+        birthdate: r.birthdate,
+        gender: r.gender,
+        householdRole: r.householdRole,
         email: r.email,
         phone: r.phone,
         membershipStatus: r.membershipStatus,

@@ -76,9 +76,11 @@ describe("guessMappingColumns with the catalog", () => {
     expect(guesses[2]).toMatchObject({ target: "custom", customField: { key: "home-phone" } });
   });
 
-  it("does not propose the same catalog field for two columns", () => {
+  it("does not propose the same field for two columns", () => {
+    // Both alias the built-in dateOfBirth; the duplicate is ignored, not
+    // resurrected as a catalog custom field.
     const guesses = guessMappingColumns(["DOB", "Birthdate"]);
-    expect(guesses[0]!.target).toBe("custom");
+    expect(guesses[0]!.target).toBe("dateOfBirth");
     expect(guesses[1]!.target).toBe("ignore");
   });
 });
