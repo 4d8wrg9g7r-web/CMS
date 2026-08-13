@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, FileText, Headphones, Lock, Trash2, Upload } from "lucide-react";
-import { mediaService, parseSermonLinks, sermonService } from "@cms/database";
+import { mediaJobService, mediaService, parseSermonLinks, sermonService } from "@cms/database";
 import { Card } from "../../../../components/ui/Card";
 import { EmptyState } from "../../../../components/ui/EmptyState";
 import { GraphicPicker } from "../../../../components/GraphicPicker";
 import { SermonDetailEditor } from "../../../../components/SermonDetailEditor";
+import { SermonVideoCard } from "../../../../components/SermonVideoCard";
 import { buttonClasses } from "../../../../components/ui/Button";
 import { canApp } from "../../../../lib/app-access";
 import { ShareCard } from "../../../../components/ShareCard";
@@ -47,6 +48,7 @@ export default async function SermonDetailPage({ params }: { params: Promise<{ s
 
   const all = await sermonService.listSermons(organization.id, { includeArchived: true });
   const graphics = canManage ? await mediaService.listMediaAssets(organization.id, { collection: "sermon" }) : [];
+  const mediaJob = await mediaJobService.latestJobForSermon(organization.id, sermon.id);
   const h = await headers();
   const host = h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
@@ -98,6 +100,16 @@ export default async function SermonDetailPage({ params }: { params: Promise<{ s
                 target={{ kind: "sermon", id: sermon.id }}
                 currentUrl={sermon.artworkUrl}
                 assets={graphics.map((g) => ({ id: g.id, name: g.name, url: g.url }))}
+              />
+            </Card>
+          )}
+
+          {canManage && (
+            <Card padding="md">
+              <SermonVideoCard
+                sermonId={sermon.id}
+                videoFileUrl={sermon.videoFileUrl}
+                audioPending={!sermon.audioUrl && (mediaJob?.status === "PENDING" || mediaJob?.status === "RUNNING")}
               />
             </Card>
           )}

@@ -16,6 +16,7 @@ export interface SiteLiveContent {
     series: string | null;
     when: string;
     videoUrl: string | null;
+    videoFileUrl: string | null;
     audioUrl: string | null;
     artworkUrl: string | null;
     links: { label: string; url: string }[];
@@ -52,6 +53,7 @@ export async function buildSiteLiveContent(organizationId: string, sections: Sit
       series: sermon.series,
       when: sermon.preachedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
       videoUrl: sermon.videoUrl,
+      videoFileUrl: sermon.videoFileUrl,
       audioUrl: sermon.audioUrl,
       artworkUrl: sermon.artworkUrl,
       links: parseSermonLinks(sermon.links),

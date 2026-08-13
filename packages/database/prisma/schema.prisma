@@ -98,6 +98,7 @@ model Organization {
   livestreamChatMessages LivestreamChatMessage[]
   livestreamChatRoles    LivestreamChatRole[]
   livestreamConfig       LivestreamConfig?
+  mediaJobs              MediaJob[]
   churchApp              ChurchApp?
   appPosts               AppPost[]
   appPostLikes           AppPostLike[]
@@ -755,6 +756,9 @@ model Sermon {
   videoUrl       String?
   /// Direct audio file (public storage) for audio-only listeners.
   audioUrl       String?
+  /// Directly uploaded video file (own storage) — self-hosted alternative to
+  /// the external videoUrl embed.
+  videoFileUrl   String?
   /// Sermon graphic from the media library (public storage).
   artworkUrl     String?
   /// Custom links [{label,url}] — validated in the service, max 10, http(s) only.
@@ -850,6 +854,28 @@ model LivestreamChatRole {
   person       Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, personId])
+}
+
+/// Queue for the self-hosted media worker (workers/media-worker): ffmpeg jobs
+/// like extracting a sermon's audio track from an uploaded video. The worker
+/// polls PENDING rows with SKIP LOCKED; failures keep the error for the
+/// dashboard to surface.
+model MediaJob {
+  id             String   @id @default(cuid())
+  organizationId String
+  sermonId       String
+  kind           String
+  status         String   @default("PENDING")
+  sourceUrl      String
+  error          String?
+  attempts       Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([organizationId])
 }
 
 /// Media library graphics (public storage), organized into collections —

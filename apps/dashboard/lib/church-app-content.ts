@@ -45,6 +45,7 @@ export async function buildAppContent(organizationId: string): Promise<AppConten
       passage: sermon.passage,
       when: sermon.preachedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
       videoUrl: sermon.videoUrl,
+      videoFileUrl: sermon.videoFileUrl,
       audioUrl: sermon.audioUrl,
       artworkUrl: sermon.artworkUrl,
       links: parseSermonLinks(sermon.links),

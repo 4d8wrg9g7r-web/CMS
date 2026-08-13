@@ -228,3 +228,54 @@ export async function removeSermonAudioAction(sermonId: string): Promise<void> {
   await sermonService.setSermonMedia(organization.id, sermonId, { audioUrl: null });
   revalidatePath(`/sermons/${sermonId}`);
 }
+
+// ---------------------------------------------------------------------------
+// Self-hosted video (docs/domain/app.md "Self-hosted media")
+// ---------------------------------------------------------------------------
+
+import { mediaJobService } from "@cms/database";
+
+/**
+ * Attach an uploaded video file to the sermon and queue the media worker's
+ * audio extraction (it only fills audioUrl when the sermon has none, so a
+ * manually uploaded audio file is never clobbered).
+ */
+export async function attachSermonVideoAction(sermonId: string, url: string): Promise<void> {
+  const organization = await getCurrentOrganization();
+  if (!organization) return;
+  await requireApp(organization.id, "sermon.manage");
+  const clean = url.trim();
+  if (!/^https?:\/\//.test(clean) || clean.length > 1000) throw new Error("Bad video URL.");
+
+  const updated = await sermonService.setSermonMedia(organization.id, sermonId, { videoFileUrl: clean });
+  if (!updated) throw new Error("Sermon not found.");
+  await mediaJobService.queueMediaJob(organization.id, { sermonId, kind: "EXTRACT_AUDIO", sourceUrl: clean });
+
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: "sermon.video_uploaded",
+    targetType: "Sermon",
+    targetId: sermonId,
+  });
+  revalidatePath(`/sermons/${sermonId}`);
+  revalidatePath("/sermons");
+}
+
+export async function removeSermonVideoAction(sermonId: string): Promise<void> {
+  const organization = await getCurrentOrganization();
+  if (!organization) return;
+  await requireApp(organization.id, "sermon.manage");
+  await sermonService.setSermonMedia(organization.id, sermonId, { videoFileUrl: null });
+  await mediaJobService.cancelJobsForSermon(organization.id, sermonId);
+  const actor = await getCurrentUser();
+  await auditService.recordAuditEvent({
+    organizationId: organization.id,
+    actorUserId: actor?.id,
+    action: "sermon.video_removed",
+    targetType: "Sermon",
+    targetId: sermonId,
+  });
+  revalidatePath(`/sermons/${sermonId}`);
+}

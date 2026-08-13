@@ -119,11 +119,12 @@ export async function archiveSermon(organizationId: string, sermonId: string) {
 export async function setSermonMedia(
   organizationId: string,
   sermonId: string,
-  media: { audioUrl?: string | null; artworkUrl?: string | null }
+  media: { audioUrl?: string | null; artworkUrl?: string | null; videoFileUrl?: string | null }
 ) {
-  const data: { audioUrl?: string | null; artworkUrl?: string | null } = {};
+  const data: { audioUrl?: string | null; artworkUrl?: string | null; videoFileUrl?: string | null } = {};
   if ("audioUrl" in media) data.audioUrl = media.audioUrl;
   if ("artworkUrl" in media) data.artworkUrl = media.artworkUrl;
+  if ("videoFileUrl" in media) data.videoFileUrl = media.videoFileUrl;
   const result = await tenantDb.sermon.updateMany({ where: { id: sermonId, organizationId }, data });
   return result.count > 0;
 }

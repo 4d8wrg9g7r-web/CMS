@@ -255,8 +255,8 @@ function Section({
     case "sermons": {
       const shown = live.sermons.slice(0, section.limit);
       // The newest embeddable message plays inline; the rest stay as cards.
-      const featured = shown.find((s) => videoEmbedUrl(s.videoUrl));
-      const featuredEmbed = featured ? videoEmbedUrl(featured.videoUrl) : null;
+      const featured = shown.find((s) => s.videoFileUrl || videoEmbedUrl(s.videoUrl));
+      const featuredEmbed = featured && !featured.videoFileUrl ? videoEmbedUrl(featured.videoUrl) : null;
       return (
         <SectionShell tone="muted">
           <SectionTitle editIndex={editIndex}>{section.title}</SectionTitle>
@@ -264,9 +264,13 @@ function Section({
             <p className="text-sm text-slate-500">Messages will appear here soon.</p>
           ) : (
             <>
-              {featured && featuredEmbed ? (
+              {featured && (featuredEmbed || featured.videoFileUrl) ? (
                 <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white" data-live="sermon-embed">
                   <div className="aspect-video w-full">
+                    {featured.videoFileUrl ? (
+                      <video controls preload="metadata" src={featured.videoFileUrl} className="h-full w-full bg-black" data-live="sermon-video-file" />
+                    ) : null}
+                    {featuredEmbed ? (
                     <iframe
                       src={featuredEmbed}
                       title={featured.title}
@@ -276,6 +280,7 @@ function Section({
                       allowFullScreen
                       referrerPolicy="strict-origin-when-cross-origin"
                     />
+                    ) : null}
                   </div>
                   <div className="px-5 py-4">
                     {featured.series ? (

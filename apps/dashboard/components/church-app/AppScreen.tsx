@@ -39,6 +39,7 @@ export interface AppSermonItem {
   passage: string | null;
   when: string;
   videoUrl: string | null;
+  videoFileUrl: string | null;
   audioUrl: string | null;
   artworkUrl: string | null;
   links: { label: string; url: string }[];
@@ -140,7 +141,10 @@ function SermonCard({ sermon, accent }: { sermon: AppSermonItem; accent: string 
       <p className="text-sm text-neutral-600">
         {[sermon.speaker, sermon.passage].filter(Boolean).join(" · ") || " "}
       </p>
-      {sermon.videoUrl && (
+      {sermon.videoFileUrl && (
+        <video controls preload="metadata" src={sermon.videoFileUrl} className="mt-2 w-full rounded-lg bg-black" data-sermon-video />
+      )}
+      {sermon.videoUrl && !sermon.videoFileUrl && (
         <a
           href={sermon.videoUrl}
           target="_blank"
