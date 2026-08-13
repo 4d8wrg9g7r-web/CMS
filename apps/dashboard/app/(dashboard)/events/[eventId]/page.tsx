@@ -12,6 +12,8 @@ import { EventRegistrationList } from "../../../../components/EventRegistrationL
 import { formatEventDate, recurrenceLabel } from "../../../../lib/events-format";
 import { canEvents, requireEvents } from "../../../../lib/events-access";
 import { canCheckin } from "../../../../lib/checkin-access";
+import { canApp } from "../../../../lib/app-access";
+import { ShareCard } from "../../../../components/ShareCard";
 import { getCurrentOrganization } from "../../../../lib/session";
 import { archiveEventAction, restoreEventAction, setEventPublishedAction, updateEventAction } from "../actions";
 
@@ -33,10 +35,11 @@ export default async function EventDetailPage({
   const organization = await getCurrentOrganization();
   if (!organization) return null;
   await requireEvents(organization.id, "event.view");
-  const [canManage, canViewRegistrations, canViewAttendance] = await Promise.all([
+  const [canManage, canViewRegistrations, canViewAttendance, canNotify] = await Promise.all([
     canEvents(organization.id, "event.manage"),
     canEvents(organization.id, "event.registrations.view"),
     canCheckin(organization.id, "attendance.view"),
+    canApp(organization.id, "app.manage"),
   ]);
 
   const { eventId } = await params;
@@ -270,6 +273,12 @@ export default async function EventDetailPage({
                 </>
               )}
             </Card>
+
+            {event.isPublished && (
+              <Card padding="md">
+                <ShareCard itemTitle={event.title} variants={[{ label: event.title, url: publicUrl }]} canNotify={canNotify} />
+              </Card>
+            )}
 
             <Card padding="md">
               <h2 className="mb-2 text-sm font-semibold text-ink">Status</h2>

@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { tenantDb } from "../client";
+import { rawDb, tenantDb } from "../client";
 
 /**
  * Sermon library service (docs/domain/app.md). Stores metadata plus external
@@ -86,8 +86,10 @@ export async function getSermon(organizationId: string, sermonId: string) {
 }
 
 /** Public share/embed page lookup — active sermons only, by unguessable id. */
+// Public resolution by unguessable publicId — the documented rawDb
+// bootstrapping exception, same as site/churchApp/forms.
 export async function getSermonByPublicId(publicId: string) {
-  return tenantDb.sermon.findFirst({
+  return rawDb.sermon.findFirst({
     where: { publicId, archivedAt: null },
     include: { documents: { orderBy: { createdAt: "asc" } }, organization: { select: { id: true, name: true } } },
   });

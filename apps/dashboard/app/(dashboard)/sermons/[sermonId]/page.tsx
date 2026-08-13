@@ -7,7 +7,9 @@ import { EmptyState } from "../../../../components/ui/EmptyState";
 import { SermonDetailEditor } from "../../../../components/SermonDetailEditor";
 import { buttonClasses } from "../../../../components/ui/Button";
 import { canApp } from "../../../../lib/app-access";
+import { ShareCard } from "../../../../components/ShareCard";
 import { getCurrentOrganization } from "../../../../lib/session";
+import { headers } from "next/headers";
 import {
   removeSermonAudioAction,
   removeSermonDocumentAction,
@@ -25,9 +27,10 @@ export default async function SermonDetailPage({ params }: { params: Promise<{ s
   const organization = await getCurrentOrganization();
   if (!organization) return null;
 
-  const [canView, canManage] = await Promise.all([
+  const [canView, canManage, canNotify] = await Promise.all([
     canApp(organization.id, "sermon.view"),
     canApp(organization.id, "sermon.manage"),
+    canApp(organization.id, "app.manage"),
   ]);
   if (!canView) {
     return (
@@ -42,6 +45,10 @@ export default async function SermonDetailPage({ params }: { params: Promise<{ s
   if (!sermon) notFound();
 
   const all = await sermonService.listSermons(organization.id, { includeArchived: true });
+  const h = await headers();
+  const host = h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const publicUrl = `${proto}://${host}/s/${sermon.publicId}`;
   const speakers = [...new Set(all.map((s) => s.speaker).filter((v): v is string => !!v))];
   const seriesList = [...new Set(all.map((s) => s.series).filter((v): v is string => !!v))];
 
@@ -79,6 +86,10 @@ export default async function SermonDetailPage({ params }: { params: Promise<{ s
         </Card>
 
         <div className="flex flex-col gap-5">
+          <Card padding="md">
+            <ShareCard itemTitle={sermon.title} variants={[{ label: sermon.title, url: publicUrl }]} canNotify={canNotify} />
+          </Card>
+
           <Card padding="md" data-section="sermon-audio">
             <h2 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-ink">
               <Headphones size={15} /> Audio

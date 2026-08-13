@@ -1,10 +1,11 @@
 import { headers } from "next/headers";
 import { Lock, Smartphone } from "lucide-react";
 import QRCode from "qrcode";
-import { appFeedService, appPageService, appService, validateAppManifest, DEFAULT_APP_MANIFEST, type AppManifest } from "@cms/database";
+import { appFeedService, appPageService, appService, appTabLabel, validateAppManifest, DEFAULT_APP_MANIFEST, type AppManifest } from "@cms/database";
 import { AppStudio } from "../../../components/AppStudio";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { ShareCard } from "../../../components/ShareCard";
 import { buildAppContent } from "../../../lib/church-app-content";
 import { canApp } from "../../../lib/app-access";
 import { getCurrentOrganization } from "../../../lib/session";
@@ -47,6 +48,18 @@ export default async function AppStudioPage() {
     }
   }
 
+  // Share variants: the app itself plus a deep link to each tab (link tabs
+  // open an external URL, so they aren't shareable destinations in the app).
+  const shareVariants = installUrl
+    ? [
+        { label: "App home", url: installUrl },
+        ...manifest.tabs
+          .map((tab, i) => ({ tab, i }))
+          .filter(({ tab }) => tab.kind !== "link")
+          .map(({ tab, i }) => ({ label: `${appTabLabel(tab)} tab`, url: `${installUrl}?tab=${i}` })),
+      ]
+    : [];
+
   return (
     <div>
       <div className="mb-6">
@@ -69,6 +82,11 @@ export default async function AppStudioPage() {
         installUrl={installUrl}
         qrSvg={qrSvg}
       />
+      {app?.enabled && shareVariants.length > 0 && (
+        <Card padding="md" className="mt-5 max-w-md">
+          <ShareCard itemTitle={manifest.appName} variants={shareVariants} embed={false} canNotify />
+        </Card>
+      )}
     </div>
   );
 }
