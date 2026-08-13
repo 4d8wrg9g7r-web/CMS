@@ -23,30 +23,31 @@ function PickOrCreate({
   newLabel: string;
 }) {
   const known = value !== null && options.includes(value);
-  const [creating, setCreating] = useState(options.length === 0 || (value !== null && value !== "" && !known));
+  // The current value always appears in the dropdown (merged in below), so the
+  // select is the default view — "+ New…" swaps to a text input on demand.
+  const merged = value && !known ? [value, ...options] : options;
+  const [creating, setCreating] = useState(false);
   if (creating) {
     return (
       <span className="mt-1 flex items-center gap-1.5">
-        <Input name={name} defaultValue={value ?? ""} placeholder={placeholder} className="block w-full" />
-        {options.length > 0 && (
-          <button type="button" onClick={() => setCreating(false)} className="text-xs font-medium text-accent hover:underline">
-            Pick
-          </button>
-        )}
+        <Input name={name} defaultValue="" placeholder={placeholder} autoFocus className="block w-full" />
+        <button type="button" onClick={() => setCreating(false)} className="text-xs font-medium text-accent hover:underline">
+          Back
+        </button>
       </span>
     );
   }
   return (
     <Select
       name={name}
-      defaultValue={known ? (value as string) : ""}
+      defaultValue={value ?? ""}
       className="mt-1 block w-full"
       onChange={(e) => {
         if (e.target.value === NEW) setCreating(true);
       }}
     >
       <option value="">—</option>
-      {options.map((option) => (
+      {merged.map((option) => (
         <option key={option} value={option}>
           {option}
         </option>

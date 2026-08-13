@@ -100,10 +100,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <SidebarNavGroup
           label="Content"
           icon={<Folder size={17} strokeWidth={1.75} />}
-          childHrefs={["/sermons", "/media", "/community"]}
+          childHrefs={["/sermons", "/files", "/community"]}
         >
           <SidebarNavItem nested href="/sermons" label="Sermons" icon={null} />
-          <SidebarNavItem nested href="/media" label="Media" icon={null} />
+          <SidebarNavItem nested href="/files" label="Files" icon={null} />
           <SidebarNavItem nested href="/community" label="Community" icon={null} />
         </SidebarNavGroup>
 

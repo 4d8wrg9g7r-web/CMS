@@ -1,14 +1,14 @@
 import { tenantDb } from "../client";
 
 /**
- * Media library (docs/domain/app.md): graphics for congregation-facing items,
- * organized into collections — "event" (event graphics) and "sermon" (sermon
- * artwork). Files live in public storage; assets attach to items by URL via
- * Event.imageUrl / Sermon.artworkUrl, so deleting an asset never breaks an
- * item silently (the item keeps its copy of the URL).
+ * Media collections (docs/domain/app.md): "event" and "sermon" hold graphics
+ * managed right on those modules' pages; "library" is the general Files area
+ * for anything staff want a hosted link to. Files live in public storage;
+ * graphics attach to items by URL via Event.imageUrl / Sermon.artworkUrl, so
+ * deleting an asset never breaks an item silently (the item keeps its URL).
  */
 
-export const MEDIA_COLLECTIONS = ["event", "sermon"] as const;
+export const MEDIA_COLLECTIONS = ["event", "sermon", "library"] as const;
 export type MediaCollection = (typeof MEDIA_COLLECTIONS)[number];
 
 export function isMediaCollection(value: unknown): value is MediaCollection {

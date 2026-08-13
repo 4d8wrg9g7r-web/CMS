@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { CalendarDays, ExternalLink, Lock, MapPin, Plus } from "lucide-react";
-import { campusService, eventService, nextOccurrence } from "@cms/database";
+import { campusService, eventService, mediaService, nextOccurrence } from "@cms/database";
 import { Badge } from "../../../components/ui/Badge";
 import { buttonClasses } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { GraphicsLibraryCard } from "../../../components/GraphicsLibraryCard";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Input, Select } from "../../../components/ui/Input";
 import { PageHeader } from "../../../components/ui/PageHeader";
@@ -56,6 +57,7 @@ export default async function EventsPage({
   const view = params.view === "past" ? "past" : "upcoming";
   const campuses = await campusService.listCampuses(organization.id);
   const calendars = await eventService.listCalendars(organization.id);
+  const graphics = await mediaService.listMediaAssets(organization.id, { collection: "event" });
   const events = await eventService.listEvents(organization.id, { campusId, calendarId });
   const h = await headers();
   const host = h.get("host") ?? "localhost:3000";
@@ -286,6 +288,16 @@ export default async function EventsPage({
           </form>
         </Card>
       )}
+
+      <div className="mt-6">
+        <GraphicsLibraryCard
+          collection="event"
+          title="Event graphics"
+          blurb="Artwork for events — attach to an event from its Settings tab. Separate from sermon graphics."
+          assets={graphics.map((g) => ({ id: g.id, name: g.name, url: g.url }))}
+          canManage={canManage}
+        />
+      </div>
     </div>
   );
 }

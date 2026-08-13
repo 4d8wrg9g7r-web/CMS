@@ -26,21 +26,21 @@ function PickOrCreate({
   newLabel: string;
   width: string;
 }) {
-  const [creating, setCreating] = useState(options.length === 0);
+  // ALWAYS start as a dropdown — even with nothing to pick yet, the
+  // "+ New…" option is how the create flow stays discoverable.
+  const [creating, setCreating] = useState(false);
   if (creating) {
     return (
       <span className="mt-1 flex items-center gap-1.5">
-        <Input name={name} placeholder={placeholder} autoFocus={options.length > 0} className={`block ${width}`} />
-        {options.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setCreating(false)}
-            className="text-xs font-medium text-accent hover:underline"
-            aria-label="Choose existing instead"
-          >
-            Pick
-          </button>
-        )}
+        <Input name={name} placeholder={placeholder} autoFocus className={`block ${width}`} />
+        <button
+          type="button"
+          onClick={() => setCreating(false)}
+          className="text-xs font-medium text-accent hover:underline"
+          aria-label="Back to the list"
+        >
+          Back
+        </button>
       </span>
     );
   }

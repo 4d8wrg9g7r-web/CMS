@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Archive, Clapperboard, ExternalLink, Lock } from "lucide-react";
-import { sermonService } from "@cms/database";
+import { mediaService, sermonService } from "@cms/database";
+import { GraphicsLibraryCard } from "../../../components/GraphicsLibraryCard";
 import { SermonForm } from "../../../components/SermonForm";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
@@ -25,6 +26,7 @@ export default async function SermonsPage() {
   }
 
   const sermons = await sermonService.listSermons(organization.id);
+  const graphics = await mediaService.listMediaAssets(organization.id, { collection: "sermon" });
   // Distinct speakers/series feed the form's dropdowns (newest-first order kept).
   const speakers = [...new Set(sermons.map((s) => s.speaker).filter((v): v is string => !!v))];
   const seriesList = [...new Set(sermons.map((s) => s.series).filter((v): v is string => !!v))];
@@ -111,6 +113,16 @@ export default async function SermonsPage() {
           </div>
         </Card>
       )}
+
+      <div className="mt-6">
+        <GraphicsLibraryCard
+          collection="sermon"
+          title="Sermon graphics"
+          blurb="Series and message artwork — attach to a sermon from its page. Separate from event graphics."
+          assets={graphics.map((g) => ({ id: g.id, name: g.name, url: g.url }))}
+          canManage={canManage}
+        />
+      </div>
     </div>
   );
 }
