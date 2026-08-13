@@ -7,6 +7,11 @@ import { ArrowLeft, Check, FileSpreadsheet, Sparkles, Upload } from "lucide-reac
 import { buttonClasses } from "./ui/Button";
 import type { MappingTarget, WizardColumn } from "@cms/database";
 import type { PersonFieldType } from "@cms/database";
+
+// Mirrors MAX_SELECT_OPTIONS in @cms/database (a value import would pull the
+// whole server package into the client bundle); import-mapping degrades a
+// SELECT past this cap to TEXT, so the option must be gated at the same line.
+const MAX_SELECT_OPTIONS = 24;
 import {
   aiProposalAction,
   dryRunImportAction,
@@ -81,6 +86,11 @@ const screen = {
 
 function truncate(v: string, n = 26) {
   return v.length > n ? `${v.slice(0, n - 1)}…` : v;
+}
+
+/** "A · B · C" preview of a dropdown's would-be choices. */
+function listPreview(values: string[], n: number) {
+  return values.slice(0, n).map((v) => truncate(v, 14)).join(" · ");
 }
 
 export function PeopleImportWizard() {
@@ -425,13 +435,17 @@ export function PeopleImportWizard() {
                   </div>
                 )}
                 <div className="mx-auto flex max-w-sm flex-col gap-3">
-                  {(["BOOLEAN", "SELECT", "DATE", "NUMBER", "TEXT"] as const)
-                    .filter((t) => t !== "SELECT" || columns[question.col]!.distinctCount <= 24)
-                    .map((t) => (
+                  {(["BOOLEAN", "SELECT", "DATE", "NUMBER", "TEXT"] as const).map((t) => {
+                    const col = columns[question.col]!;
+                    // A dropdown is always on the menu; it just can't hold more
+                    // choices than a dropdown can reasonably show.
+                    const tooManyForSelect = t === "SELECT" && col.distinctCount > MAX_SELECT_OPTIONS;
+                    return (
                       <OptionButton
                         key={t}
                         selected={(customTypes[question.col] ?? data.inferredTypes[question.col]) === t}
                         suggested={(customTypes[question.col] ?? data.inferredTypes[question.col]) === t}
+                        disabled={tooManyForSelect}
                         onClick={() => {
                           setCustomTypes((prev) => ({ ...prev, [question.col]: t }));
                           advance();
@@ -439,12 +453,19 @@ export function PeopleImportWizard() {
                       >
                         {FIELD_TYPE_LABELS[t]}
                         {t === "SELECT" && (
-                          <span className="ml-2 text-xs font-normal text-ink-muted">
-                            {columns[question.col]!.distinctCount} choices
+                          <span className="mt-1 block text-xs font-normal text-ink-muted" data-select-preview>
+                            {tooManyForSelect
+                              ? `Too many different values (${col.distinctCount}) — a dropdown holds up to ${MAX_SELECT_OPTIONS}`
+                              : col.values.length === 0
+                                ? "No values in this file yet"
+                                : `${listPreview(col.values, 4)}${
+                                    col.distinctCount > 4 ? ` +${col.distinctCount - 4} more` : ""
+                                  }`}
                           </span>
                         )}
                       </OptionButton>
-                    ))}
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -697,21 +718,26 @@ function OptionButton({
   children,
   selected,
   suggested,
+  disabled,
   onClick,
 }: {
   children: React.ReactNode;
   selected?: boolean;
   suggested?: boolean;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={`flex items-center justify-between rounded-2xl border px-5 py-3.5 text-left text-sm font-semibold transition-all duration-150 ${
-        selected
-          ? "border-accent bg-accent/5 text-ink ring-1 ring-accent"
-          : "border-border bg-surface text-ink hover:border-accent/60 hover:bg-surface-muted"
+        disabled
+          ? "cursor-not-allowed border-border bg-surface-muted text-ink-muted"
+          : selected
+            ? "border-accent bg-accent/5 text-ink ring-1 ring-accent"
+            : "border-border bg-surface text-ink hover:border-accent/60 hover:bg-surface-muted"
       }`}
     >
       <span>{children}</span>
