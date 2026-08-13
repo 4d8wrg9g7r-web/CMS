@@ -63,6 +63,7 @@ export const TENANT_SCOPED_MODELS = new Set([
   "JourneyEnrollment",
   "JourneyMilestoneCompletion",
   "Event",
+  "EventCalendar",
   "EventRegistration",
   "Message",
   "CheckIn",

@@ -11,12 +11,24 @@ import { formatEventDate, recurrenceLabel } from "../../../lib/events-format";
  * publicSiteId -- the same unauthenticated bootstrapping boundary as the other public
  * surfaces. Shows the next 60 days of occurrences across every PUBLISHED event.
  */
-export default async function PublicCalendarPage({ params }: { params: Promise<{ publicSiteId: string }> }) {
+export default async function PublicCalendarPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ publicSiteId: string }>;
+  searchParams: Promise<{ calendar?: string }>;
+}) {
   const { publicSiteId } = await params;
   const site = await organizationService.resolvePublicSite(publicSiteId);
   if (!site) notFound();
 
-  const events = await eventService.listEvents(site.organizationId, { publishedOnly: true });
+  const { calendar: calendarId } = await searchParams;
+  const calendars = await eventService.listCalendars(site.organizationId);
+  // Only calendars that actually have published events get a public chip.
+  const allPublished = await eventService.listEvents(site.organizationId, { publishedOnly: true });
+  const usedCalendarIds = new Set(allPublished.map((e) => e.calendarId).filter(Boolean));
+  const publicCalendars = calendars.filter((c) => usedCalendarIds.has(c.id));
+  const events = calendarId ? allPublished.filter((e) => e.calendarId === calendarId) : allPublished;
   const now = new Date();
   const windowEnd = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
 
@@ -31,9 +43,32 @@ export default async function PublicCalendarPage({ params }: { params: Promise<{
     <div className="min-h-screen bg-surface-muted">
       <main className="mx-auto max-w-2xl px-6 py-12">
         <h1 className="mb-1 text-2xl font-semibold tracking-tight text-ink">{site.name}</h1>
-        <p className="mb-8 flex items-center gap-1.5 text-sm text-ink-secondary">
+        <p className="mb-4 flex items-center gap-1.5 text-sm text-ink-secondary">
           <CalendarDays size={15} className="text-ink-muted" /> Upcoming events
         </p>
+
+        {publicCalendars.length > 0 && (
+          <div className="mb-8 flex flex-wrap items-center gap-1.5" data-section="public-calendar-filters">
+            <Link
+              href={`/c/${publicSiteId}`}
+              className={`rounded-full px-3 py-1.5 text-sm ${!calendarId ? "bg-ink text-white" : "bg-surface text-ink-secondary hover:text-ink"}`}
+            >
+              All
+            </Link>
+            {publicCalendars.map((calendar) => (
+              <Link
+                key={calendar.id}
+                href={`/c/${publicSiteId}?calendar=${calendar.id}`}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ${
+                  calendarId === calendar.id ? "bg-ink text-white" : "bg-surface text-ink-secondary hover:text-ink"
+                }`}
+              >
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: calendar.color }} />
+                {calendar.name}
+              </Link>
+            ))}
+          </div>
+        )}
 
         {occurrences.length === 0 ? (
           <Card padding="md">

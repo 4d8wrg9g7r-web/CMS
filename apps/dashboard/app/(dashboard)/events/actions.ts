@@ -55,6 +55,7 @@ function readEventInput(formData: FormData) {
     recurrenceUntil: untilRaw ? new Date(`${untilRaw}T23:59:59Z`) : null,
     capacity: Number.isFinite(capacityRaw) && capacityRaw > 0 ? capacityRaw : null,
     campusId: str(formData, "campusId") || null,
+    calendarId: str(formData, "calendarId") || null,
   };
 }
 
@@ -118,4 +119,28 @@ export async function cancelRegistrationAction(eventId: string, registrationId: 
   await eventService.cancelRegistration(organization.id, registrationId);
   await audit(organization.id, "event.registration_cancelled", eventId, { registrationId });
   revalidatePath(`/events/${eventId}`);
+}
+
+
+// ---------------------------------------------------------------------------
+// Calendars
+// ---------------------------------------------------------------------------
+
+export async function createCalendarAction(formData: FormData): Promise<void> {
+  const organization = await requireOrg();
+  await requireEvents(organization.id, "event.manage");
+  const calendar = await eventService.createCalendar(organization.id, {
+    name: String(formData.get("name") ?? ""),
+    color: String(formData.get("color") ?? ""),
+  });
+  await audit(organization.id, "event.calendar_created", calendar.id, { name: calendar.name });
+  revalidatePath("/events");
+}
+
+export async function archiveCalendarAction(calendarId: string): Promise<void> {
+  const organization = await requireOrg();
+  await requireEvents(organization.id, "event.manage");
+  const archived = await eventService.archiveCalendar(organization.id, calendarId);
+  if (archived) await audit(organization.id, "event.calendar_archived", calendarId);
+  revalidatePath("/events");
 }

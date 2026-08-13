@@ -6,10 +6,11 @@ import { Badge } from "../../../components/ui/Badge";
 import { buttonClasses } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { Select } from "../../../components/ui/Input";
+import { Input, Select } from "../../../components/ui/Input";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { recurrenceLabel } from "../../../lib/events-format";
 import { canEvents } from "../../../lib/events-access";
+import { archiveCalendarAction, createCalendarAction } from "./actions";
 import { getCurrentOrganization } from "../../../lib/session";
 
 /**
@@ -24,7 +25,7 @@ const MONTH = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "O
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ campus?: string; view?: string }>;
+  searchParams: Promise<{ campus?: string; view?: string; calendar?: string }>;
 }) {
   const organization = await getCurrentOrganization();
   if (!organization) return null;
@@ -51,9 +52,11 @@ export default async function EventsPage({
 
   const params = await searchParams;
   const campusId = params.campus || undefined;
+  const calendarId = params.calendar || undefined;
   const view = params.view === "past" ? "past" : "upcoming";
   const campuses = await campusService.listCampuses(organization.id);
-  const events = await eventService.listEvents(organization.id, { campusId });
+  const calendars = await eventService.listCalendars(organization.id);
+  const events = await eventService.listEvents(organization.id, { campusId, calendarId });
   const h = await headers();
   const host = h.get("host") ?? "localhost:3000";
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
@@ -72,6 +75,7 @@ export default async function EventsPage({
     const sp = new URLSearchParams();
     if (v === "past") sp.set("view", "past");
     if (campusId) sp.set("campus", campusId);
+    if (calendarId) sp.set("calendar", calendarId);
     const query = sp.toString();
     return query ? `/events?${query}` : "/events";
   };
@@ -111,6 +115,34 @@ export default async function EventsPage({
             </Link>
           ))}
         </div>
+
+        {calendars.length > 0 && (
+          <div className="flex items-center gap-1" role="tablist" aria-label="Calendars" data-section="calendar-filters">
+            {[{ id: "", name: "All calendars", color: "" }, ...calendars].map((calendar) => {
+              const sp = new URLSearchParams();
+              if (view === "past") sp.set("view", "past");
+              if (campusId) sp.set("campus", campusId);
+              if (calendar.id) sp.set("calendar", calendar.id);
+              const active = (calendarId ?? "") === calendar.id;
+              return (
+                <Link
+                  key={calendar.id || "all"}
+                  href={sp.toString() ? `/events?${sp.toString()}` : "/events"}
+                  role="tab"
+                  aria-selected={active}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm transition-colors duration-180 ${
+                    active
+                      ? "bg-surface font-semibold text-ink shadow-[0_1px_2px_rgba(0,0,0,0.05)]"
+                      : "font-medium text-ink-secondary hover:bg-black/[0.04] hover:text-ink"
+                  }`}
+                >
+                  {calendar.color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: calendar.color }} />}
+                  {calendar.name}
+                </Link>
+              );
+            })}
+          </div>
+        )}
 
         {campuses.length > 0 && (
           <form method="get">
@@ -195,12 +227,63 @@ export default async function EventsPage({
                         {event.capacity ? ` / ${event.capacity}` : ""} registered
                       </span>
                     )}
+                    {event.calendar && (
+                      <span
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-surface-muted px-2.5 py-1 text-xs font-medium text-ink-secondary"
+                        data-calendar-chip
+                      >
+                        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: event.calendar.color }} />
+                        {event.calendar.name}
+                      </span>
+                    )}
                     {event.isPublished ? <Badge variant="success">Published</Badge> : <Badge>Draft</Badge>}
                   </Link>
                 </li>
               );
             })}
           </ul>
+        </Card>
+      )}
+
+      {canManage && (
+        <Card padding="md" className="mt-6 max-w-2xl" data-section="manage-calendars">
+          <h2 className="mb-1 text-sm font-semibold text-ink">Calendars</h2>
+          <p className="mb-3 text-xs text-ink-muted">
+            Group events into ministry calendars — Youth, Worship, Kids — filterable here and on your public calendar.
+          </p>
+          {calendars.length > 0 && (
+            <ul className="mb-3 divide-y divide-border text-sm">
+              {calendars.map((calendar) => (
+                <li key={calendar.id} className="flex items-center justify-between gap-2 py-2" data-calendar-row={calendar.id}>
+                  <span className="inline-flex items-center gap-2 font-medium text-ink">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: calendar.color }} />
+                    {calendar.name}
+                    <span className="font-normal text-ink-muted">
+                      · {calendar._count.events} {calendar._count.events === 1 ? "event" : "events"}
+                    </span>
+                  </span>
+                  <form action={archiveCalendarAction.bind(null, calendar.id)}>
+                    <button type="submit" className="text-xs text-ink-muted hover:text-danger">
+                      Archive
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+          <form action={createCalendarAction} className="flex items-center gap-2">
+            <Input name="name" placeholder="Youth Ministry" maxLength={80} className="w-56" aria-label="Calendar name" />
+            <input
+              type="color"
+              name="color"
+              defaultValue="#2566e8"
+              className="h-9 w-11 cursor-pointer rounded-sm border border-border-strong bg-surface"
+              aria-label="Calendar color"
+            />
+            <button type="submit" className={buttonClasses("secondary", "sm")} data-action="create-calendar">
+              <Plus size={14} /> Add calendar
+            </button>
+          </form>
         </Card>
       )}
     </div>

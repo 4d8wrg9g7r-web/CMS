@@ -63,8 +63,9 @@ export default async function EventDetailPage({
             : "attendance"
           : requested;
 
-  const [campuses, registrations, attendanceHistory] = await Promise.all([
+  const [campuses, calendars, registrations, attendanceHistory] = await Promise.all([
     campusService.listCampuses(organization.id),
+    eventService.listCalendars(organization.id),
     canViewRegistrations ? eventService.listRegistrations(organization.id, eventId) : Promise.resolve([]),
     canViewAttendance ? checkinService.attendanceByOccurrence(organization.id, eventId) : Promise.resolve([]),
   ]);
@@ -233,6 +234,7 @@ export default async function EventDetailPage({
               action={updateEventAction.bind(null, event.id)}
               event={event}
               campuses={campuses.map((c) => ({ id: c.id, name: c.name }))}
+              calendars={calendars.map((c) => ({ id: c.id, name: c.name }))}
               submitLabel="Save changes"
             />
           </Card>

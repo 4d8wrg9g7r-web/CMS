@@ -25,11 +25,12 @@ export interface EventInput {
   recurrenceUntil?: Date | null;
   capacity?: number | null;
   campusId?: string | null;
+  calendarId?: string | null;
 }
 
 export async function listEvents(
   organizationId: string,
-  opts: { includeArchived?: boolean; publishedOnly?: boolean; campusId?: string } = {},
+  opts: { includeArchived?: boolean; publishedOnly?: boolean; campusId?: string; calendarId?: string } = {},
 ) {
   return tenantDb.event.findMany({
     where: {
@@ -37,12 +38,60 @@ export async function listEvents(
       ...(opts.includeArchived ? {} : { archivedAt: null }),
       ...(opts.publishedOnly ? { isPublished: true } : {}),
       ...(opts.campusId ? { campusId: opts.campusId } : {}),
+      ...(opts.calendarId ? { calendarId: opts.calendarId } : {}),
     },
     orderBy: { startAt: "asc" },
     include: {
+      calendar: { select: { id: true, name: true, color: true } },
       _count: { select: { registrations: { where: { status: EventRegistrationStatus.REGISTERED } } } },
     },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Calendars: named, colored groupings (Youth, Worship…) events file under.
+// ---------------------------------------------------------------------------
+
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+export async function listCalendars(organizationId: string, opts: { includeArchived?: boolean } = {}) {
+  return tenantDb.eventCalendar.findMany({
+    where: { organizationId, ...(opts.includeArchived ? {} : { archivedAt: null }) },
+    orderBy: { createdAt: "asc" },
+    include: { _count: { select: { events: { where: { archivedAt: null } } } } },
+  });
+}
+
+export async function createCalendar(organizationId: string, input: { name: string; color?: string }) {
+  const name = input.name.trim().slice(0, 80);
+  if (!name) throw new Error("The calendar needs a name.");
+  const color = input.color && HEX_COLOR.test(input.color) ? input.color : "#2566e8";
+  return tenantDb.eventCalendar.create({ data: { organizationId, name, color } });
+}
+
+export async function updateCalendar(
+  organizationId: string,
+  calendarId: string,
+  input: { name?: string; color?: string },
+) {
+  const data: { name?: string; color?: string } = {};
+  if (input.name !== undefined) {
+    const name = input.name.trim().slice(0, 80);
+    if (!name) throw new Error("The calendar needs a name.");
+    data.name = name;
+  }
+  if (input.color !== undefined && HEX_COLOR.test(input.color)) data.color = input.color;
+  const result = await tenantDb.eventCalendar.updateMany({ where: { id: calendarId, organizationId }, data });
+  return result.count > 0;
+}
+
+/** Soft-archive: events keep their link but the calendar leaves pickers/filters. */
+export async function archiveCalendar(organizationId: string, calendarId: string) {
+  const result = await tenantDb.eventCalendar.updateMany({
+    where: { id: calendarId, organizationId },
+    data: { archivedAt: new Date() },
+  });
+  return result.count > 0;
 }
 
 export async function getEvent(organizationId: string, eventId: string) {
@@ -50,6 +99,7 @@ export async function getEvent(organizationId: string, eventId: string) {
     where: { id: eventId, organizationId },
     include: {
       campus: { select: { id: true, name: true } },
+      calendar: { select: { id: true, name: true, color: true } },
       _count: { select: { registrations: { where: { status: EventRegistrationStatus.REGISTERED } } } },
     },
   });
@@ -76,6 +126,7 @@ function eventData(input: EventInput) {
     recurrenceUntil: input.recurrenceUntil ?? null,
     capacity: input.capacity ?? null,
     campusId: input.campusId ?? null,
+    calendarId: input.calendarId ?? null,
   };
 }
 

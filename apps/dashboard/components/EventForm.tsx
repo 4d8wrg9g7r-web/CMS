@@ -14,6 +14,7 @@ interface EventFormValues {
   recurrenceUntil?: Date | null;
   capacity?: number | null;
   campusId?: string | null;
+  calendarId?: string | null;
 }
 
 function toLocalInput(date: Date | null | undefined): string {
@@ -31,11 +32,13 @@ export function EventForm({
   action,
   event,
   campuses,
+  calendars = [],
   submitLabel,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   event?: EventFormValues;
   campuses: { id: string; name: string }[];
+  calendars?: { id: string; name: string }[];
   submitLabel: string;
 }) {
   return (
@@ -65,6 +68,17 @@ export function EventForm({
         <Select name="campusId" defaultValue={event?.campusId ?? ""} className="mt-1">
           <option value="">No campus</option>
           {campuses.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </Select>
+      </label>
+      <label className="text-sm text-ink-secondary">
+        Calendar
+        <Select name="calendarId" defaultValue={event?.calendarId ?? ""} className="mt-1">
+          <option value="">General</option>
+          {calendars.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
             </option>

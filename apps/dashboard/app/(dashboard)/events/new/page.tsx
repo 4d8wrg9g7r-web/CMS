@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { campusService } from "@cms/database";
+import { campusService, eventService } from "@cms/database";
 import { Card } from "../../../../components/ui/Card";
 import { EventForm } from "../../../../components/EventForm";
 import { requireEvents } from "../../../../lib/events-access";
@@ -12,7 +12,10 @@ export default async function NewEventPage() {
   if (!organization) return null;
   await requireEvents(organization.id, "event.manage");
 
-  const campuses = await campusService.listCampuses(organization.id);
+  const [campuses, calendars] = await Promise.all([
+    campusService.listCampuses(organization.id),
+    eventService.listCalendars(organization.id),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -25,6 +28,7 @@ export default async function NewEventPage() {
         <EventForm
           action={createEventAction}
           campuses={campuses.map((c) => ({ id: c.id, name: c.name }))}
+          calendars={calendars.map((c) => ({ id: c.id, name: c.name }))}
           submitLabel="Create event"
         />
       </Card>
