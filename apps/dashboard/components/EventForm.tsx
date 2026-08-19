@@ -1,6 +1,8 @@
-import { buttonClasses } from "./ui/Button";
+import { ActionForm, FieldError } from "./ui/ActionForm";
+import { SubmitButton } from "./ui/SubmitButton";
 import { Input, Select, Textarea } from "./ui/Input";
 import { RECURRENCE_OPTIONS } from "../lib/events-format";
+import type { ActionResult } from "../lib/action-result";
 
 interface EventFormValues {
   title?: string;
@@ -36,17 +38,18 @@ export function EventForm({
   calendars = [],
   submitLabel,
 }: {
-  action: (formData: FormData) => void | Promise<void>;
+  action: (formData: FormData) => Promise<ActionResult>;
   event?: EventFormValues;
   campuses: { id: string; name: string }[];
   calendars?: { id: string; name: string }[];
   submitLabel: string;
 }) {
   return (
-    <form action={action} className="grid gap-4 sm:grid-cols-2">
+    <ActionForm action={action} className="grid gap-4 sm:grid-cols-2">
       <label className="text-sm text-ink-secondary sm:col-span-2">
         Title <span className="text-danger">*</span>
-        <Input name="title" required defaultValue={event?.title ?? ""} className="mt-1" />
+        <Input name="title" defaultValue={event?.title ?? ""} className="mt-1" />
+        <FieldError name="title" />
       </label>
       <label className="text-sm text-ink-secondary sm:col-span-2">
         Description
@@ -54,7 +57,8 @@ export function EventForm({
       </label>
       <label className="text-sm text-ink-secondary">
         Starts <span className="text-danger">*</span>
-        <Input name="startAt" type="datetime-local" required defaultValue={toLocalInput(event?.startAt)} className="mt-1" />
+        <Input name="startAt" type="datetime-local" defaultValue={toLocalInput(event?.startAt)} className="mt-1" />
+        <FieldError name="startAt" />
       </label>
       <label className="text-sm text-ink-secondary">
         Ends
@@ -141,10 +145,8 @@ export function EventForm({
         </span>
       </label>
       <div className="sm:col-span-2">
-        <button type="submit" className={buttonClasses("primary", "md")}>
-          {submitLabel}
-        </button>
+        <SubmitButton pendingLabel="Saving…">{submitLabel}</SubmitButton>
       </div>
-    </form>
+    </ActionForm>
   );
 }

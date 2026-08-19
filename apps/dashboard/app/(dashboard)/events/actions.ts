@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { auditService, eventService, type EventRecurrence } from "@cms/database";
 import { getCurrentOrganization, getCurrentUser } from "../../../lib/session";
 import { requireEvents } from "../../../lib/events-access";
+import { invalid, ok, type ActionResult } from "../../../lib/action-result";
 
 /**
  * Events staff server actions. Authorization enforced server-side via requireEvents
@@ -33,6 +33,14 @@ async function audit(organizationId: string, action: string, eventId: string, me
   });
 }
 
+function eventFieldErrors(formData: FormData): Record<string, string> {
+  const errors: Record<string, string> = {};
+  if (!str(formData, "title")) errors.title = "Give the event a title.";
+  const startRaw = str(formData, "startAt");
+  if (!startRaw || Number.isNaN(new Date(startRaw).getTime())) errors.startAt = "Pick a start date and time.";
+  return errors;
+}
+
 function readEventInput(formData: FormData) {
   const startRaw = str(formData, "startAt");
   const endRaw = str(formData, "endAt");
@@ -41,7 +49,6 @@ function readEventInput(formData: FormData) {
   const intervalRaw = Number.parseInt(str(formData, "recurrenceInterval"), 10);
 
   const startAt = new Date(startRaw);
-  if (!startRaw || Number.isNaN(startAt.getTime())) throw new Error("A valid start date/time is required.");
 
   return {
     title: str(formData, "title"),
@@ -60,30 +67,32 @@ function readEventInput(formData: FormData) {
   };
 }
 
-export async function createEventAction(formData: FormData) {
+export async function createEventAction(formData: FormData): Promise<ActionResult> {
   const organization = await requireOrg();
   await requireEvents(organization.id, "event.manage");
 
-  const input = readEventInput(formData);
-  if (!input.title) throw new Error("Event title is required.");
+  const errors = eventFieldErrors(formData);
+  if (Object.keys(errors).length > 0) return invalid(errors);
 
-  const event = await eventService.createEvent(organization.id, input);
-  await audit(organization.id, "event.created", event.id, { title: input.title });
-  redirect(`/events/${event.id}`);
+  const event = await eventService.createEvent(organization.id, readEventInput(formData));
+  await audit(organization.id, "event.created", event.id, { title: event.title });
+  revalidatePath("/events");
+  return ok("Event created", `/events/${event.id}`);
 }
 
-export async function updateEventAction(eventId: string, formData: FormData) {
+export async function updateEventAction(eventId: string, formData: FormData): Promise<ActionResult> {
   const organization = await requireOrg();
   await requireEvents(organization.id, "event.manage");
 
-  const input = readEventInput(formData);
-  if (!input.title) throw new Error("Event title is required.");
+  const errors = eventFieldErrors(formData);
+  if (Object.keys(errors).length > 0) return invalid(errors);
 
-  const updated = await eventService.updateEvent(organization.id, eventId, input);
-  if (!updated) throw new Error("Event not found.");
+  const updated = await eventService.updateEvent(organization.id, eventId, readEventInput(formData));
+  if (!updated) return { ok: false, formError: "This event no longer exists." };
   await audit(organization.id, "event.updated", eventId);
   revalidatePath(`/events/${eventId}`);
   revalidatePath("/events");
+  return ok("Event saved");
 }
 
 export async function setEventPublishedAction(eventId: string, isPublished: boolean) {
@@ -127,15 +136,18 @@ export async function cancelRegistrationAction(eventId: string, registrationId: 
 // Calendars
 // ---------------------------------------------------------------------------
 
-export async function createCalendarAction(formData: FormData): Promise<void> {
+export async function createCalendarAction(formData: FormData): Promise<ActionResult> {
   const organization = await requireOrg();
   await requireEvents(organization.id, "event.manage");
+  const name = str(formData, "name");
+  if (!name) return invalid({ name: "Give the calendar a name." });
   const calendar = await eventService.createCalendar(organization.id, {
-    name: String(formData.get("name") ?? ""),
+    name,
     color: String(formData.get("color") ?? ""),
   });
   await audit(organization.id, "event.calendar_created", calendar.id, { name: calendar.name });
   revalidatePath("/events");
+  return ok(`Calendar "${calendar.name}" added`);
 }
 
 export async function archiveCalendarAction(calendarId: string): Promise<void> {

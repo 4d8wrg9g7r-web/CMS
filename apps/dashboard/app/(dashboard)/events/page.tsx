@@ -8,6 +8,8 @@ import { Card } from "../../../components/ui/Card";
 import { GraphicsLibraryCard } from "../../../components/GraphicsLibraryCard";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Input, Select } from "../../../components/ui/Input";
+import { ActionForm, FieldError } from "../../../components/ui/ActionForm";
+import { SubmitButton } from "../../../components/ui/SubmitButton";
 import { PageHeader } from "../../../components/ui/PageHeader";
 import { recurrenceLabel } from "../../../lib/events-format";
 import { canEvents } from "../../../lib/events-access";
@@ -273,8 +275,11 @@ export default async function EventsPage({
               ))}
             </ul>
           )}
-          <form action={createCalendarAction} className="flex items-center gap-2">
-            <Input name="name" placeholder="Youth Ministry" maxLength={80} className="w-56" aria-label="Calendar name" />
+          <ActionForm action={createCalendarAction} resetOnSuccess className="flex flex-wrap items-start gap-2">
+            <span className="flex flex-col">
+              <Input name="name" placeholder="Youth Ministry" maxLength={80} className="w-56" aria-label="Calendar name" />
+              <FieldError name="name" />
+            </span>
             <input
               type="color"
               name="color"
@@ -282,10 +287,10 @@ export default async function EventsPage({
               className="h-9 w-11 cursor-pointer rounded-sm border border-border-strong bg-surface"
               aria-label="Calendar color"
             />
-            <button type="submit" className={buttonClasses("secondary", "sm")} data-action="create-calendar">
+            <SubmitButton variant="secondary" size="sm" pendingLabel="Adding…" data-action="create-calendar">
               <Plus size={14} /> Add calendar
-            </button>
-          </form>
+            </SubmitButton>
+          </ActionForm>
         </Card>
       )}
 

@@ -8,7 +8,10 @@ import { AccountForm } from "../../../components/AccountForm";
 import { Card } from "../../../components/ui/Card";
 import { buttonClasses } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Input";
+import { ActionForm, FieldError } from "../../../components/ui/ActionForm";
+import { SubmitButton } from "../../../components/ui/SubmitButton";
 import { getCurrentOrganization, getCurrentUser, requireCurrentUser, requireOrgRole } from "../../../lib/session";
+import { invalid, ok, type ActionResult } from "../../../lib/action-result";
 
 const accountNameSchema = z.string().trim().min(1, "Name is required.").max(120);
 const accountEmailSchema = z.string().trim().toLowerCase().email("Enter a valid email address.");
@@ -82,20 +85,52 @@ const PW_ERRORS: Record<string, string> = {
   same: "The new password must be different from the current one.",
 };
 
-async function createCampusAction(formData: FormData) {
+/**
+ * Coordinate pair: both, neither (an explicit clear), or a validation error.
+ * A lone/out-of-range value must NEVER silently wipe stored coordinates.
+ */
+function readCampusCoordinates(
+  formData: FormData,
+):
+  | { valid: true; latitude: number | null; longitude: number | null }
+  | { valid: false; fieldErrors: Record<string, string> } {
+  const latRaw = String(formData.get("latitude") ?? "").trim();
+  const lngRaw = String(formData.get("longitude") ?? "").trim();
+  if (!latRaw && !lngRaw) return { valid: true, latitude: null, longitude: null };
+
+  const fieldErrors: Record<string, string> = {};
+  const latitude = Number.parseFloat(latRaw);
+  const longitude = Number.parseFloat(lngRaw);
+  if (!latRaw) fieldErrors.latitude = "Latitude and longitude go together — add the latitude too.";
+  else if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90)
+    fieldErrors.latitude = "Latitude must be a number between -90 and 90.";
+  if (!lngRaw) fieldErrors.longitude = "Latitude and longitude go together — add the longitude too.";
+  else if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180)
+    fieldErrors.longitude = "Longitude must be a number between -180 and 180.";
+  if (Object.keys(fieldErrors).length > 0) return { valid: false, fieldErrors };
+  return { valid: true, latitude, longitude };
+}
+
+async function createCampusAction(formData: FormData): Promise<ActionResult> {
   "use server";
   const organization = await getCurrentOrganization();
-  if (!organization) throw new Error("No organization");
+  if (!organization) return { ok: false, formError: "No organization." };
   await requireOrgRole(organization.id, ["OWNER", "ADMIN"]);
 
   const name = String(formData.get("name") ?? "").trim();
-  if (!name) throw new Error("Campus name is required.");
+  const coords = readCampusCoordinates(formData);
+  const fieldErrors: Record<string, string> = {
+    ...(name ? {} : { name: "Give the campus a name." }),
+    ...(coords.valid ? {} : coords.fieldErrors),
+  };
+  if (Object.keys(fieldErrors).length > 0) return invalid(fieldErrors);
   const address = String(formData.get("address") ?? "").trim() || null;
 
   const campus = await campusService.createCampus(organization.id, {
     name,
     address,
-    ...readCampusCoordinates(formData),
+    latitude: coords.valid ? coords.latitude : null,
+    longitude: coords.valid ? coords.longitude : null,
   });
 
   const user = await getCurrentUser();
@@ -109,26 +144,21 @@ async function createCampusAction(formData: FormData) {
   });
 
   revalidatePath("/settings");
+  return ok(`Campus "${campus.name}" added`);
 }
 
-function readCampusCoordinates(formData: FormData) {
-  const parse = (key: string, min: number, max: number) => {
-    const value = Number.parseFloat(String(formData.get(key) ?? "").trim());
-    return Number.isFinite(value) && value >= min && value <= max ? value : null;
-  };
-  const latitude = parse("latitude", -90, 90);
-  const longitude = parse("longitude", -180, 180);
-  // Both or neither — a lone coordinate can't place the campus.
-  return latitude !== null && longitude !== null ? { latitude, longitude } : { latitude: null, longitude: null };
-}
-
-async function setCampusCoordinatesAction(campusId: string, formData: FormData) {
+async function setCampusCoordinatesAction(campusId: string, formData: FormData): Promise<ActionResult> {
   "use server";
   const organization = await getCurrentOrganization();
-  if (!organization) throw new Error("No organization");
+  if (!organization) return { ok: false, formError: "No organization." };
   await requireOrgRole(organization.id, ["OWNER", "ADMIN"]);
 
-  await campusService.updateCampus(organization.id, campusId, readCampusCoordinates(formData));
+  const coords = readCampusCoordinates(formData);
+  if (!coords.valid) return invalid(coords.fieldErrors);
+  await campusService.updateCampus(organization.id, campusId, {
+    latitude: coords.latitude,
+    longitude: coords.longitude,
+  });
 
   const user = await getCurrentUser();
   await auditService.recordAuditEvent({
@@ -140,12 +170,13 @@ async function setCampusCoordinatesAction(campusId: string, formData: FormData) 
   });
 
   revalidatePath("/settings");
+  return ok(coords.latitude === null ? "Coordinates cleared" : "Coordinates saved");
 }
 
-async function setCampusArchivedAction(campusId: string, archived: boolean) {
+async function setCampusArchivedAction(campusId: string, archived: boolean): Promise<ActionResult> {
   "use server";
   const organization = await getCurrentOrganization();
-  if (!organization) throw new Error("No organization");
+  if (!organization) return { ok: false, formError: "No organization." };
   await requireOrgRole(organization.id, ["OWNER", "ADMIN"]);
 
   await campusService.setCampusArchived(organization.id, campusId, archived);
@@ -160,6 +191,7 @@ async function setCampusArchivedAction(campusId: string, archived: boolean) {
   });
 
   revalidatePath("/settings");
+  return ok(archived ? "Campus archived" : "Campus restored");
 }
 
 const FIELD_TYPE_NAMES: Record<PersonFieldType, string> = {
@@ -171,22 +203,22 @@ const FIELD_TYPE_NAMES: Record<PersonFieldType, string> = {
   MULTI_SELECT: "Multi-select",
 };
 
-async function createFieldAction(formData: FormData) {
+async function createFieldAction(formData: FormData): Promise<ActionResult> {
   "use server";
   const organization = await getCurrentOrganization();
-  if (!organization) throw new Error("No organization");
+  if (!organization) return { ok: false, formError: "No organization." };
   await requireOrgRole(organization.id, ["OWNER", "ADMIN"]);
 
   const label = String(formData.get("label") ?? "").trim();
   const type = String(formData.get("type") ?? "TEXT") as PersonFieldType;
-  if (!label) throw new Error("Field name is required.");
-  if (!PERSON_FIELD_TYPES.includes(type)) throw new Error("Unknown field type.");
+  if (!label) return invalid({ label: "Give the field a name." });
+  if (!PERSON_FIELD_TYPES.includes(type)) return invalid({ label: "Unknown field type." });
   const options = String(formData.get("options") ?? "")
     .split(",")
     .map((o) => o.trim())
     .filter(Boolean);
   if ((type === "SELECT" || type === "MULTI_SELECT") && options.length === 0) {
-    throw new Error("Dropdown fields need at least one option (comma-separated).");
+    return invalid({ options: "Dropdown fields need at least one option — separate them with commas." });
   }
 
   const field = await peopleService.createFieldDefinition(organization.id, { label, type, options });
@@ -202,12 +234,13 @@ async function createFieldAction(formData: FormData) {
   });
 
   revalidatePath("/settings");
+  return ok(`Field "${label}" added`);
 }
 
-async function archiveFieldAction(fieldId: string) {
+async function archiveFieldAction(fieldId: string): Promise<ActionResult> {
   "use server";
   const organization = await getCurrentOrganization();
-  if (!organization) throw new Error("No organization");
+  if (!organization) return { ok: false, formError: "No organization." };
   await requireOrgRole(organization.id, ["OWNER", "ADMIN"]);
 
   await peopleService.archiveFieldDefinition(organization.id, fieldId);
@@ -222,6 +255,7 @@ async function archiveFieldAction(fieldId: string) {
   });
 
   revalidatePath("/settings");
+  return ok("Field archived");
 }
 
 export default async function SettingsPage({
@@ -288,10 +322,11 @@ export default async function SettingsPage({
           Physical locations people, groups, events, and serving teams can be assigned to. Campuses are archived, never
           deleted, so history keeps pointing at them.
         </p>
-        <form action={createCampusAction} className="mb-4 flex flex-wrap items-end gap-3 border-b border-border pb-4">
+        <ActionForm action={createCampusAction} resetOnSuccess className="mb-4 flex flex-wrap items-start gap-3 border-b border-border pb-4">
           <label className="text-sm text-ink-secondary">
             Name
-            <Input name="name" required placeholder="North Campus" className="mt-1 w-56" />
+            <Input name="name" placeholder="North Campus" className="mt-1 w-56" />
+            <FieldError name="name" />
           </label>
           <label className="text-sm text-ink-secondary">
             Address <span className="text-ink-muted">(optional)</span>
@@ -300,15 +335,17 @@ export default async function SettingsPage({
           <label className="text-sm text-ink-secondary">
             Latitude <span className="text-ink-muted">(optional)</span>
             <Input name="latitude" type="number" step="any" placeholder="41.2565" className="mt-1 w-32" />
+            <FieldError name="latitude" />
           </label>
           <label className="text-sm text-ink-secondary">
             Longitude <span className="text-ink-muted">(optional)</span>
             <Input name="longitude" type="number" step="any" placeholder="-95.9345" className="mt-1 w-32" />
+            <FieldError name="longitude" />
           </label>
-          <button type="submit" className={buttonClasses("primary", "sm")}>
+          <SubmitButton size="sm" pendingLabel="Adding…" className="mt-5">
             Add campus
-          </button>
-        </form>
+          </SubmitButton>
+        </ActionForm>
         <p className="mb-3 -mt-1 text-xs text-ink-muted">
           Coordinates let app check-ins count as on-site (within 500m of a campus) vs remote on the attendance page.
         </p>
@@ -326,38 +363,42 @@ export default async function SettingsPage({
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {!campus.archivedAt && (
-                    <form
+                    <ActionForm
                       action={setCampusCoordinatesAction.bind(null, campus.id)}
-                      className="flex items-center gap-1.5"
+                      className="flex flex-col items-end gap-1"
                     >
-                      <Input
-                        name="latitude"
-                        type="number"
-                        step="any"
-                        placeholder="Lat"
-                        defaultValue={campus.latitude ?? ""}
-                        aria-label={`${campus.name} latitude`}
-                        className="w-24 text-xs"
-                      />
-                      <Input
-                        name="longitude"
-                        type="number"
-                        step="any"
-                        placeholder="Lng"
-                        defaultValue={campus.longitude ?? ""}
-                        aria-label={`${campus.name} longitude`}
-                        className="w-24 text-xs"
-                      />
-                      <button type="submit" className={buttonClasses("ghost", "sm")}>
-                        Save
-                      </button>
-                    </form>
+                      <span className="flex items-center gap-1.5">
+                        <Input
+                          name="latitude"
+                          type="number"
+                          step="any"
+                          placeholder="Lat"
+                          defaultValue={campus.latitude ?? ""}
+                          aria-label={`${campus.name} latitude`}
+                          className="w-24 text-xs"
+                        />
+                        <Input
+                          name="longitude"
+                          type="number"
+                          step="any"
+                          placeholder="Lng"
+                          defaultValue={campus.longitude ?? ""}
+                          aria-label={`${campus.name} longitude`}
+                          className="w-24 text-xs"
+                        />
+                        <SubmitButton variant="ghost" size="sm" pendingLabel="Saving…">
+                          Save
+                        </SubmitButton>
+                      </span>
+                      <FieldError name="latitude" />
+                      <FieldError name="longitude" />
+                    </ActionForm>
                   )}
-                  <form action={setCampusArchivedAction.bind(null, campus.id, !campus.archivedAt)}>
-                    <button type="submit" className={buttonClasses("ghost", "sm")}>
+                  <ActionForm action={setCampusArchivedAction.bind(null, campus.id, !campus.archivedAt)}>
+                    <SubmitButton variant="ghost" size="sm">
                       {campus.archivedAt ? "Restore" : "Archive"}
-                    </button>
-                  </form>
+                    </SubmitButton>
+                  </ActionForm>
                 </div>
               </li>
             ))}
@@ -371,10 +412,11 @@ export default async function SettingsPage({
           Custom fields shown on every person&rsquo;s profile — there&rsquo;s no limit. The import wizard creates
           these automatically for columns you keep; fields are archived, never deleted, so old values stay readable.
         </p>
-        <form action={createFieldAction} className="mb-4 flex flex-wrap items-end gap-3 border-b border-border pb-4">
+        <ActionForm action={createFieldAction} resetOnSuccess className="mb-4 flex flex-wrap items-start gap-3 border-b border-border pb-4">
           <label className="text-sm text-ink-secondary">
             Name
-            <Input name="label" required placeholder="Veteran" className="mt-1 w-48" />
+            <Input name="label" placeholder="Veteran" className="mt-1 w-48" />
+            <FieldError name="label" />
           </label>
           <label className="text-sm text-ink-secondary">
             Type
@@ -392,11 +434,12 @@ export default async function SettingsPage({
           <label className="text-sm text-ink-secondary">
             Options <span className="text-ink-muted">(dropdowns, comma-separated)</span>
             <Input name="options" placeholder="Choir, Band, Tech" className="mt-1 w-64" />
+            <FieldError name="options" />
           </label>
-          <button type="submit" className={buttonClasses("primary", "sm")}>
+          <SubmitButton size="sm" pendingLabel="Adding…" className="mt-5">
             Add field
-          </button>
-        </form>
+          </SubmitButton>
+        </ActionForm>
         {personFields.length === 0 ? (
           <p className="text-sm text-ink-muted">No custom fields yet — import a spreadsheet or add one above.</p>
         ) : (
@@ -413,11 +456,11 @@ export default async function SettingsPage({
                   </span>
                 </div>
                 {!field.archivedAt && (
-                  <form action={archiveFieldAction.bind(null, field.id)}>
-                    <button type="submit" className={buttonClasses("ghost", "sm")}>
+                  <ActionForm action={archiveFieldAction.bind(null, field.id)}>
+                    <SubmitButton variant="ghost" size="sm">
                       Archive
-                    </button>
-                  </form>
+                    </SubmitButton>
+                  </ActionForm>
                 )}
               </li>
             ))}

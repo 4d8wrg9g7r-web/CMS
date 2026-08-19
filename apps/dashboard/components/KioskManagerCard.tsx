@@ -2,6 +2,8 @@ import { MonitorCheck, Plus, Trash2 } from "lucide-react";
 import { Card } from "./ui/Card";
 import { Input, Select } from "./ui/Input";
 import { buttonClasses } from "./ui/Button";
+import { ActionForm, FieldError } from "./ui/ActionForm";
+import { SubmitButton } from "./ui/SubmitButton";
 import { createKioskAction, deleteKioskAction, setKioskEnabledAction } from "../app/(dashboard)/attendance/actions";
 
 /**
@@ -47,16 +49,16 @@ export function KioskManagerCard({
               </a>
               {canManage && (
                 <>
-                  <form action={setKioskEnabledAction.bind(null, k.id, !k.enabled)}>
+                  <ActionForm action={setKioskEnabledAction.bind(null, k.id, !k.enabled)}>
                     <button type="submit" className="text-xs text-accent hover:underline" data-action="toggle-kiosk">
                       {k.enabled ? "Disable" : "Enable"}
                     </button>
-                  </form>
-                  <form action={deleteKioskAction.bind(null, k.id)}>
+                  </ActionForm>
+                  <ActionForm action={deleteKioskAction.bind(null, k.id)}>
                     <button type="submit" aria-label={`Delete ${k.name}`} className="p-0.5 text-ink-muted hover:text-danger" data-action="delete-kiosk">
                       <Trash2 size={13} />
                     </button>
-                  </form>
+                  </ActionForm>
                 </>
               )}
             </li>
@@ -65,8 +67,11 @@ export function KioskManagerCard({
       )}
 
       {canManage && (
-        <form action={createKioskAction} className="flex flex-wrap items-center gap-2" data-section="kiosk-create">
-          <Input name="name" required placeholder="Kids Wing Kiosk" className="w-48 text-sm" data-kiosk-name />
+        <ActionForm action={createKioskAction} resetOnSuccess className="flex flex-wrap items-start gap-2" data-section="kiosk-create">
+          <span className="flex flex-col">
+            <Input name="name" placeholder="Kids Wing Kiosk" className="w-48 text-sm" data-kiosk-name />
+            <FieldError name="name" />
+          </span>
           <Select name="calendarId" className="w-44 text-sm" aria-label="Calendar" data-kiosk-calendar>
             <option value="">All calendars</option>
             {calendars.map((c) => (
@@ -75,10 +80,10 @@ export function KioskManagerCard({
               </option>
             ))}
           </Select>
-          <button type="submit" className={buttonClasses("primary", "sm")} data-action="create-kiosk">
+          <SubmitButton size="sm" pendingLabel="Adding…" data-action="create-kiosk">
             <Plus size={14} /> Add kiosk
-          </button>
-        </form>
+          </SubmitButton>
+        </ActionForm>
       )}
     </Card>
   );
