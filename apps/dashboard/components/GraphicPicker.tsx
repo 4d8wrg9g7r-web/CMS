@@ -37,10 +37,15 @@ export function GraphicPicker({
       try {
         const fd = new FormData();
         fd.set("url", url);
-        await setAction(target.id, fd);
+        const result = await setAction(target.id, fd);
+        if (!result.ok) {
+          showToast(result.formError ?? "Could not update the graphic", "error");
+          return;
+        }
         setLibraryOpen(false);
-      } catch (err) {
-        showToast(err instanceof Error ? err.message : "Could not update the graphic", "error");
+      } catch {
+        // Production masks server errors, so the message is generic either way.
+        showToast("Could not update the graphic — please try again.", "error");
       }
     });
   };
@@ -50,10 +55,14 @@ export function GraphicPicker({
       try {
         const fd = new FormData();
         fd.set("file", file);
-        await uploadAndAttachAction(target, fd);
-        showToast("Graphic uploaded to your media library", "success");
-      } catch (err) {
-        showToast(err instanceof Error ? err.message : "Upload failed", "error");
+        const result = await uploadAndAttachAction(target, fd);
+        if (!result.ok) {
+          showToast(result.formError ?? "Upload failed", "error");
+          return;
+        }
+        showToast(result.message ?? "Graphic uploaded to your media library", "success");
+      } catch {
+        showToast("Upload failed — please try again.", "error");
       }
     });
   };

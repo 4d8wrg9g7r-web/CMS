@@ -8,7 +8,7 @@ import { auditService, eventService, isMediaCollection, mediaService, sermonServ
 import { getCurrentOrganization, getCurrentUser } from "../../../lib/session";
 import { requireApp } from "../../../lib/app-access";
 import { requireEvents } from "../../../lib/events-access";
-import { ok, type ActionResult } from "../../../lib/action-result";
+import { fail, invalid, ok, type ActionResult } from "../../../lib/action-result";
 
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024; // 10 MB — a graphic, not a photo archive
 const IMAGE_CONTENT_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
@@ -43,12 +43,15 @@ async function absolutize(url: string): Promise<string> {
   return `${h.get("x-forwarded-proto") ?? "http"}://${host}${url}`;
 }
 
+/** Validation problem the user can fix — callers turn it into an inline error, never a crash. */
+class UploadValidationError extends Error {}
+
 async function saveImage(organizationId: string, file: File, collection: MediaCollection = "sermon"): Promise<string> {
   if (collection === "library") {
-    if (!LIBRARY_CONTENT_TYPES.has(file.type)) throw new Error("That file type isn't supported here.");
-    if (file.size > LIBRARY_MAX_BYTES) throw new Error("Files can be up to 25 MB.");
-  } else if (!IMAGE_CONTENT_TYPES.has(file.type)) throw new Error("Upload a PNG, JPEG, WebP, or GIF image.");
-  else if (file.size > IMAGE_MAX_BYTES) throw new Error("Images can be up to 10 MB.");
+    if (!LIBRARY_CONTENT_TYPES.has(file.type)) throw new UploadValidationError("That file type isn't supported here.");
+    if (file.size > LIBRARY_MAX_BYTES) throw new UploadValidationError("Files can be up to 25 MB.");
+  } else if (!IMAGE_CONTENT_TYPES.has(file.type)) throw new UploadValidationError("Upload a PNG, JPEG, WebP, or GIF image.");
+  else if (file.size > IMAGE_MAX_BYTES) throw new UploadValidationError("Images can be up to 10 MB.");
   const saved = await getStorageProvider(path.join(process.cwd(), "public")).saveFile({
     organizationId,
     fileName: file.name,
@@ -62,12 +65,18 @@ export async function uploadMediaAssetAction(formData: FormData): Promise<Action
   const organization = await getCurrentOrganization();
   if (!organization) return { ok: false, formError: "No organization." };
   const collection = formData.get("collection");
-  if (!isMediaCollection(collection)) throw new Error("Unknown collection.");
+  if (!isMediaCollection(collection)) return fail("Unknown collection.");
   await requireCollectionManage(organization.id, collection);
 
   const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) throw new Error("Choose a file to upload.");
-  const url = await saveImage(organization.id, file, collection);
+  if (!(file instanceof File) || file.size === 0) return invalid({ file: "Choose a file first, then hit Upload." });
+  let url: string;
+  try {
+    url = await saveImage(organization.id, file, collection);
+  } catch (err) {
+    if (err instanceof UploadValidationError) return invalid({ file: err.message });
+    throw err;
+  }
   const asset = await mediaService.createMediaAsset(organization.id, {
     collection,
     name: file.name.replace(/\.[a-z0-9]+$/i, ""),
@@ -122,41 +131,63 @@ export async function deleteMediaAssetAction(assetId: string): Promise<ActionRes
 function cleanImageUrl(raw: FormDataEntryValue | null): string | null {
   const url = String(raw ?? "").trim();
   if (!url) return null;
-  if (!/^https?:\/\//.test(url)) throw new Error("Bad image URL.");
+  if (!/^https?:\/\//.test(url)) throw new UploadValidationError("Bad image URL.");
   return url.slice(0, 1000);
 }
 
-export async function setEventImageAction(eventId: string, formData: FormData): Promise<void> {
+export async function setEventImageAction(eventId: string, formData: FormData): Promise<ActionResult> {
   const organization = await getCurrentOrganization();
-  if (!organization) return;
+  if (!organization) return fail("No organization.");
   await requireEvents(organization.id, "event.manage");
-  await eventService.setEventImage(organization.id, eventId, cleanImageUrl(formData.get("url")));
+  let url: string | null;
+  try {
+    url = cleanImageUrl(formData.get("url"));
+  } catch (err) {
+    if (err instanceof UploadValidationError) return fail(err.message);
+    throw err;
+  }
+  await eventService.setEventImage(organization.id, eventId, url);
   revalidatePath(`/events/${eventId}`);
   revalidatePath("/events");
+  return ok();
 }
 
-export async function setSermonArtworkAction(sermonId: string, formData: FormData): Promise<void> {
+export async function setSermonArtworkAction(sermonId: string, formData: FormData): Promise<ActionResult> {
   const organization = await getCurrentOrganization();
-  if (!organization) return;
+  if (!organization) return fail("No organization.");
   await requireApp(organization.id, "sermon.manage");
-  await sermonService.setSermonMedia(organization.id, sermonId, { artworkUrl: cleanImageUrl(formData.get("url")) });
+  let url: string | null;
+  try {
+    url = cleanImageUrl(formData.get("url"));
+  } catch (err) {
+    if (err instanceof UploadValidationError) return fail(err.message);
+    throw err;
+  }
+  await sermonService.setSermonMedia(organization.id, sermonId, { artworkUrl: url });
   revalidatePath(`/sermons/${sermonId}`);
   revalidatePath("/sermons");
+  return ok();
 }
 
 /** Upload straight from an item's graphic picker: store in the library, then attach. */
 export async function uploadAndAttachAction(
   target: { kind: "event" | "sermon"; id: string },
   formData: FormData,
-): Promise<void> {
+): Promise<ActionResult> {
   const organization = await getCurrentOrganization();
-  if (!organization) return;
+  if (!organization) return fail("No organization.");
   const collection: MediaCollection = target.kind === "event" ? "event" : "sermon";
   await requireCollectionManage(organization.id, collection);
 
   const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) throw new Error("Choose an image to upload.");
-  const url = await saveImage(organization.id, file);
+  if (!(file instanceof File) || file.size === 0) return fail("Choose an image to upload.");
+  let url: string;
+  try {
+    url = await saveImage(organization.id, file);
+  } catch (err) {
+    if (err instanceof UploadValidationError) return fail(err.message);
+    throw err;
+  }
   await mediaService.createMediaAsset(organization.id, {
     collection,
     name: file.name.replace(/\.[a-z0-9]+$/i, ""),
@@ -177,4 +208,5 @@ export async function uploadAndAttachAction(
   revalidatePath("/files");
   revalidatePath("/sermons");
   revalidatePath("/events");
+  return ok("Graphic uploaded to your media library");
 }

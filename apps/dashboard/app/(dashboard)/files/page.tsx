@@ -1,4 +1,4 @@
-import { FileText, FolderOpen, Lock, Music, Search, Trash2, Upload } from "lucide-react";
+import { FileText, FolderOpen, Lock, Music, Search, Trash2 } from "lucide-react";
 import { mediaService } from "@cms/database";
 import { Card } from "../../../components/ui/Card";
 import { CopyUrlButton } from "../../../components/CopyUrlButton";
@@ -8,8 +8,9 @@ import { buttonClasses } from "../../../components/ui/Button";
 import { canApp } from "../../../lib/app-access";
 import { getCurrentOrganization } from "../../../lib/session";
 import { deleteMediaAssetAction, uploadMediaAssetAction } from "../media/actions";
-import { ActionForm } from "../../../components/ui/ActionForm";
+import { ActionForm, FieldError } from "../../../components/ui/ActionForm";
 import { ConfirmSubmitButton } from "../../../components/ui/ConfirmDialog";
+import { FilePicker } from "../../../components/ui/FilePicker";
 import { SubmitButton } from "../../../components/ui/SubmitButton";
 
 function formatBytes(n: number): string {
@@ -72,12 +73,12 @@ export default async function FilesPage({ searchParams }: { searchParams: Promis
           </button>
         </form>
         {canManage && (
-          <ActionForm action={uploadMediaAssetAction} resetOnSuccess className="flex items-center gap-2" data-section="files-upload">
+          <ActionForm action={uploadMediaAssetAction} resetOnSuccess className="flex items-start gap-2" data-section="files-upload">
             <input type="hidden" name="collection" value="library" />
-            <label className={buttonClasses("secondary", "sm") + " cursor-pointer"}>
-              <Upload size={14} /> Choose file
-              <input type="file" name="file" className="sr-only" data-action="upload-file" />
-            </label>
+            <span className="flex flex-col">
+              <FilePicker label="Choose file" data-action="upload-file" />
+              <FieldError name="file" />
+            </span>
             <SubmitButton size="sm" pendingLabel="Uploading…" data-action="save-file">
               Upload
             </SubmitButton>

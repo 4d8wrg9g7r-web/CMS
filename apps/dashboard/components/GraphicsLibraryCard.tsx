@@ -1,9 +1,9 @@
-import { Images, Trash2, Upload } from "lucide-react";
+import { Images, Trash2 } from "lucide-react";
 import { Card } from "./ui/Card";
-import { buttonClasses } from "./ui/Button";
 import { deleteMediaAssetAction, uploadMediaAssetAction } from "../app/(dashboard)/media/actions";
-import { ActionForm } from "./ui/ActionForm";
+import { ActionForm, FieldError } from "./ui/ActionForm";
 import { ConfirmSubmitButton } from "./ui/ConfirmDialog";
+import { FilePicker } from "./ui/FilePicker";
 import { SubmitButton } from "./ui/SubmitButton";
 
 /**
@@ -34,18 +34,16 @@ export function GraphicsLibraryCard({
           <p className="mt-0.5 text-xs text-ink-muted">{blurb}</p>
         </div>
         {canManage && (
-          <ActionForm action={uploadMediaAssetAction} resetOnSuccess className="flex items-center gap-2">
+          <ActionForm action={uploadMediaAssetAction} resetOnSuccess className="flex items-start gap-2">
             <input type="hidden" name="collection" value={collection} />
-            <label className={buttonClasses("secondary", "sm") + " cursor-pointer"}>
-              <Upload size={14} /> Choose image
-              <input
-                type="file"
-                name="file"
+            <span className="flex flex-col">
+              <FilePicker
+                label="Choose image"
                 accept="image/png,image/jpeg,image/webp,image/gif"
-                className="sr-only"
                 data-action={`upload-${collection}-graphic`}
               />
-            </label>
+              <FieldError name="file" />
+            </span>
             <SubmitButton size="sm" pendingLabel="Uploading…" data-action={`save-${collection}-graphic`}>
               Upload
             </SubmitButton>

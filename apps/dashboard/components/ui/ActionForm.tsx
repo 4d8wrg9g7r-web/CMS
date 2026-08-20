@@ -54,7 +54,16 @@ export function ActionForm({
         result = await action(formData);
       } catch (err) {
         // Framework control flow (redirect/notFound) must keep propagating.
-        if (err && typeof err === "object" && "digest" in err) throw err;
+        // Match the specific digests: in production Next attaches a digest to
+        // EVERY masked server-action error, so "has a digest" would send
+        // ordinary failures to the error boundary instead of the toast.
+        const digest = err && typeof err === "object" && "digest" in err ? (err as { digest?: unknown }).digest : undefined;
+        if (
+          typeof digest === "string" &&
+          (digest.startsWith("NEXT_REDIRECT") || digest === "NEXT_NOT_FOUND" || digest.startsWith("NEXT_HTTP_ERROR_FALLBACK"))
+        ) {
+          throw err;
+        }
         setFormError("Something went wrong — please try again.");
         showToast("Something went wrong — please try again.", "error");
         return;
