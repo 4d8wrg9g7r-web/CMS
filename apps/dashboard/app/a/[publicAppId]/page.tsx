@@ -3,7 +3,7 @@ import { ChevronRight, Users2 } from "lucide-react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { appFeedService, appMemberService, appService, campaignService, givingService, groupService, onlineGivingService } from "@cms/database";
+import { appFeedService, appMemberService, appService, campaignService, givingService, groupService, kioskService, onlineGivingService, organizationService } from "@cms/database";
 import { AppFeed } from "../../../components/church-app/AppFeed";
 import { AppScreen } from "../../../components/church-app/AppScreen";
 import { CampaignCard } from "../../../components/church-app/CampaignCard";
@@ -57,11 +57,13 @@ export default async function PublicAppPage({ params, searchParams }: Props) {
   const token = (await cookies()).get(`app_session_${publicAppId}`)?.value ?? "";
   const member = token ? await appMemberService.getSessionMember(app.organizationId, token) : null;
 
-  const [content, posts, myGroups, givingConfig] = await Promise.all([
+  const [content, posts, myGroups, givingConfig, timeZone, myCheckIns] = await Promise.all([
     buildAppContent(app.organizationId),
     appFeedService.listFeed(app.organizationId, member?.personId ?? null),
     member ? groupService.listGroupsForPerson(app.organizationId, member.personId) : Promise.resolve([]),
     onlineGivingService.getConfig(app.organizationId),
+    organizationService.getOrganizationTimezone(app.organizationId),
+    member ? kioskService.listMemberCheckInKeys(app.organizationId, member.personId) : Promise.resolve([]),
   ]);
   const givingLive = onlineGivingService.isLive(givingConfig);
   const [onlineFunds, campaigns] = await Promise.all([
@@ -116,7 +118,7 @@ export default async function PublicAppPage({ params, searchParams }: Props) {
         activeIndex={activeIndex}
         tabHref={(i) => `/a/${publicAppId}?tab=${i}`}
         myGroupsNav={myGroupsNav}
-        checkIn={{ publicAppId, signedIn: Boolean(member) }}
+        checkIn={{ publicAppId, signedIn: Boolean(member), timeZone, myCheckIns }}
         livestreamChat={
           <LivestreamChat publicAppId={publicAppId} accent={app.manifest.themeColor} signedIn={Boolean(member)} />
         }

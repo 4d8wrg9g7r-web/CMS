@@ -46,9 +46,11 @@ export async function resolveKiosk(publicKioskKey: string) {
 }
 
 /**
- * Exact household lookup for the kiosk: a guardian's phone digits or household
- * last name. Returns household members split into kids (CHILD role or under
- * 18 by birthdate) and adults. No partial browsing.
+ * Household lookup for the kiosk: a guardian's phone digits, or a last-name
+ * prefix of 3+ letters (UX audit #7 — parents type partial names; exact-only
+ * match sent every typo to a volunteer). Capped at 3 households so the kiosk
+ * never becomes a directory browser. Returns members split into kids (CHILD
+ * role or under 18 by birthdate) and adults.
  */
 export async function kioskHouseholdLookup(organizationId: string, query: string) {
   const q = query.trim();
@@ -65,7 +67,7 @@ export async function kioskHouseholdLookup(organizationId: string, query: string
       householdId: { not: null },
       ...(byPhone
         ? { phone: { contains: digits.slice(-4) } }
-        : { lastName: { equals: q, mode: "insensitive" } }),
+        : { lastName: { startsWith: q, mode: "insensitive" } }),
     },
     select: { householdId: true, phone: true },
     take: 50,
@@ -268,4 +270,51 @@ export async function kioskCheckOut(
   }
   await tenantDb.checkIn.updateMany({ where: { id: row.id, organizationId }, data: { checkedOutAt: new Date() } });
   return { ok: true as const };
+}
+
+/**
+ * Pickup without naming the event (UX audit #8): the kiosk's pickup mode
+ * works even when today's event list is empty — find each kid's most recent
+ * OPEN check-in from the last 24 hours and check out the ones whose security
+ * code matches. All-or-nothing per person, reported individually.
+ */
+export async function kioskCheckOutByCode(
+  organizationId: string,
+  input: { personIds: string[]; securityCode: string },
+) {
+  const code = input.securityCode.trim().toUpperCase();
+  const since = new Date(Date.now() - 24 * 3600 * 1000);
+  const results: { personId: string; ok: boolean; error?: "not_found" | "code_mismatch" }[] = [];
+  for (const personId of input.personIds) {
+    const row = await tenantDb.checkIn.findFirst({
+      where: { organizationId, personId, checkedOutAt: null, checkedInAt: { gte: since }, securityCode: { not: null } },
+      orderBy: { checkedInAt: "desc" },
+    });
+    if (!row?.securityCode) {
+      results.push({ personId, ok: false, error: "not_found" });
+      continue;
+    }
+    if (row.securityCode.toUpperCase() !== code) {
+      results.push({ personId, ok: false, error: "code_mismatch" });
+      continue;
+    }
+    await tenantDb.checkIn.updateMany({ where: { id: row.id, organizationId }, data: { checkedOutAt: new Date() } });
+    results.push({ personId, ok: true });
+  }
+  return { ok: results.every((r) => r.ok), results };
+}
+
+/**
+ * The member's own check-ins for the app (UX audit #10): lets event cards
+ * render "Checked in" on load instead of re-offering the button. Keys are
+ * `${eventId}|${occurrenceAt ISO}`.
+ */
+export async function listMemberCheckInKeys(organizationId: string, personId: string): Promise<string[]> {
+  const since = new Date(Date.now() - 24 * 3600 * 1000);
+  const rows = await tenantDb.checkIn.findMany({
+    where: { organizationId, personId, checkedInAt: { gte: since } },
+    select: { eventId: true, occurrenceAt: true },
+    take: 50,
+  });
+  return rows.map((r) => `${r.eventId}|${r.occurrenceAt.toISOString()}`);
 }

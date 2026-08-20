@@ -30,8 +30,9 @@ export function KioskManagerCard({
       <p className="mb-4 text-xs text-ink-muted">
         Pin a kiosk to a calendar and open its link on the check-in device — it shows that calendar&rsquo;s events for
         today automatically. For silent Brother label printing, run Chrome with{" "}
-        <code className="rounded bg-surface-muted px-1">--kiosk --kiosk-printing</code> and the QL printer set as
-        default.
+        <code className="rounded bg-surface-muted px-1">--kiosk --kiosk-printing</code>, set the QL printer as
+        default, and add <code className="rounded bg-surface-muted px-1">?autoprint=1</code> to the kiosk link; on
+        other devices a Print button appears instead.
       </p>
 
       {kiosks.length > 0 && (

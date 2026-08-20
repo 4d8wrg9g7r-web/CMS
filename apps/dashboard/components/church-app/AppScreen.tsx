@@ -35,6 +35,8 @@ export interface AppEventItem {
   occurrenceAt?: string | null;
   endsAt?: string | null;
   allowAppCheckIn?: boolean;
+  /** True while the occurrence is underway — the card stays until it ends. */
+  happeningNow?: boolean;
 }
 export interface AppSermonItem {
   id: string;
@@ -212,7 +214,7 @@ export function AppScreen({
   /** Live chat panel under the Livestream tab (public mode only). */
   livestreamChat?: React.ReactNode;
   /** Public mode: enables member self check-in buttons on event cards. */
-  checkIn?: { publicAppId: string; signedIn: boolean };
+  checkIn?: { publicAppId: string; signedIn: boolean; timeZone: string; myCheckIns: string[] };
 }) {
   const accent = manifest.themeColor;
   const active = manifest.tabs[activeIndex] ?? manifest.tabs[0]!;
@@ -285,7 +287,18 @@ export function AppScreen({
                   // eslint-disable-next-line @next/next/no-img-element -- church-managed graphic
                   <img src={event.imageUrl} alt="" className="-mx-4 -mt-4 mb-3 aspect-video w-[calc(100%+2rem)] max-w-none object-cover" data-event-image loading="lazy" />
                 )}
-                <p className="font-semibold text-neutral-900">{event.title}</p>
+                <p className="flex items-center gap-2 font-semibold text-neutral-900">
+                  {event.title}
+                  {event.happeningNow && (
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white"
+                      style={{ backgroundColor: accent }}
+                      data-happening-now
+                    >
+                      Happening now
+                    </span>
+                  )}
+                </p>
                 <p className="text-sm text-neutral-600">{event.when}</p>
                 {event.location && (
                   <p className="mt-0.5 flex items-center gap-1 text-xs text-neutral-500">
@@ -300,6 +313,8 @@ export function AppScreen({
                     endsAt={event.endsAt ?? null}
                     signedIn={checkIn.signedIn}
                     accent={accent}
+                    timeZone={checkIn.timeZone}
+                    initiallyCheckedIn={checkIn.myCheckIns.includes(`${event.id}|${event.occurrenceAt}`)}
                   />
                 )}
               </div>

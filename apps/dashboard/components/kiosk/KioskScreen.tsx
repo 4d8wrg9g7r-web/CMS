@@ -4,9 +4,12 @@ import { useState } from "react";
 
 /**
  * The kiosk flow (docs/domain/app.md "Check-in"): pick today's service →
- * exact phone/last-name lookup → tap the kids → check in → labels print.
- * The print sheet is a 62mm-wide layout (Brother QL continuous tape); in
- * Chrome kiosk mode (--kiosk --kiosk-printing) window.print() is silent.
+ * phone/last-name lookup → tap the kids → check in → labels print. Pickup
+ * mode works from the same lookup but needs no event — the security code
+ * identifies the open check-in, so late pickups work even when today's
+ * event list is empty (UX audit #8). The print sheet is a 62mm-wide layout
+ * (Brother QL continuous tape); auto-print fires only when the kiosk URL
+ * carries ?autoprint=1 (UX audit #9), and a Print button always exists.
  */
 
 interface KioskEvent {
@@ -31,12 +34,14 @@ export function KioskScreen({
   organizationName,
   calendarName,
   events,
+  autoPrint = false,
 }: {
   kioskKey: string;
   kioskName: string;
   organizationName: string;
   calendarName: string | null;
   events: KioskEvent[];
+  autoPrint?: boolean;
 }) {
   const [mode, setMode] = useState<"checkin" | "pickup">("checkin");
   const [eventKey, setEventKey] = useState(events[0] ? `${events[0].id}|${events[0].occurrenceAt}` : "");
@@ -50,6 +55,8 @@ export function KioskScreen({
   const [error, setError] = useState<string | null>(null);
   const api = `/api/kiosk/${kioskKey}`;
   const active = events.find((e) => `${e.id}|${e.occurrenceAt}` === eventKey) ?? null;
+  // Check-in needs an event; pickup only needs the family + code.
+  const showLookup = mode === "pickup" || events.length > 0;
 
   const lookup = async () => {
     setBusy(true);
@@ -84,43 +91,41 @@ export function KioskScreen({
         return;
       }
       setResult(data);
-      // Labels: silent in Chrome kiosk-printing mode; a dialog elsewhere.
-      setTimeout(() => window.print(), 300);
+      // Silent only under Chrome --kiosk-printing with ?autoprint=1; everywhere
+      // else printing stays behind the visible button so no dialog hijacks
+      // the success screen.
+      if (autoPrint) setTimeout(() => window.print(), 300);
     } finally {
       setBusy(false);
     }
   };
 
   const checkOut = async () => {
-    if (!active || selected.size === 0 || pickupCode.trim().length < 4) return;
+    if (selected.size === 0 || pickupCode.trim().length < 4) return;
     setBusy(true);
     setError(null);
     try {
-      const names: string[] = [];
-      for (const personId of selected) {
-        const res = await fetch(api, {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            op: "checkout",
-            eventId: active.id,
-            occurrenceAt: active.occurrenceAt,
-            personId,
-            securityCode: pickupCode,
-          }),
-        });
-        const data = (await res.json()) as { ok?: boolean; error?: string };
-        if (!res.ok || !data.ok) {
-          setError(
-            data.error === "code_mismatch"
-              ? "That code doesn't match — check the guardian receipt."
-              : "No open check-in found for that child.",
-          );
-          return;
-        }
-        const kid = households?.flatMap((h) => h.kids).find((k) => k.id === personId);
-        names.push(kid?.name ?? "Child");
+      const res = await fetch(api, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ op: "checkout", personIds: [...selected], securityCode: pickupCode }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        results?: { personId: string; ok: boolean; error?: string }[];
+      };
+      if (!res.ok || !data.ok) {
+        const mismatch = data.results?.some((r) => r.error === "code_mismatch");
+        setError(
+          mismatch
+            ? "That code doesn't match — check the guardian receipt."
+            : "No open check-in found — the child may already be checked out.",
+        );
+        return;
       }
+      const names = [...selected].map(
+        (id) => households?.flatMap((h) => h.kids).find((k) => k.id === id)?.name ?? "Child",
+      );
       setPickedUp(names);
     } finally {
       setBusy(false);
@@ -137,6 +142,13 @@ export function KioskScreen({
     setError(null);
   };
 
+  const switchMode = (next: "checkin" | "pickup") => {
+    setMode(next);
+    setSelected(new Set());
+    setPickupCode("");
+    setError(null);
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       <style>{`
@@ -149,7 +161,7 @@ export function KioskScreen({
       `}</style>
 
       <div className="mx-auto max-w-xl px-6 py-10 print:hidden">
-        <p className="text-sm font-semibold text-slate-400">
+        <p className="text-sm font-semibold text-slate-300">
           {organizationName} · {kioskName}
           {calendarName ? ` · ${calendarName}` : ""}
         </p>
@@ -173,10 +185,20 @@ export function KioskScreen({
             <p className="mt-4 text-lg">
               Pickup code: <span className="font-mono text-2xl font-bold" data-kiosk-code>{result.checkIns[0]?.securityCode}</span>
             </p>
-            <p className="mt-1 text-sm text-slate-400">Keep your receipt — it&rsquo;s required at pickup.</p>
-            <button type="button" onClick={reset} className="mt-8 rounded-xl bg-white px-6 py-3 text-lg font-semibold text-slate-900" data-kiosk-done>
-              Done
-            </button>
+            <p className="mt-1 text-sm text-slate-300">Keep your receipt — it&rsquo;s required at pickup.</p>
+            <div className="mt-8 flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="rounded-xl bg-slate-700 px-6 py-3 text-lg font-semibold text-white"
+                data-kiosk-print
+              >
+                Print labels
+              </button>
+              <button type="button" onClick={reset} className="rounded-xl bg-white px-6 py-3 text-lg font-semibold text-slate-900" data-kiosk-done>
+                Done
+              </button>
+            </div>
           </div>
         ) : (
           <>
@@ -186,12 +208,7 @@ export function KioskScreen({
               </h1>
               <button
                 type="button"
-                onClick={() => {
-                  setMode(mode === "checkin" ? "pickup" : "checkin");
-                  setSelected(new Set());
-                  setPickupCode("");
-                  setError(null);
-                }}
+                onClick={() => switchMode(mode === "checkin" ? "pickup" : "checkin")}
                 className="rounded-full bg-slate-800 px-4 py-1.5 text-sm font-semibold text-slate-200"
                 data-kiosk-mode
               >
@@ -199,30 +216,34 @@ export function KioskScreen({
               </button>
             </div>
 
-            {events.length === 0 ? (
+            {mode === "checkin" && events.length === 0 && (
               <p className="mt-6 text-slate-300" data-kiosk-noevents>
-                Nothing on today&rsquo;s calendar — check back at service time.
+                Nothing on today&rsquo;s calendar — check back at service time. Picking a child up? Use the button above.
               </p>
-            ) : (
-              <>
-                <div className="mt-5 flex flex-wrap gap-2" data-kiosk-events>
-                  {events.map((e) => {
-                    const key = `${e.id}|${e.occurrenceAt}`;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setEventKey(key)}
-                        className={`rounded-xl px-4 py-2.5 text-sm font-semibold ${
-                          eventKey === key ? "bg-white text-slate-900" : "bg-slate-800 text-slate-200"
-                        }`}
-                      >
-                        {e.title} · {e.timeLabel}
-                      </button>
-                    );
-                  })}
-                </div>
+            )}
 
+            {mode === "checkin" && events.length > 0 && (
+              <div className="mt-5 flex flex-wrap gap-2" data-kiosk-events>
+                {events.map((e) => {
+                  const key = `${e.id}|${e.occurrenceAt}`;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setEventKey(key)}
+                      className={`rounded-xl px-4 py-2.5 text-sm font-semibold ${
+                        eventKey === key ? "bg-white text-slate-900" : "bg-slate-800 text-slate-200"
+                      }`}
+                    >
+                      {e.title} · {e.timeLabel}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {showLookup && (
+              <>
                 <form
                   className="mt-6 flex gap-2"
                   onSubmit={(e) => {
@@ -233,25 +254,30 @@ export function KioskScreen({
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Phone number or last name"
-                    className="min-w-0 flex-1 rounded-xl border-0 bg-slate-800 px-4 py-3.5 text-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/60"
+                    placeholder="Last name or phone number"
+                    className="min-w-0 flex-1 rounded-xl border-0 bg-slate-800 px-4 py-3.5 text-lg text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-white/60"
                     data-kiosk-query
                   />
-                  <button type="submit" disabled={busy || query.trim().length < 3} className="rounded-xl bg-white px-5 py-3.5 text-lg font-semibold text-slate-900 disabled:opacity-40" data-kiosk-search>
+                  <button type="submit" disabled={busy || query.trim().length < 3} className="rounded-xl bg-white px-5 py-3.5 text-lg font-semibold text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-600 disabled:text-slate-300" data-kiosk-search>
                     Find
                   </button>
                 </form>
+                <p className="mt-2 text-sm text-slate-300" data-kiosk-hint>
+                  Type at least 3 letters of the last name, or the phone number the church has on file.
+                </p>
 
                 {households !== null && (
                   <div className="mt-6 space-y-4" data-kiosk-results>
                     {households.length === 0 ? (
-                      <p className="text-slate-300">No family found — check with a volunteer.</p>
+                      <p className="text-slate-200">
+                        No match found — try the complete last name as the church has it, or check with a volunteer.
+                      </p>
                     ) : (
                       households.map((h) => (
                         <div key={h.id} className="rounded-xl bg-slate-800 p-4">
-                          <p className="mb-2 text-sm font-semibold text-slate-300">{h.name}</p>
+                          <p className="mb-2 text-sm font-semibold text-slate-200">{h.name}</p>
                           {h.kids.length === 0 ? (
-                            <p className="text-sm text-slate-400">No children on file for this family.</p>
+                            <p className="text-sm text-slate-300">No children on file for this family.</p>
                           ) : (
                             <div className="flex flex-wrap gap-2">
                               {h.kids.map((kid) => (
@@ -290,7 +316,7 @@ export function KioskScreen({
                           value={pickupCode}
                           onChange={(e) => setPickupCode(e.target.value.toUpperCase())}
                           placeholder="Pickup code (e.g. ACD-42)"
-                          className="w-full rounded-xl border-0 bg-slate-800 px-4 py-3.5 text-center font-mono text-xl tracking-widest text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/60"
+                          className="w-full rounded-xl border-0 bg-slate-800 px-4 py-3.5 text-center font-mono text-xl tracking-widest text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-white/60"
                           data-kiosk-pickup-code
                         />
                         <button

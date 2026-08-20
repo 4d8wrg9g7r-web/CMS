@@ -9,8 +9,14 @@ export const dynamic = "force-dynamic";
  * unguessable key, pinned to one calendar — today's events appear
  * automatically. No person data renders until an exact household lookup.
  */
-export default async function KioskPage({ params }: { params: Promise<{ kioskKey: string }> }) {
-  const { kioskKey } = await params;
+export default async function KioskPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ kioskKey: string }>;
+  searchParams: Promise<{ autoprint?: string }>;
+}) {
+  const [{ kioskKey }, { autoprint }] = await Promise.all([params, searchParams]);
   const kiosk = await kioskService.resolveKiosk(kioskKey);
   if (!kiosk) notFound();
 
@@ -37,6 +43,7 @@ export default async function KioskPage({ params }: { params: Promise<{ kioskKey
       organizationName={kiosk.organization.name}
       calendarName={kiosk.calendar?.name ?? null}
       events={today}
+      autoPrint={autoprint === "1"}
     />
   );
 }

@@ -7,10 +7,9 @@ const NO_STORE = { "cache-control": "no-store" };
 
 /**
  * Kiosk API (docs/domain/app.md "Check-in"). The unguessable kiosk key is the
- * credential; both operations resolve it fresh so a disabled kiosk dies
+ * credential; every operation resolves it fresh so a disabled kiosk dies
  * immediately. POST body: {op:"lookup", query} | {op:"checkin", eventId,
- * occurrenceAt, personIds} | {op:"checkout", eventId, occurrenceAt, personId,
- * securityCode}.
+ * occurrenceAt, personIds} | {op:"checkout", personIds, securityCode}.
  */
 export async function POST(req: Request, { params }: { params: Promise<{ kioskKey: string }> }) {
   const { kioskKey } = await params;
@@ -50,12 +49,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ kioskKe
       return NextResponse.json(result, { headers: NO_STORE });
     }
     if (body.op === "checkout") {
-      const occurrenceAt = new Date(String(body.occurrenceAt ?? ""));
-      if (Number.isNaN(occurrenceAt.getTime())) return NextResponse.json({ error: "invalid" }, { status: 400 });
-      const result = await kioskService.kioskCheckOut(kiosk.organizationId, {
-        eventId: String(body.eventId ?? ""),
-        occurrenceAt,
-        personId: String(body.personId ?? ""),
+      // Pickup is decoupled from today's event list (UX audit #8): the open
+      // check-in + code identify the pickup, so checkout still works after
+      // the event has rolled off the kiosk's calendar day.
+      const result = await kioskService.kioskCheckOutByCode(kiosk.organizationId, {
+        personIds: Array.isArray(body.personIds) ? body.personIds.map(String) : [],
         securityCode: String(body.securityCode ?? ""),
       });
       return NextResponse.json(result, { status: result.ok ? 200 : 400, headers: NO_STORE });

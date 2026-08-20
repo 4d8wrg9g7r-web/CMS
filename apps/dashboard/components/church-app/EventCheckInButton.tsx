@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { CircleCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CircleCheck, Clock } from "lucide-react";
 
 /**
  * Member self check-in on an event card (docs/domain/app.md "Check-in").
- * Renders only inside the check-in window (an hour before the occurrence
- * until it ends). Location is requested at the moment of tapping — never
- * before — and check-in proceeds even if the member declines the prompt.
+ * The window runs from an hour before the occurrence until it ends. Before it
+ * opens, a passive hint says when (in the church's timezone); a minute tick
+ * keeps long-lived pages honest; a member already checked in sees that state
+ * on load instead of the button (UX audit #10). Location is requested only at
+ * the moment of tapping — never before — and check-in proceeds if declined.
  */
 export function EventCheckInButton({
   publicAppId,
@@ -16,6 +18,8 @@ export function EventCheckInButton({
   endsAt,
   signedIn,
   accent,
+  timeZone,
+  initiallyCheckedIn = false,
 }: {
   publicAppId: string;
   eventId: string;
@@ -23,14 +27,45 @@ export function EventCheckInButton({
   endsAt: string | null;
   signedIn: boolean;
   accent: string;
+  timeZone: string;
+  initiallyCheckedIn?: boolean;
 }) {
-  const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
+  const [state, setState] = useState<"idle" | "busy" | "done" | "error">(initiallyCheckedIn ? "done" : "idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  // The window opens and closes while the app sits on a phone — re-evaluate
+  // every minute instead of freezing at render time.
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const start = new Date(occurrenceAt).getTime();
   const end = endsAt ? new Date(endsAt).getTime() : start + 2 * 3600 * 1000;
-  const now = Date.now();
-  if (Number.isNaN(start) || now < start - 3600 * 1000 || now > end) return null;
+  if (Number.isNaN(start) || now > end) return null;
+
+  if (state === "done") {
+    return (
+      <p className="mt-3 flex items-center justify-center gap-1.5 rounded-xl bg-neutral-100 px-4 py-2.5 text-sm font-semibold text-neutral-700" data-app-checkin-done>
+        <CircleCheck size={16} style={{ color: accent }} /> Checked in
+      </p>
+    );
+  }
+
+  const opensAt = start - 3600 * 1000;
+  if (now < opensAt) {
+    const opensLabel = new Date(opensAt).toLocaleTimeString("en-US", {
+      timeZone,
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    return (
+      <p className="mt-3 flex items-center justify-center gap-1.5 rounded-xl bg-neutral-100 px-4 py-2.5 text-sm text-neutral-500" data-app-checkin-preview>
+        <Clock size={14} /> Check-in opens at {opensLabel}
+      </p>
+    );
+  }
 
   if (!signedIn) {
     return (
@@ -78,13 +113,6 @@ export function EventCheckInButton({
     }
   };
 
-  if (state === "done") {
-    return (
-      <p className="mt-3 flex items-center justify-center gap-1.5 rounded-xl bg-neutral-100 px-4 py-2.5 text-sm font-semibold text-neutral-700" data-app-checkin-done>
-        <CircleCheck size={16} style={{ color: accent }} /> Checked in
-      </p>
-    );
-  }
   return (
     <>
       <button
