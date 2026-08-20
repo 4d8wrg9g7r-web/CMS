@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ExternalLink } from "lucide-react";
 
 /**
  * One item of the light sidebar (docs/design-system.md "Navigation"). Active
@@ -46,6 +47,7 @@ export function SidebarNavItem({
     >
       {!nested && <span className={isActive ? "text-accent" : "text-ink-muted"}>{icon}</span>}
       <span className={`flex-1 truncate ${isActive ? "" : "font-medium"}`}>{label}</span>
+      {newTab && <ExternalLink size={12} className="shrink-0 text-ink-muted" aria-label="Opens in a new tab" />}
       {typeof badge === "number" && badge > 0 && (
         <span className="rounded-full bg-black/[0.06] px-2 py-0.5 text-xs font-medium text-ink-secondary">{badge}</span>
       )}

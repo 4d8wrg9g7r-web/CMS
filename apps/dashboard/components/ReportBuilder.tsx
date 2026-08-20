@@ -590,7 +590,7 @@ export function ReportBuilder({
                 className="mt-1 block w-44"
               />
             </label>
-            <button onClick={save} disabled={!saveName.trim()} className={buttonClasses("secondary", "sm")}>
+            <button onClick={save} disabled={!saveName.trim()} className={buttonClasses(saveName.trim() ? "primary" : "secondary", "sm")}>
               <BookmarkPlus size={14} /> Save
             </button>
             <button onClick={() => window.print()} className={buttonClasses("secondary", "sm")}>

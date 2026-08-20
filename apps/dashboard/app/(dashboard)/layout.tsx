@@ -129,7 +129,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           icon={<SlidersHorizontal size={17} strokeWidth={1.75} />}
           childHrefs={["/attendance", "/serving", "/team", "/audit-log", "/developers"]}
         >
-          <SidebarNavItem nested href="/attendance" label="Check-ins and Attendance" icon={null} />
+          <SidebarNavItem nested href="/attendance" label="Check-ins" icon={null} />
           <SidebarNavItem nested href="/serving" label="Serving" icon={null} />
           <SidebarNavItem nested href="/team" label="Users" icon={null} />
           <SidebarNavItem nested href="/audit-log" label="Audit Log" icon={null} />

@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { MonitorCheck, Plus, Trash2 } from "lucide-react";
+import { MonitorCheck, Plus } from "lucide-react";
 import { Card } from "./ui/Card";
 import { Input, Select } from "./ui/Input";
 import { buttonClasses } from "./ui/Button";
 import { ActionForm, FieldError } from "./ui/ActionForm";
 import { ConfirmSubmitButton } from "./ui/ConfirmDialog";
+import { OverflowMenu } from "./ui/OverflowMenu";
+import { menuItemClasses } from "./ui/menu-classes";
 import { SubmitButton } from "./ui/SubmitButton";
 import { createKioskAction, deleteKioskAction, setKioskEnabledAction } from "../app/(dashboard)/attendance/actions";
 
@@ -52,10 +54,10 @@ export function KioskManagerCard({
                 Open kiosk
               </a>
               {canManage && (
-                <>
+                <OverflowMenu label={`Actions for ${k.name}`}>
                   <ActionForm action={setKioskEnabledAction.bind(null, k.id, !k.enabled)}>
-                    <button type="submit" className="text-xs text-accent hover:underline" data-action="toggle-kiosk">
-                      {k.enabled ? "Disable" : "Enable"}
+                    <button type="submit" role="menuitem" className={menuItemClasses()} data-action="toggle-kiosk">
+                      {k.enabled ? "Disable kiosk" : "Enable kiosk"}
                     </button>
                   </ActionForm>
                   <ActionForm action={deleteKioskAction.bind(null, k.id)}>
@@ -64,13 +66,13 @@ export function KioskManagerCard({
                       message="Its link stops working immediately — any device opened to it goes dark on the spot. If you just need it off for a while, Disable is reversible."
                       confirmLabel="Delete kiosk"
                       aria-label={`Delete ${k.name}`}
-                      className="p-0.5 text-ink-muted hover:text-danger"
+                      className={menuItemClasses("danger")}
                       data-action="delete-kiosk"
                     >
-                      <Trash2 size={13} />
+                      Delete kiosk…
                     </ConfirmSubmitButton>
                   </ActionForm>
-                </>
+                </OverflowMenu>
               )}
             </li>
           ))}

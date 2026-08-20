@@ -140,10 +140,15 @@ export default async function AttendancePage({
           <div>
             <div className="flex h-36 items-end gap-1">
               {buckets.map((bucket) => (
+                // Zero weeks render as a hairline in the border color, never as
+                // a data-colored bar — an empty quarter must not read as steady
+                // small attendance (UX audit #15).
                 <div
                   key={bucket.weekStart.toISOString()}
-                  className="group relative flex-1 rounded-t bg-accent/80 transition-colors hover:bg-accent"
-                  style={{ height: `${Math.max(2, Math.round((bucket.count / maxBucket) * 100))}%` }}
+                  className={`group relative flex-1 rounded-t transition-colors ${
+                    bucket.count === 0 ? "bg-border" : "bg-accent/80 hover:bg-accent"
+                  }`}
+                  style={{ height: bucket.count === 0 ? "2px" : `${Math.max(6, Math.round((bucket.count / maxBucket) * 100))}%` }}
                   title={`Week of ${bucket.weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}: ${bucket.count} check-in${bucket.count === 1 ? "" : "s"}`}
                 />
               ))}
@@ -151,6 +156,8 @@ export default async function AttendancePage({
             <div className="mt-1 flex justify-between text-[11px] text-ink-muted">
               <span>
                 {buckets[0]?.weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
+                {" · peak "}
+                {maxBucket}/wk
               </span>
               <span>
                 Week of{" "}
