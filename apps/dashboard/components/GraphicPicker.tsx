@@ -5,10 +5,11 @@ import { ImageIcon, Upload, X } from "lucide-react";
 import { buttonClasses } from "./ui/Button";
 import { useToast } from "./ui/Toast";
 import {
+  registerAndAttachGraphicAction,
   setEventImageAction,
   setSermonArtworkAction,
-  uploadAndAttachAction,
 } from "../app/(dashboard)/media/actions";
+import { uploadMediaFile } from "../lib/client-media-upload";
 
 /**
  * Graphic picker for one item (docs/domain/app.md "Media library"): shows the
@@ -53,16 +54,23 @@ export function GraphicPicker({
   const upload = (file: File) => {
     startTransition(async () => {
       try {
-        const fd = new FormData();
-        fd.set("file", file);
-        const result = await uploadAndAttachAction(target, fd);
+        // Browser → Blob storage directly (Vercel caps action bodies at
+        // ~4.5 MB), then the action just records + attaches the URL.
+        const collection = target.kind === "event" ? "event" : "sermon";
+        const url = await uploadMediaFile(collection, file);
+        const result = await registerAndAttachGraphicAction(target, {
+          url,
+          name: file.name,
+          contentType: file.type,
+          sizeBytes: file.size,
+        });
         if (!result.ok) {
           showToast(result.formError ?? "Upload failed", "error");
           return;
         }
         showToast(result.message ?? "Graphic uploaded to your media library", "success");
-      } catch {
-        showToast("Upload failed — please try again.", "error");
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Upload failed — please try again.", "error");
       }
     });
   };

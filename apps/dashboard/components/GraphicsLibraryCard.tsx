@@ -1,10 +1,9 @@
 import { Images, Trash2 } from "lucide-react";
 import { Card } from "./ui/Card";
-import { deleteMediaAssetAction, uploadMediaAssetAction } from "../app/(dashboard)/media/actions";
-import { ActionForm, FieldError } from "./ui/ActionForm";
+import { deleteMediaAssetAction } from "../app/(dashboard)/media/actions";
+import { ActionForm } from "./ui/ActionForm";
 import { ConfirmSubmitButton } from "./ui/ConfirmDialog";
-import { FilePicker } from "./ui/FilePicker";
-import { SubmitButton } from "./ui/SubmitButton";
+import { MediaUploadButton } from "./MediaUploadButton";
 
 /**
  * A module's own graphics shelf (docs/domain/app.md): sermon graphics live on
@@ -34,20 +33,12 @@ export function GraphicsLibraryCard({
           <p className="mt-0.5 text-xs text-ink-muted">{blurb}</p>
         </div>
         {canManage && (
-          <ActionForm action={uploadMediaAssetAction} resetOnSuccess className="flex items-start gap-2">
-            <input type="hidden" name="collection" value={collection} />
-            <span className="flex flex-col">
-              <FilePicker
-                label="Choose image"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                data-action={`upload-${collection}-graphic`}
-              />
-              <FieldError name="file" />
-            </span>
-            <SubmitButton size="sm" pendingLabel="Uploading…" data-action={`save-${collection}-graphic`}>
-              Upload
-            </SubmitButton>
-          </ActionForm>
+          <MediaUploadButton
+            collection={collection}
+            label="Upload image"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            data-action={`upload-${collection}-graphic`}
+          />
         )}
       </div>
 

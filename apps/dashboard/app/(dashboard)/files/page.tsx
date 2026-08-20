@@ -7,11 +7,10 @@ import { Input } from "../../../components/ui/Input";
 import { buttonClasses } from "../../../components/ui/Button";
 import { canApp } from "../../../lib/app-access";
 import { getCurrentOrganization } from "../../../lib/session";
-import { deleteMediaAssetAction, uploadMediaAssetAction } from "../media/actions";
-import { ActionForm, FieldError } from "../../../components/ui/ActionForm";
+import { deleteMediaAssetAction } from "../media/actions";
+import { ActionForm } from "../../../components/ui/ActionForm";
 import { ConfirmSubmitButton } from "../../../components/ui/ConfirmDialog";
-import { FilePicker } from "../../../components/ui/FilePicker";
-import { SubmitButton } from "../../../components/ui/SubmitButton";
+import { MediaUploadButton } from "../../../components/MediaUploadButton";
 
 function formatBytes(n: number): string {
   if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
@@ -73,16 +72,9 @@ export default async function FilesPage({ searchParams }: { searchParams: Promis
           </button>
         </form>
         {canManage && (
-          <ActionForm action={uploadMediaAssetAction} resetOnSuccess className="flex items-start gap-2" data-section="files-upload">
-            <input type="hidden" name="collection" value="library" />
-            <span className="flex flex-col">
-              <FilePicker label="Choose file" data-action="upload-file" />
-              <FieldError name="file" />
-            </span>
-            <SubmitButton size="sm" pendingLabel="Uploading…" data-action="save-file">
-              Upload
-            </SubmitButton>
-          </ActionForm>
+          <div data-section="files-upload">
+            <MediaUploadButton collection="library" label="Upload file" data-action="upload-file" />
+          </div>
         )}
       </div>
 
