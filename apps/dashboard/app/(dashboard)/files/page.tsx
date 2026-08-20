@@ -11,6 +11,7 @@ import { deleteMediaAssetAction } from "../media/actions";
 import { ActionForm } from "../../../components/ui/ActionForm";
 import { ConfirmSubmitButton } from "../../../components/ui/ConfirmDialog";
 import { MediaUploadButton } from "../../../components/MediaUploadButton";
+import { getUploadMode } from "../../../lib/upload-mode";
 
 function formatBytes(n: number): string {
   if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
@@ -73,7 +74,7 @@ export default async function FilesPage({ searchParams }: { searchParams: Promis
         </form>
         {canManage && (
           <div data-section="files-upload">
-            <MediaUploadButton collection="library" label="Upload file" data-action="upload-file" />
+            <MediaUploadButton collection="library" uploadMode={getUploadMode()} label="Upload file" data-action="upload-file" />
           </div>
         )}
       </div>

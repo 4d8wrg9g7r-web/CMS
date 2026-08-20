@@ -4,6 +4,7 @@ import { deleteMediaAssetAction } from "../app/(dashboard)/media/actions";
 import { ActionForm } from "./ui/ActionForm";
 import { ConfirmSubmitButton } from "./ui/ConfirmDialog";
 import { MediaUploadButton } from "./MediaUploadButton";
+import { getUploadMode } from "../lib/upload-mode";
 
 /**
  * A module's own graphics shelf (docs/domain/app.md): sermon graphics live on
@@ -35,6 +36,7 @@ export function GraphicsLibraryCard({
         {canManage && (
           <MediaUploadButton
             collection={collection}
+            uploadMode={getUploadMode()}
             label="Upload image"
             accept="image/png,image/jpeg,image/webp,image/gif"
             data-action={`upload-${collection}-graphic`}

@@ -5,6 +5,7 @@ import { ArrowLeft, CalendarClock, ExternalLink, Eye, EyeOff, MapPin, Trash2, Un
 import { checkinService, eventService, expandOccurrences, mediaService, personDisplayName, DEFAULT_TIMEZONE } from "@cms/database";
 import { campusService } from "@cms/database";
 import { GraphicPicker } from "../../../../components/GraphicPicker";
+import { getUploadMode } from "../../../../lib/upload-mode";
 import { Badge } from "../../../../components/ui/Badge";
 import { buttonClasses } from "../../../../components/ui/Button";
 import { Card } from "../../../../components/ui/Card";
@@ -289,6 +290,7 @@ export default async function EventDetailPage({
                 target={{ kind: "event", id: event.id }}
                 currentUrl={event.imageUrl}
                 assets={graphics.map((g) => ({ id: g.id, name: g.name, url: g.url }))}
+                uploadMode={getUploadMode()}
               />
             </Card>
 

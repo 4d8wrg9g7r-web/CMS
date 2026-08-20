@@ -17,11 +17,14 @@ export function SermonVideoCard({
   sermonId,
   videoFileUrl,
   audioPending,
+  uploadMode,
 }: {
   sermonId: string;
   videoFileUrl: string | null;
   /** An EXTRACT_AUDIO job is pending/running for this sermon. */
   audioPending: boolean;
+  /** Decided server-side (lib/upload-mode.ts): "blob" in production, "direct" in local dev. */
+  uploadMode: "blob" | "direct";
 }) {
   const { showToast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -31,22 +34,34 @@ export function SermonVideoCard({
     setProgress(0);
     try {
       const route = "/api/uploads/sermon-video";
-      const probe = (await (await fetch(route)).json()) as { mode?: string };
       let finalUrl: string;
-      if (probe.mode === "blob") {
-        const blob = await upload(`sermons/${sermonId}/${file.name}`, file, {
-          access: "public",
-          handleUploadUrl: route,
-          contentType: file.type,
-          onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
-        });
-        finalUrl = blob.url;
+      if (uploadMode === "blob") {
+        try {
+          const blob = await upload(`sermons/${sermonId}/${file.name}`, file, {
+            access: "public",
+            handleUploadUrl: route,
+            contentType: file.type,
+            onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
+          });
+          finalUrl = blob.url;
+        } catch (err) {
+          if (err instanceof SyntaxError) {
+            throw new Error("The storage service returned an unreadable response — please try again.");
+          }
+          throw err;
+        }
       } else {
         // Local dev (no Blob store): send the file body straight to the route.
         const fd = new FormData();
         fd.set("file", file);
         const res = await fetch(`${route}?dev=1`, { method: "POST", body: fd });
-        const data = (await res.json()) as { url?: string; error?: string };
+        const text = await res.text();
+        let data: { url?: string; error?: string } = {};
+        try {
+          data = JSON.parse(text) as { url?: string; error?: string };
+        } catch {
+          throw new Error(`Upload failed (HTTP ${res.status}) — please try again.`);
+        }
         if (!res.ok || !data.url) throw new Error(data.error ?? "Upload failed");
         finalUrl = data.url;
       }

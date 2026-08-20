@@ -9,7 +9,7 @@ import {
   setEventImageAction,
   setSermonArtworkAction,
 } from "../app/(dashboard)/media/actions";
-import { uploadMediaFile } from "../lib/client-media-upload";
+import { uploadMediaFile, type UploadMode } from "../lib/client-media-upload";
 
 /**
  * Graphic picker for one item (docs/domain/app.md "Media library"): shows the
@@ -20,11 +20,13 @@ export function GraphicPicker({
   target,
   currentUrl,
   assets,
+  uploadMode,
 }: {
   target: { kind: "event" | "sermon"; id: string };
   currentUrl: string | null;
   /** Library assets in this item's collection, newest first. */
   assets: { id: string; name: string; url: string }[];
+  uploadMode: UploadMode;
 }) {
   const { showToast } = useToast();
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -57,7 +59,7 @@ export function GraphicPicker({
         // Browser → Blob storage directly (Vercel caps action bodies at
         // ~4.5 MB), then the action just records + attaches the URL.
         const collection = target.kind === "event" ? "event" : "sermon";
-        const url = await uploadMediaFile(collection, file);
+        const url = await uploadMediaFile(collection, file, uploadMode);
         const result = await registerAndAttachGraphicAction(target, {
           url,
           name: file.name,

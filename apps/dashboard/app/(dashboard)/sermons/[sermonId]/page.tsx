@@ -5,6 +5,7 @@ import { mediaJobService, mediaService, parseSermonLinks, sermonService } from "
 import { Card } from "../../../../components/ui/Card";
 import { EmptyState } from "../../../../components/ui/EmptyState";
 import { GraphicPicker } from "../../../../components/GraphicPicker";
+import { getUploadMode } from "../../../../lib/upload-mode";
 import { SermonDetailEditor } from "../../../../components/SermonDetailEditor";
 import { SermonVideoCard } from "../../../../components/SermonVideoCard";
 import { buttonClasses } from "../../../../components/ui/Button";
@@ -100,6 +101,7 @@ export default async function SermonDetailPage({ params }: { params: Promise<{ s
                 target={{ kind: "sermon", id: sermon.id }}
                 currentUrl={sermon.artworkUrl}
                 assets={graphics.map((g) => ({ id: g.id, name: g.name, url: g.url }))}
+                uploadMode={getUploadMode()}
               />
             </Card>
           )}
@@ -110,6 +112,7 @@ export default async function SermonDetailPage({ params }: { params: Promise<{ s
                 sermonId={sermon.id}
                 videoFileUrl={sermon.videoFileUrl}
                 audioPending={!sermon.audioUrl && (mediaJob?.status === "PENDING" || mediaJob?.status === "RUNNING")}
+                uploadMode={getUploadMode()}
               />
             </Card>
           )}

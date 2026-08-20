@@ -5,7 +5,7 @@ import { Loader2, Upload } from "lucide-react";
 import type { MediaCollection } from "@cms/database";
 import { buttonClasses } from "./ui/Button";
 import { useToast } from "./ui/Toast";
-import { uploadMediaFile } from "../lib/client-media-upload";
+import { uploadMediaFile, type UploadMode } from "../lib/client-media-upload";
 import { registerMediaAssetAction } from "../app/(dashboard)/media/actions";
 
 /**
@@ -16,11 +16,13 @@ import { registerMediaAssetAction } from "../app/(dashboard)/media/actions";
  */
 export function MediaUploadButton({
   collection,
+  uploadMode,
   label = "Upload file",
   accept,
   "data-action": dataAction,
 }: {
   collection: MediaCollection;
+  uploadMode: UploadMode;
   label?: string;
   accept?: string;
   "data-action"?: string;
@@ -32,7 +34,7 @@ export function MediaUploadButton({
   const start = async (file: File) => {
     setProgress(0);
     try {
-      const url = await uploadMediaFile(collection, file, setProgress);
+      const url = await uploadMediaFile(collection, file, uploadMode, setProgress);
       const result = await registerMediaAssetAction(collection, {
         url,
         name: file.name,
