@@ -2,7 +2,7 @@ import { toDateTimeLocalValue } from "@cms/database";
 import { ActionForm, FieldError } from "./ui/ActionForm";
 import { SubmitButton } from "./ui/SubmitButton";
 import { Input, Select, Textarea } from "./ui/Input";
-import { RECURRENCE_OPTIONS } from "../lib/events-format";
+import { RecurrenceFields } from "./RecurrenceFields";
 import type { ActionResult } from "../lib/action-result";
 
 interface EventFormValues {
@@ -89,35 +89,11 @@ export function EventForm({
           ))}
         </Select>
       </label>
-      <label className="text-sm text-ink-secondary">
-        Repeats
-        <Select name="recurrence" defaultValue={event?.recurrence ?? "NONE"} className="mt-1">
-          {RECURRENCE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </Select>
-      </label>
-      <label className="text-sm text-ink-secondary">
-        Every N days/weeks/months
-        <Input
-          name="recurrenceInterval"
-          type="number"
-          min={1}
-          defaultValue={event?.recurrenceInterval ?? 1}
-          className="mt-1"
-        />
-      </label>
-      <label className="text-sm text-ink-secondary">
-        Repeats until <span className="text-ink-muted">(blank = no end)</span>
-        <Input
-          name="recurrenceUntil"
-          type="date"
-          defaultValue={event?.recurrenceUntil ? toDateTimeLocalValue(new Date(event.recurrenceUntil), timeZone).slice(0, 10) : ""}
-          className="mt-1"
-        />
-      </label>
+      <RecurrenceFields
+        recurrence={event?.recurrence ?? "NONE"}
+        interval={event?.recurrenceInterval ?? 1}
+        untilValue={event?.recurrenceUntil ? toDateTimeLocalValue(new Date(event.recurrenceUntil), timeZone).slice(0, 10) : ""}
+      />
       <label className="text-sm text-ink-secondary">
         Capacity <span className="text-ink-muted">(blank = unlimited)</span>
         <Input name="capacity" type="number" min={1} defaultValue={event?.capacity ?? ""} className="mt-1" />

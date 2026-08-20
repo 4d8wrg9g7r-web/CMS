@@ -182,6 +182,54 @@ async function setCampusCoordinatesAction(campusId: string, formData: FormData):
   return ok(coords.latitude === null ? "Coordinates cleared" : "Coordinates saved");
 }
 
+/**
+ * Fill coordinates from the street address the campus already has (UX audit
+ * #12 — church admins shouldn't have to be surveyors). OpenStreetMap's
+ * Nominatim, one result, best effort: failures degrade to the manual fields.
+ */
+async function geocodeCampusAction(campusId: string): Promise<ActionResult> {
+  "use server";
+  const organization = await getCurrentOrganization();
+  if (!organization) return { ok: false, formError: "No organization." };
+  await requireOrgRole(organization.id, ["OWNER", "ADMIN"]);
+
+  const campus = await campusService.getCampus(organization.id, campusId);
+  if (!campus) return { ok: false, formError: "That campus no longer exists." };
+  if (!campus.address) return { ok: false, formError: "Add a street address to this campus first." };
+
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(campus.address)}`,
+      { headers: { "User-Agent": "CMS-ChurchOS/1.0 (campus geocoding)" }, signal: AbortSignal.timeout(8000) },
+    );
+    if (!res.ok) throw new Error(`geocode ${res.status}`);
+    const hits = (await res.json()) as { lat: string; lon: string }[];
+    const hit = hits[0];
+    if (!hit) {
+      return { ok: false, formError: `No map match for "${campus.address}" — check the address or enter coordinates manually.` };
+    }
+    const latitude = Number.parseFloat(hit.lat);
+    const longitude = Number.parseFloat(hit.lon);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) throw new Error("bad geocode payload");
+    await campusService.updateCampus(organization.id, campusId, { latitude, longitude });
+
+    const user = await getCurrentUser();
+    await auditService.recordAuditEvent({
+      organizationId: organization.id,
+      actorUserId: user?.id,
+      action: "campus.updated",
+      targetType: "Campus",
+      targetId: campusId,
+      metadata: { geocoded: true },
+    });
+
+    revalidatePath("/settings");
+    return ok(`Pinned "${campus.name}" at ${latitude.toFixed(4)}, ${longitude.toFixed(4)} — check it on the map link`);
+  } catch {
+    return { ok: false, formError: "Couldn't reach the map service — try again, or enter coordinates manually." };
+  }
+}
+
 async function setCampusArchivedAction(campusId: string, archived: boolean): Promise<ActionResult> {
   "use server";
   const organization = await getCurrentOrganization();
@@ -397,6 +445,24 @@ export default async function SettingsPage({
                   {campus.address && <span className="ml-2 text-xs text-ink-muted">{campus.address}</span>}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  {!campus.archivedAt && campus.address && (
+                    <ActionForm action={geocodeCampusAction.bind(null, campus.id)}>
+                      <SubmitButton variant="ghost" size="sm" pendingLabel="Looking up…" data-action="geocode-campus">
+                        Use address
+                      </SubmitButton>
+                    </ActionForm>
+                  )}
+                  {campus.latitude !== null && campus.longitude !== null && (
+                    <a
+                      href={`https://www.openstreetmap.org/?mlat=${campus.latitude}&mlon=${campus.longitude}#map=16/${campus.latitude}/${campus.longitude}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-accent hover:underline"
+                      data-action="view-campus-map"
+                    >
+                      Map ↗
+                    </a>
+                  )}
                   {!campus.archivedAt && (
                     <ActionForm
                       action={setCampusCoordinatesAction.bind(null, campus.id)}

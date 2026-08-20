@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { MonitorCheck, Plus, Trash2 } from "lucide-react";
 import { Card } from "./ui/Card";
 import { Input, Select } from "./ui/Input";
@@ -28,11 +29,12 @@ export function KioskManagerCard({
         <MonitorCheck size={15} /> Check-in kiosks
       </h2>
       <p className="mb-4 text-xs text-ink-muted">
-        Pin a kiosk to a calendar and open its link on the check-in device — it shows that calendar&rsquo;s events for
-        today automatically. For silent Brother label printing, run Chrome with{" "}
-        <code className="rounded bg-surface-muted px-1">--kiosk --kiosk-printing</code>, set the QL printer as
-        default, and add <code className="rounded bg-surface-muted px-1">?autoprint=1</code> to the kiosk link; on
-        other devices a Print button appears instead.
+        Pin a kiosk to a calendar and open its link on the check-in device — today&rsquo;s events appear
+        automatically. Works with silent label printing on a Brother QL printer — see the{" "}
+        <Link href="/attendance/kiosk-setup" className="text-accent hover:underline" data-action="kiosk-setup-guide">
+          printer &amp; device setup guide
+        </Link>
+        .
       </p>
 
       {kiosks.length > 0 && (
