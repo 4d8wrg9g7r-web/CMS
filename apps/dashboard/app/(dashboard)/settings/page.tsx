@@ -124,6 +124,14 @@ async function createCampusAction(formData: FormData): Promise<ActionResult> {
     ...(name ? {} : { name: "Give the campus a name." }),
     ...(coords.valid ? {} : coords.fieldErrors),
   };
+  // Campuses feed every filter dropdown — two identical names make those
+  // filters unusable (UX audit #18).
+  if (name && !fieldErrors.name) {
+    const existing = await campusService.listCampuses(organization.id, { includeArchived: true });
+    if (existing.some((c) => c.name.trim().toLowerCase() === name.toLowerCase())) {
+      fieldErrors.name = `A campus named "${name}" already exists — give this one a distinguishing name.`;
+    }
+  }
   if (Object.keys(fieldErrors).length > 0) return invalid(fieldErrors);
   const address = String(formData.get("address") ?? "").trim() || null;
 

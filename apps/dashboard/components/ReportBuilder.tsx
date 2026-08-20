@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { BookmarkPlus, FileDown, Loader2, Mail, Pin, Sparkles, Trash2 } from "lucide-react";
 import { buttonClasses } from "./ui/Button";
+import { ConfirmActionButton } from "./ui/ConfirmDialog";
 import { Input, Select } from "./ui/Input";
 import { ReportBarChart, ReportLineChart, ReportRoundChart, ReportTable, type ChartSeries } from "./report-charts";
 import type { CompareMode, ReportChart, ReportMeasure, ReportSource } from "@cms/database";
@@ -311,8 +312,15 @@ export function ReportBuilder({
               >
                 <Pin size={13} fill={item.pinned ? "currentColor" : "none"} />
               </button>
-              <button
-                onClick={async () => {
+              <ConfirmActionButton
+                title={`Delete "${item.name}"?`}
+                message={
+                  item.pinned
+                    ? "This saved report disappears from the dashboard too. This can't be undone."
+                    : "The saved configuration is gone for everyone. This can't be undone."
+                }
+                confirmLabel="Delete report"
+                onConfirm={async () => {
                   await deleteSavedReportAction(item.id);
                   router.refresh();
                 }}
@@ -320,7 +328,7 @@ export function ReportBuilder({
                 className="pr-2 text-ink-muted hover:text-danger"
               >
                 <Trash2 size={13} />
-              </button>
+              </ConfirmActionButton>
             </span>
           ))}
         </div>

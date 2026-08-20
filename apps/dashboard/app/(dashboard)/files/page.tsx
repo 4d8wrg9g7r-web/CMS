@@ -8,6 +8,9 @@ import { buttonClasses } from "../../../components/ui/Button";
 import { canApp } from "../../../lib/app-access";
 import { getCurrentOrganization } from "../../../lib/session";
 import { deleteMediaAssetAction, uploadMediaAssetAction } from "../media/actions";
+import { ActionForm } from "../../../components/ui/ActionForm";
+import { ConfirmSubmitButton } from "../../../components/ui/ConfirmDialog";
+import { SubmitButton } from "../../../components/ui/SubmitButton";
 
 function formatBytes(n: number): string {
   if (n >= 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
@@ -69,16 +72,16 @@ export default async function FilesPage({ searchParams }: { searchParams: Promis
           </button>
         </form>
         {canManage && (
-          <form action={uploadMediaAssetAction} className="flex items-center gap-2" data-section="files-upload">
+          <ActionForm action={uploadMediaAssetAction} resetOnSuccess className="flex items-center gap-2" data-section="files-upload">
             <input type="hidden" name="collection" value="library" />
             <label className={buttonClasses("secondary", "sm") + " cursor-pointer"}>
               <Upload size={14} /> Choose file
               <input type="file" name="file" className="sr-only" data-action="upload-file" />
             </label>
-            <button type="submit" className={buttonClasses("primary", "sm")} data-action="save-file">
+            <SubmitButton size="sm" pendingLabel="Uploading…" data-action="save-file">
               Upload
-            </button>
-          </form>
+            </SubmitButton>
+          </ActionForm>
         )}
       </div>
 
@@ -113,11 +116,18 @@ export default async function FilesPage({ searchParams }: { searchParams: Promis
                 </div>
                 <CopyUrlButton url={asset.url} />
                 {canManage && (
-                  <form action={deleteMediaAssetAction.bind(null, asset.id)}>
-                    <button type="submit" aria-label={`Delete ${asset.name}`} className="p-1 text-ink-muted hover:text-danger" data-action="delete-file">
+                  <ActionForm action={deleteMediaAssetAction.bind(null, asset.id)}>
+                    <ConfirmSubmitButton
+                      title={`Delete "${asset.name}"?`}
+                      message="Anywhere this file is linked — newsletters, pages, posts — will stop loading it. This can't be undone."
+                      confirmLabel="Delete file"
+                      aria-label={`Delete ${asset.name}`}
+                      className="p-1 text-ink-muted hover:text-danger"
+                      data-action="delete-file"
+                    >
                       <Trash2 size={14} />
-                    </button>
-                  </form>
+                    </ConfirmSubmitButton>
+                  </ActionForm>
                 )}
               </li>
             ))}

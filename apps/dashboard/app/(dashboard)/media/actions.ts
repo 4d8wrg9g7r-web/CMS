@@ -8,6 +8,7 @@ import { auditService, eventService, isMediaCollection, mediaService, sermonServ
 import { getCurrentOrganization, getCurrentUser } from "../../../lib/session";
 import { requireApp } from "../../../lib/app-access";
 import { requireEvents } from "../../../lib/events-access";
+import { ok, type ActionResult } from "../../../lib/action-result";
 
 const IMAGE_MAX_BYTES = 10 * 1024 * 1024; // 10 MB — a graphic, not a photo archive
 const IMAGE_CONTENT_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
@@ -57,9 +58,9 @@ async function saveImage(organizationId: string, file: File, collection: MediaCo
   return absolutize(saved.url);
 }
 
-export async function uploadMediaAssetAction(formData: FormData): Promise<void> {
+export async function uploadMediaAssetAction(formData: FormData): Promise<ActionResult> {
   const organization = await getCurrentOrganization();
-  if (!organization) return;
+  if (!organization) return { ok: false, formError: "No organization." };
   const collection = formData.get("collection");
   if (!isMediaCollection(collection)) throw new Error("Unknown collection.");
   await requireCollectionManage(organization.id, collection);
@@ -87,13 +88,14 @@ export async function uploadMediaAssetAction(formData: FormData): Promise<void> 
   revalidatePath("/files");
   revalidatePath("/sermons");
   revalidatePath("/events");
+  return ok(`Uploaded "${asset.name}"`);
 }
 
-export async function deleteMediaAssetAction(assetId: string): Promise<void> {
+export async function deleteMediaAssetAction(assetId: string): Promise<ActionResult> {
   const organization = await getCurrentOrganization();
-  if (!organization) return;
+  if (!organization) return { ok: false, formError: "No organization." };
   const asset = await mediaService.getMediaAsset(organization.id, assetId);
-  if (!asset || !isMediaCollection(asset.collection)) return;
+  if (!asset || !isMediaCollection(asset.collection)) return { ok: false, formError: "That file is already gone." };
   await requireCollectionManage(organization.id, asset.collection);
 
   await mediaService.deleteMediaAsset(organization.id, assetId);
@@ -109,6 +111,7 @@ export async function deleteMediaAssetAction(assetId: string): Promise<void> {
   revalidatePath("/files");
   revalidatePath("/sermons");
   revalidatePath("/events");
+  return ok(`Deleted "${asset.name}"`);
 }
 
 // ---------------------------------------------------------------------------

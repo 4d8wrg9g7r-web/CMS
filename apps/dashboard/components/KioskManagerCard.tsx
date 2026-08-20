@@ -3,6 +3,7 @@ import { Card } from "./ui/Card";
 import { Input, Select } from "./ui/Input";
 import { buttonClasses } from "./ui/Button";
 import { ActionForm, FieldError } from "./ui/ActionForm";
+import { ConfirmSubmitButton } from "./ui/ConfirmDialog";
 import { SubmitButton } from "./ui/SubmitButton";
 import { createKioskAction, deleteKioskAction, setKioskEnabledAction } from "../app/(dashboard)/attendance/actions";
 
@@ -55,9 +56,16 @@ export function KioskManagerCard({
                     </button>
                   </ActionForm>
                   <ActionForm action={deleteKioskAction.bind(null, k.id)}>
-                    <button type="submit" aria-label={`Delete ${k.name}`} className="p-0.5 text-ink-muted hover:text-danger" data-action="delete-kiosk">
+                    <ConfirmSubmitButton
+                      title={`Delete "${k.name}"?`}
+                      message="Its link stops working immediately — any device opened to it goes dark on the spot. If you just need it off for a while, Disable is reversible."
+                      confirmLabel="Delete kiosk"
+                      aria-label={`Delete ${k.name}`}
+                      className="p-0.5 text-ink-muted hover:text-danger"
+                      data-action="delete-kiosk"
+                    >
                       <Trash2 size={13} />
-                    </button>
+                    </ConfirmSubmitButton>
                   </ActionForm>
                 </>
               )}

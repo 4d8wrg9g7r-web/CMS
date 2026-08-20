@@ -2,6 +2,9 @@ import { Images, Trash2, Upload } from "lucide-react";
 import { Card } from "./ui/Card";
 import { buttonClasses } from "./ui/Button";
 import { deleteMediaAssetAction, uploadMediaAssetAction } from "../app/(dashboard)/media/actions";
+import { ActionForm } from "./ui/ActionForm";
+import { ConfirmSubmitButton } from "./ui/ConfirmDialog";
+import { SubmitButton } from "./ui/SubmitButton";
 
 /**
  * A module's own graphics shelf (docs/domain/app.md): sermon graphics live on
@@ -31,7 +34,7 @@ export function GraphicsLibraryCard({
           <p className="mt-0.5 text-xs text-ink-muted">{blurb}</p>
         </div>
         {canManage && (
-          <form action={uploadMediaAssetAction} className="flex items-center gap-2">
+          <ActionForm action={uploadMediaAssetAction} resetOnSuccess className="flex items-center gap-2">
             <input type="hidden" name="collection" value={collection} />
             <label className={buttonClasses("secondary", "sm") + " cursor-pointer"}>
               <Upload size={14} /> Choose image
@@ -43,10 +46,10 @@ export function GraphicsLibraryCard({
                 data-action={`upload-${collection}-graphic`}
               />
             </label>
-            <button type="submit" className={buttonClasses("primary", "sm")} data-action={`save-${collection}-graphic`}>
+            <SubmitButton size="sm" pendingLabel="Uploading…" data-action={`save-${collection}-graphic`}>
               Upload
-            </button>
-          </form>
+            </SubmitButton>
+          </ActionForm>
         )}
       </div>
 
@@ -65,11 +68,17 @@ export function GraphicsLibraryCard({
                   {asset.name}
                 </p>
                 {canManage && (
-                  <form action={deleteMediaAssetAction.bind(null, asset.id)}>
-                    <button type="submit" aria-label={`Delete ${asset.name}`} className="p-0.5 text-ink-muted hover:text-danger">
+                  <ActionForm action={deleteMediaAssetAction.bind(null, asset.id)}>
+                    <ConfirmSubmitButton
+                      title={`Delete "${asset.name}"?`}
+                      message="Events or sermons using this graphic will lose their artwork. This can't be undone."
+                      confirmLabel="Delete graphic"
+                      aria-label={`Delete ${asset.name}`}
+                      className="p-0.5 text-ink-muted hover:text-danger"
+                    >
                       <Trash2 size={13} />
-                    </button>
-                  </form>
+                    </ConfirmSubmitButton>
+                  </ActionForm>
                 )}
               </div>
             </div>
