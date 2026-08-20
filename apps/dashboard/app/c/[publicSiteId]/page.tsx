@@ -23,6 +23,7 @@ export default async function PublicCalendarPage({
   if (!site) notFound();
 
   const { calendar: calendarId } = await searchParams;
+  const timeZone = await organizationService.getOrganizationTimezone(site.organizationId);
   const calendars = await eventService.listCalendars(site.organizationId);
   // Only calendars that actually have published events get a public chip.
   const allPublished = await eventService.listEvents(site.organizationId, { publishedOnly: true });
@@ -82,7 +83,7 @@ export default async function PublicCalendarPage({
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-ink">{event.title}</p>
-                      <p className="mt-0.5 text-sm text-ink-secondary">{formatEventDate(startAt, event.allDay)}</p>
+                      <p className="mt-0.5 text-sm text-ink-secondary">{formatEventDate(startAt, event.allDay, timeZone)}</p>
                       {event.location && (
                         <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-muted">
                           <MapPin size={12} /> {event.location}

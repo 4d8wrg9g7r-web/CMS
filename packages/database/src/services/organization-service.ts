@@ -61,3 +61,21 @@ export async function getOrganizationBySlug(slug: string) {
 export async function getOrganization(organizationId: string) {
   return rawDb.organization.findUnique({ where: { id: organizationId } });
 }
+
+/**
+ * Set the org's display timezone (UX audit #1). Organization is the tenant
+ * root itself, so this goes through rawDb like the other org-level lookups;
+ * callers gate on OWNER/ADMIN.
+ */
+export async function setOrganizationTimezone(organizationId: string, timezone: string) {
+  return rawDb.organization.update({ where: { id: organizationId }, data: { timezone } });
+}
+
+/** Org display timezone for public surfaces that only hold an organizationId. */
+export async function getOrganizationTimezone(organizationId: string): Promise<string> {
+  const organization = await rawDb.organization.findUnique({
+    where: { id: organizationId },
+    select: { timezone: true },
+  });
+  return organization?.timezone ?? "UTC";
+}

@@ -39,7 +39,7 @@ export async function deleteKiosk(organizationId: string, kioskId: string) {
 export async function resolveKiosk(publicKioskKey: string) {
   const kiosk = await rawDb.checkInKiosk.findUnique({
     where: { publicKioskKey },
-    include: { calendar: { select: { id: true, name: true, color: true } }, organization: { select: { id: true, name: true } } },
+    include: { calendar: { select: { id: true, name: true, color: true } }, organization: { select: { id: true, name: true, timezone: true } } },
   });
   if (!kiosk || !kiosk.enabled) return null;
   return kiosk;

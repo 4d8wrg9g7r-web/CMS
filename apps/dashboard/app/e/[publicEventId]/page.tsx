@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { CalendarDays, CheckCircle2, MapPin } from "lucide-react";
-import { auditService, eventService, expandOccurrences } from "@cms/database";
+import { auditService, eventService, expandOccurrences, organizationService } from "@cms/database";
 import { Card } from "../../../components/ui/Card";
 import { Input } from "../../../components/ui/Input";
 import { SubmitButton } from "../../../components/SubmitButton";
@@ -77,6 +77,7 @@ export default async function PublicEventPage({
   const sp = await searchParams;
   const event = await eventService.resolvePublicEvent(publicEventId);
   if (!event) notFound();
+  const timeZone = await organizationService.getOrganizationTimezone(event.organizationId);
 
   const now = new Date();
   const upcoming = expandOccurrences(event, now, new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000), 5);
@@ -98,7 +99,7 @@ export default async function PublicEventPage({
         <h1 className="mb-2 text-2xl font-semibold tracking-tight text-ink">{event.title}</h1>
         <p className="mb-1 flex items-center gap-1.5 text-sm text-ink-secondary">
           <CalendarDays size={15} className="text-ink-muted" />
-          {formatEventDate(event.startAt, event.allDay)}
+          {formatEventDate(event.startAt, event.allDay, timeZone)}
           {event.recurrence !== "NONE" && (
             <span className="text-ink-muted">· {recurrenceLabel(event.recurrence, event.recurrenceInterval)}</span>
           )}
@@ -115,7 +116,7 @@ export default async function PublicEventPage({
             <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">Upcoming dates</h2>
             <ul className="space-y-1 text-sm text-ink-secondary">
               {upcoming.map((occurrence) => (
-                <li key={occurrence.toISOString()}>{formatEventDate(occurrence, event.allDay)}</li>
+                <li key={occurrence.toISOString()}>{formatEventDate(occurrence, event.allDay, timeZone)}</li>
               ))}
             </ul>
           </Card>

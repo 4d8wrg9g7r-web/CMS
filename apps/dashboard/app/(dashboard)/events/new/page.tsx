@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { campusService, eventService } from "@cms/database";
+import { campusService, eventService, DEFAULT_TIMEZONE } from "@cms/database";
 import { Card } from "../../../../components/ui/Card";
 import { EventForm } from "../../../../components/EventForm";
 import { requireEvents } from "../../../../lib/events-access";
@@ -30,6 +30,7 @@ export default async function NewEventPage() {
           campuses={campuses.map((c) => ({ id: c.id, name: c.name }))}
           calendars={calendars.map((c) => ({ id: c.id, name: c.name }))}
           submitLabel="Create event"
+          timeZone={organization.timezone ?? DEFAULT_TIMEZONE}
         />
       </Card>
     </div>

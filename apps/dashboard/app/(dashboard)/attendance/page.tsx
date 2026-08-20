@@ -8,6 +8,8 @@ import {
   summarizeByEvent,
   weeklyBuckets,
   kioskService,
+  formatInTimeZone,
+  DEFAULT_TIMEZONE,
 } from "@cms/database";
 import { buttonClasses } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -30,6 +32,7 @@ export default async function AttendancePage({
   searchParams: Promise<{ range?: string; campus?: string }>;
 }) {
   const organization = await getCurrentOrganization();
+  const timeZone = organization?.timezone ?? DEFAULT_TIMEZONE;
   if (!organization) return null;
 
   // Aggregates-only surface: attendance.view (which ANALYTICS_VIEWER holds) is enough
@@ -188,7 +191,7 @@ export default async function AttendancePage({
                     <td className="px-5 py-3 text-ink-secondary">{summary.total}</td>
                     <td className="px-5 py-3 text-ink-secondary">{summary.averagePerOccurrence}</td>
                     <td className="px-5 py-3 text-ink-secondary">
-                      {summary.lastOccurrenceAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })} ·{" "}
+                      {formatInTimeZone(summary.lastOccurrenceAt, timeZone, { month: "short", day: "numeric" })} ·{" "}
                       {summary.lastOccurrenceCount} checked in
                     </td>
                   </tr>

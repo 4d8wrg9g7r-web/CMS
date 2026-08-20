@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, LogOut, UserCheck, X } from "lucide-react";
-import { checkinService, eventService, expandOccurrences, peopleService, personDisplayName } from "@cms/database";
+import { checkinService, eventService, expandOccurrences, peopleService, personDisplayName, formatTimeShort, DEFAULT_TIMEZONE } from "@cms/database";
 import { Badge } from "../../../../../components/ui/Badge";
 import { buttonClasses } from "../../../../../components/ui/Button";
 import { Card } from "../../../../../components/ui/Card";
@@ -31,6 +31,7 @@ export default async function CheckinPage({
   const { eventId } = await params;
   const event = await eventService.getEvent(organization.id, eventId);
   if (!event) notFound();
+  const timeZone = organization.timezone ?? DEFAULT_TIMEZONE;
 
   // Occurrence choices: recent past (checking in latecomers after the fact) + near future.
   const now = new Date();
@@ -68,7 +69,7 @@ export default async function CheckinPage({
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <h1 className="text-display text-[28px] leading-tight text-ink">Check-in</h1>
-        <Badge variant="info">{formatEventDate(occurrence, event.allDay)}</Badge>
+        <Badge variant="info">{formatEventDate(occurrence, event.allDay, timeZone)}</Badge>
         <Badge variant="success">{checkIns.length} checked in</Badge>
       </div>
 
@@ -80,7 +81,7 @@ export default async function CheckinPage({
               <Select name="occ" defaultValue={occurrenceIso} className="mt-1 w-72">
                 {occurrenceChoices.map((o) => (
                   <option key={o.toISOString()} value={o.toISOString()}>
-                    {formatEventDate(o, event.allDay)}
+                    {formatEventDate(o, event.allDay, timeZone)}
                   </option>
                 ))}
               </Select>
@@ -106,8 +107,8 @@ export default async function CheckinPage({
                       {personDisplayName(checkIn.person)}
                     </Link>
                     <span className="block text-xs text-ink-muted">
-                      In {new Date(checkIn.checkedInAt).toLocaleTimeString()}
-                      {checkIn.checkedOutAt && ` · out ${new Date(checkIn.checkedOutAt).toLocaleTimeString()}`}
+                      In {formatTimeShort(new Date(checkIn.checkedInAt), timeZone)}
+                      {checkIn.checkedOutAt && ` · out ${formatTimeShort(new Date(checkIn.checkedOutAt), timeZone)}`}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">

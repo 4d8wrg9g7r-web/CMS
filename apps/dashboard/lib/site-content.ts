@@ -1,4 +1,4 @@
-import { parseSermonLinks, eventService, groupService, nextOccurrence, sermonService, type SiteSection } from "@cms/database";
+import { parseSermonLinks, eventService, groupService, nextOccurrence, organizationService, sermonService, formatDateTimeShort, DEFAULT_TIMEZONE, type SiteSection } from "@cms/database";
 
 /**
  * Live data for the website's dynamic sections (docs/domain/website.md).
@@ -25,6 +25,7 @@ export interface SiteLiveContent {
 }
 
 export async function buildSiteLiveContent(organizationId: string, sections: SiteSection[]): Promise<SiteLiveContent> {
+  const timeZone = (await organizationService.getOrganizationTimezone(organizationId)) ?? DEFAULT_TIMEZONE;
   const kinds = new Set(sections.map((s) => s.kind));
   const [events, sermons, groups] = await Promise.all([
     kinds.has("events") ? eventService.listEvents(organizationId) : Promise.resolve([]),
@@ -42,7 +43,7 @@ export async function buildSiteLiveContent(organizationId: string, sections: Sit
     events: upcoming.map(({ event, next }) => ({
       id: event.id,
       title: event.title,
-      when: next.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+      when: formatDateTimeShort(next, timeZone),
       location: event.location ?? null,
       imageUrl: event.imageUrl ?? null,
     })),
@@ -51,7 +52,7 @@ export async function buildSiteLiveContent(organizationId: string, sections: Sit
       title: sermon.title,
       speaker: sermon.speaker,
       series: sermon.series,
-      when: sermon.preachedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      when: sermon.preachedAt.toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" }),
       videoUrl: sermon.videoUrl,
       videoFileUrl: sermon.videoFileUrl,
       audioUrl: sermon.audioUrl,

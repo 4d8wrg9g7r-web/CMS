@@ -1,4 +1,4 @@
-import { parseSermonLinks, appPageService, eventService, formService, groupService, sermonService, nextOccurrence } from "@cms/database";
+import { parseSermonLinks, appPageService, eventService, formService, groupService, sermonService, organizationService, nextOccurrence, formatDateTimeShort, DEFAULT_TIMEZONE } from "@cms/database";
 import type { AppContent } from "../components/church-app/AppScreen";
 
 /**
@@ -8,6 +8,7 @@ import type { AppContent } from "../components/church-app/AppScreen";
  * forms, the event calendar, and the sermon library. No person data.
  */
 export async function buildAppContent(organizationId: string): Promise<AppContent> {
+  const timeZone = (await organizationService.getOrganizationTimezone(organizationId)) ?? DEFAULT_TIMEZONE;
   const [events, sermons, groups, forms, pages] = await Promise.all([
     eventService.listEvents(organizationId),
     sermonService.listSermons(organizationId, { take: 20 }),
@@ -27,13 +28,7 @@ export async function buildAppContent(organizationId: string): Promise<AppConten
     events: upcoming.map(({ event, next }) => ({
       id: event.id,
       title: event.title,
-      when: next.toLocaleString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      }),
+      when: formatDateTimeShort(next, timeZone),
       location: event.location ?? null,
       imageUrl: event.imageUrl ?? null,
       occurrenceAt: next.toISOString(),
@@ -49,7 +44,7 @@ export async function buildAppContent(organizationId: string): Promise<AppConten
       speaker: sermon.speaker,
       series: sermon.series,
       passage: sermon.passage,
-      when: sermon.preachedAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      when: sermon.preachedAt.toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" }),
       videoUrl: sermon.videoUrl,
       videoFileUrl: sermon.videoFileUrl,
       audioUrl: sermon.audioUrl,

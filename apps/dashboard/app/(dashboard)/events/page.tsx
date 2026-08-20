@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { CalendarDays, ExternalLink, Lock, MapPin, Plus } from "lucide-react";
-import { campusService, eventService, mediaService, nextOccurrence } from "@cms/database";
+import { campusService, eventService, mediaService, nextOccurrence, formatInTimeZone, formatTimeShort, DEFAULT_TIMEZONE } from "@cms/database";
 import { Badge } from "../../../components/ui/Badge";
 import { buttonClasses } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
@@ -32,6 +32,7 @@ export default async function EventsPage({
 }) {
   const organization = await getCurrentOrganization();
   if (!organization) return null;
+  const timeZone = organization?.timezone ?? DEFAULT_TIMEZONE;
 
   const [canView, canManage] = await Promise.all([
     canEvents(organization.id, "event.view"),
@@ -207,15 +208,15 @@ export default async function EventsPage({
                     className="flex min-h-[76px] items-center gap-5 px-5 py-3.5 transition-colors duration-180 hover:bg-surface-muted"
                   >
                     <div className="w-12 shrink-0 text-center">
-                      <p className="text-[11px] font-bold uppercase tracking-wide text-accent">{MONTH[when.getMonth()]}</p>
-                      <p className="text-metric text-2xl leading-tight text-ink">{when.getDate()}</p>
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-accent">{formatInTimeZone(when, timeZone, { month: "short" }).toUpperCase()}</p>
+                      <p className="text-metric text-2xl leading-tight text-ink">{formatInTimeZone(when, timeZone, { day: "numeric" })}</p>
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[15px] font-semibold text-ink">{event.title}</p>
                       <p className="truncate text-sm text-ink-muted">
                         {event.allDay
                           ? "All day"
-                          : when.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                          : formatTimeShort(when, timeZone)}
                         {event.recurrence !== "NONE" && ` · ${recurrenceLabel(event.recurrence, event.recurrenceInterval)}`}
                         {event.location && (
                           <span className="inline-flex items-center gap-1">

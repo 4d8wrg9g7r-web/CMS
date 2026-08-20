@@ -77,7 +77,7 @@ export default async function SermonsPage() {
                     <td className="px-5 py-3 text-ink-secondary">{sermon.speaker ?? "—"}</td>
                     <td className="px-5 py-3 text-ink-secondary">{sermon.series ?? "—"}</td>
                     <td className="px-5 py-3 text-ink-secondary">
-                      {sermon.preachedAt.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                      {sermon.preachedAt.toLocaleDateString("en-US", { timeZone: "UTC", year: "numeric", month: "short", day: "numeric" })}
                     </td>
                     <td className="px-5 py-3">
                       {sermon.videoUrl ? (

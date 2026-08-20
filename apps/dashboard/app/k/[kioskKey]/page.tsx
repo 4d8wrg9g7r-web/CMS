@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { eventService, expandOccurrences, kioskService } from "@cms/database";
+import { eventService, expandOccurrences, kioskService, dayRangeInTimeZone, formatTimeShort, DEFAULT_TIMEZONE } from "@cms/database";
 import { KioskScreen } from "../../../components/kiosk/KioskScreen";
 
 export const dynamic = "force-dynamic";
@@ -17,9 +17,9 @@ export default async function KioskPage({ params }: { params: Promise<{ kioskKey
   const events = await eventService.listEvents(kiosk.organizationId, {
     calendarId: kiosk.calendarId ?? undefined,
   });
-  const dayStart = new Date();
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(dayStart.getTime() + 24 * 3600 * 1000);
+  // "Today" is the church's calendar day, not the server's (UX audit #1).
+  const timeZone = kiosk.organization.timezone ?? DEFAULT_TIMEZONE;
+  const { start: dayStart, end: dayEnd } = dayRangeInTimeZone(timeZone);
   const today = events
     .flatMap((event) => expandOccurrences(event, dayStart, dayEnd, 4).map((occ) => ({ event, occ })))
     .sort((a, b) => a.occ.getTime() - b.occ.getTime())
@@ -27,7 +27,7 @@ export default async function KioskPage({ params }: { params: Promise<{ kioskKey
       id: event.id,
       title: event.title,
       occurrenceAt: occ.toISOString(),
-      timeLabel: occ.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
+      timeLabel: formatTimeShort(occ, timeZone),
     }));
 
   return (

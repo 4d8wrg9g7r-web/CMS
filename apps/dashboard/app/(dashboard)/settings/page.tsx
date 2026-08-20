@@ -2,16 +2,17 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { auditService, campusService, organizationService, peopleService, userService, PERSON_FIELD_TYPES, type PersonFieldType } from "@cms/database";
+import { auditService, campusService, organizationService, peopleService, userService, PERSON_FIELD_TYPES, COMMON_TIMEZONES, DEFAULT_TIMEZONE, type PersonFieldType } from "@cms/database";
 import { unstable_update } from "../../../auth";
 import { AccountForm } from "../../../components/AccountForm";
 import { Card } from "../../../components/ui/Card";
 import { buttonClasses } from "../../../components/ui/Button";
-import { Input } from "../../../components/ui/Input";
+import { Input, Select } from "../../../components/ui/Input";
 import { ActionForm, FieldError } from "../../../components/ui/ActionForm";
 import { SubmitButton } from "../../../components/ui/SubmitButton";
 import { getCurrentOrganization, getCurrentUser, requireCurrentUser, requireOrgRole } from "../../../lib/session";
 import { invalid, ok, type ActionResult } from "../../../lib/action-result";
+import { setOrganizationTimezoneAction } from "../timezone-actions";
 
 const accountNameSchema = z.string().trim().min(1, "Name is required.").max(120);
 const accountEmailSchema = z.string().trim().toLowerCase().email("Enter a valid email address.");
@@ -314,6 +315,32 @@ export default async function SettingsPage({
           <dt className="text-ink-muted">Group finder</dt>
           <dd className="break-all text-ink">{`${appOrigin}/g/${org?.publicSiteId}`}</dd>
         </dl>
+      </Card>
+
+      <Card padding="md" className="mb-6" data-section="timezone">
+        <h2 className="mb-1 text-sm font-semibold text-ink">Timezone</h2>
+        <p className="mb-4 text-sm text-ink-secondary">
+          Every time in CMS — events, check-ins, the church app, public pages — renders in this timezone.
+        </p>
+        <ActionForm action={setOrganizationTimezoneAction} className="flex flex-wrap items-start gap-2">
+          <span className="flex flex-col">
+            <Select name="timezone" defaultValue={org?.timezone ?? ""} className="w-64" aria-label="Timezone">
+              {!org?.timezone && <option value="">UTC (not set)</option>}
+              {org?.timezone && !COMMON_TIMEZONES.includes(org.timezone as (typeof COMMON_TIMEZONES)[number]) && (
+                <option value={org.timezone}>{org.timezone.replaceAll("_", " ")}</option>
+              )}
+              {COMMON_TIMEZONES.map((tz) => (
+                <option key={tz} value={tz}>
+                  {tz.replaceAll("_", " ")}
+                </option>
+              ))}
+            </Select>
+            <FieldError name="timezone" />
+          </span>
+          <SubmitButton size="sm" pendingLabel="Saving…">
+            Save timezone
+          </SubmitButton>
+        </ActionForm>
       </Card>
 
       <Card padding="md" className="mb-6">

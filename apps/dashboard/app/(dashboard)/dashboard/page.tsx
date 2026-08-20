@@ -8,6 +8,8 @@ import {
   reportingService,
   auditService,
   type MembershipStatus,
+  formatTimeShort,
+  DEFAULT_TIMEZONE,
 } from "@cms/database";
 import { runReportAction } from "../reports/actions";
 import { PinnedReportCard } from "../../../components/PinnedReportCard";
@@ -18,6 +20,7 @@ import { canGiving } from "../../../lib/giving-access";
 import { MetricCard } from "../../../components/ui/MetricCard";
 import { Card } from "../../../components/ui/Card";
 import { auditActionLabel, greetingForHour, timeAgo } from "../../../lib/format";
+import { hourInTimeZone } from "../../../lib/org-time";
 import { getCurrentOrganization, getCurrentUser } from "../../../lib/session";
 
 /**
@@ -48,6 +51,7 @@ const WEEKDAY = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
 export default async function HomePage() {
   const organization = await getCurrentOrganization();
+  const timeZone = organization?.timezone ?? DEFAULT_TIMEZONE;
   const user = await getCurrentUser();
   if (!organization) return null;
 
@@ -161,7 +165,7 @@ export default async function HomePage() {
     <div className="mx-auto max-w-5xl">
       <div className="mb-10 pt-2">
         <h1 className="text-display text-[34px] leading-tight text-ink">
-          {greetingForHour(new Date().getHours())}, {firstName}.
+          {greetingForHour(hourInTimeZone(new Date(), timeZone))}, {firstName}.
         </h1>
         <p className="mt-1.5 text-[15px] text-ink-secondary">Here&rsquo;s what&rsquo;s happening at {organization.name}.</p>
       </div>
@@ -221,7 +225,7 @@ export default async function HomePage() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[15px] font-medium text-ink">{item.title}</p>
                       <p className="truncate text-sm text-ink-muted">
-                        {item.when.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                        {formatTimeShort(item.when, timeZone)}
                         {item.location ? ` · ${item.location}` : ""}
                       </p>
                     </div>

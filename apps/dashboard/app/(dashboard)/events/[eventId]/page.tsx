@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { ArrowLeft, CalendarClock, ExternalLink, Eye, EyeOff, MapPin, Trash2, Undo2, UserCheck } from "lucide-react";
-import { checkinService, eventService, expandOccurrences, mediaService, personDisplayName } from "@cms/database";
+import { checkinService, eventService, expandOccurrences, mediaService, personDisplayName, DEFAULT_TIMEZONE } from "@cms/database";
 import { campusService } from "@cms/database";
 import { GraphicPicker } from "../../../../components/GraphicPicker";
 import { Badge } from "../../../../components/ui/Badge";
@@ -47,6 +47,7 @@ export default async function EventDetailPage({
   const { tab: rawTab } = await searchParams;
   const event = await eventService.getEvent(organization.id, eventId);
   if (!event) notFound();
+  const timeZone = organization.timezone ?? DEFAULT_TIMEZONE;
 
   const requested: Tab = (["registrations", "attendance", "settings"] as const).includes(rawTab as Tab)
     ? (rawTab as Tab)
@@ -111,7 +112,7 @@ export default async function EventDetailPage({
           <p className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-ink-secondary">
             <span className="inline-flex items-center gap-1.5">
               <CalendarClock size={15} className="text-ink-muted" />
-              {next ? formatEventDate(next, event.allDay) : "No upcoming occurrences"}
+              {next ? formatEventDate(next, event.allDay, timeZone) : "No upcoming occurrences"}
             </span>
             {event.location && (
               <span className="inline-flex items-center gap-1.5">
@@ -152,7 +153,7 @@ export default async function EventDetailPage({
           <p className="text-[13px] font-medium text-ink-secondary">Last attendance</p>
           <p className="text-metric mt-1.5 text-[28px] leading-none text-ink">{lastAttendance ? lastAttendance.count : "—"}</p>
           <p className="mt-2 text-xs text-ink-muted">
-            {lastAttendance ? formatEventDate(lastAttendance.occurrenceAt, event.allDay) : "No check-ins yet"}
+            {lastAttendance ? formatEventDate(lastAttendance.occurrenceAt, event.allDay, timeZone) : "No check-ins yet"}
           </p>
         </Card>
         <Card padding="md" className="col-span-2 lg:col-span-1">
@@ -162,7 +163,7 @@ export default async function EventDetailPage({
           ) : (
             <ul className="mt-2 space-y-1 text-sm text-ink-secondary">
               {upcoming.slice(0, 3).map((occurrence) => (
-                <li key={occurrence.toISOString()}>{formatEventDate(occurrence, event.allDay)}</li>
+                <li key={occurrence.toISOString()}>{formatEventDate(occurrence, event.allDay, timeZone)}</li>
               ))}
             </ul>
           )}
@@ -222,7 +223,7 @@ export default async function EventDetailPage({
             <ul className="divide-y divide-border text-sm">
               {attendanceHistory.map((occurrence) => (
                 <li key={occurrence.occurrenceAt.toISOString()} className="flex items-center justify-between gap-2 py-2">
-                  <span className="text-ink-secondary">{formatEventDate(occurrence.occurrenceAt, event.allDay)}</span>
+                  <span className="text-ink-secondary">{formatEventDate(occurrence.occurrenceAt, event.allDay, timeZone)}</span>
                   <span className="text-metric text-lg text-ink">{occurrence.count}</span>
                 </li>
               ))}
@@ -236,6 +237,7 @@ export default async function EventDetailPage({
           <Card padding="md" className="lg:col-span-2">
             <h2 className="mb-4 text-sm font-semibold text-ink">Details</h2>
             <EventForm
+              timeZone={timeZone}
               action={updateEventAction.bind(null, event.id)}
               event={event}
               campuses={campuses.map((c) => ({ id: c.id, name: c.name }))}

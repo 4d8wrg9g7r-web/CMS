@@ -1,3 +1,4 @@
+import { toDateTimeLocalValue } from "@cms/database";
 import { ActionForm, FieldError } from "./ui/ActionForm";
 import { SubmitButton } from "./ui/SubmitButton";
 import { Input, Select, Textarea } from "./ui/Input";
@@ -20,16 +21,10 @@ interface EventFormValues {
   allowAppCheckIn?: boolean;
 }
 
-function toLocalInput(date: Date | null | undefined): string {
-  if (!date) return "";
-  // datetime-local wants "YYYY-MM-DDTHH:mm" without timezone; render the stored UTC
-  // instant's ISO prefix (server-locale display is a documented platform follow-up).
-  return new Date(date).toISOString().slice(0, 16);
-}
-
 /**
  * Shared create/edit form for an Event. Server-rendered <form> bound to a server action,
- * same pattern as PersonForm/GroupForm.
+ * same pattern as PersonForm/GroupForm. Date-times render and parse in the org's
+ * timezone (UX audit #1) — what staff types is the wall clock at their church.
  */
 export function EventForm({
   action,
@@ -37,13 +32,17 @@ export function EventForm({
   campuses,
   calendars = [],
   submitLabel,
+  timeZone,
 }: {
   action: (formData: FormData) => Promise<ActionResult>;
   event?: EventFormValues;
   campuses: { id: string; name: string }[];
   calendars?: { id: string; name: string }[];
   submitLabel: string;
+  timeZone: string;
 }) {
+  const toLocalInput = (date: Date | null | undefined): string =>
+    date ? toDateTimeLocalValue(new Date(date), timeZone) : "";
   return (
     <ActionForm action={action} className="grid gap-4 sm:grid-cols-2">
       <label className="text-sm text-ink-secondary sm:col-span-2">
@@ -115,7 +114,7 @@ export function EventForm({
         <Input
           name="recurrenceUntil"
           type="date"
-          defaultValue={event?.recurrenceUntil ? new Date(event.recurrenceUntil).toISOString().slice(0, 10) : ""}
+          defaultValue={event?.recurrenceUntil ? toDateTimeLocalValue(new Date(event.recurrenceUntil), timeZone).slice(0, 10) : ""}
           className="mt-1"
         />
       </label>

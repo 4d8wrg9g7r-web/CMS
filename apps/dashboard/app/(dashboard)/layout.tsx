@@ -20,6 +20,8 @@ import { DashboardShell } from "../../components/DashboardShell";
 import { SidebarNavGroup } from "../../components/ui/SidebarNavGroup";
 import { SidebarNavItem } from "../../components/ui/SidebarNavItem";
 import { ToastProvider } from "../../components/ui/Toast";
+import { TimezoneBanner } from "../../components/TimezoneBanner";
+import { setOrganizationTimezoneAction } from "./timezone-actions";
 import { signOut } from "../../auth";
 import { inboxService } from "@cms/database";
 import { getCurrentOrganization, getCurrentUser } from "../../lib/session";
@@ -165,7 +167,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <ToastProvider>
-      <DashboardShell sidebar={sidebar}>{children}</DashboardShell>
+      <DashboardShell sidebar={sidebar}>
+        {!organization.timezone && <TimezoneBanner action={setOrganizationTimezoneAction} />}
+        {children}
+      </DashboardShell>
     </ToastProvider>
   );
 }

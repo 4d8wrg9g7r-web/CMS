@@ -1,7 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auditService, eventService, type EventRecurrence } from "@cms/database";
+import {
+  auditService,
+  eventService,
+  endOfDayInTimeZone,
+  parseDateTimeLocalValue,
+  DEFAULT_TIMEZONE,
+  type EventRecurrence,
+} from "@cms/database";
 import { getCurrentOrganization, getCurrentUser } from "../../../lib/session";
 import { requireEvents } from "../../../lib/events-access";
 import { invalid, ok, type ActionResult } from "../../../lib/action-result";
@@ -33,33 +40,29 @@ async function audit(organizationId: string, action: string, eventId: string, me
   });
 }
 
-function eventFieldErrors(formData: FormData): Record<string, string> {
+function eventFieldErrors(formData: FormData, timeZone: string): Record<string, string> {
   const errors: Record<string, string> = {};
   if (!str(formData, "title")) errors.title = "Give the event a title.";
-  const startRaw = str(formData, "startAt");
-  if (!startRaw || Number.isNaN(new Date(startRaw).getTime())) errors.startAt = "Pick a start date and time.";
+  if (!parseDateTimeLocalValue(str(formData, "startAt"), timeZone)) errors.startAt = "Pick a start date and time.";
   return errors;
 }
 
-function readEventInput(formData: FormData) {
-  const startRaw = str(formData, "startAt");
-  const endRaw = str(formData, "endAt");
+/** Form wall-clock values are in the org's timezone (UX audit #1). */
+function readEventInput(formData: FormData, timeZone: string) {
   const untilRaw = str(formData, "recurrenceUntil");
   const capacityRaw = Number.parseInt(str(formData, "capacity"), 10);
   const intervalRaw = Number.parseInt(str(formData, "recurrenceInterval"), 10);
-
-  const startAt = new Date(startRaw);
 
   return {
     title: str(formData, "title"),
     description: str(formData, "description") || null,
     location: str(formData, "location") || null,
-    startAt,
-    endAt: endRaw && !Number.isNaN(new Date(endRaw).getTime()) ? new Date(endRaw) : null,
+    startAt: parseDateTimeLocalValue(str(formData, "startAt"), timeZone)!,
+    endAt: parseDateTimeLocalValue(str(formData, "endAt"), timeZone),
     allDay: formData.get("allDay") === "on",
     recurrence: (str(formData, "recurrence") || "NONE") as EventRecurrence,
     recurrenceInterval: Number.isFinite(intervalRaw) && intervalRaw > 0 ? intervalRaw : 1,
-    recurrenceUntil: untilRaw ? new Date(`${untilRaw}T23:59:59Z`) : null,
+    recurrenceUntil: untilRaw ? endOfDayInTimeZone(untilRaw, timeZone) : null,
     capacity: Number.isFinite(capacityRaw) && capacityRaw > 0 ? capacityRaw : null,
     campusId: str(formData, "campusId") || null,
     calendarId: str(formData, "calendarId") || null,
@@ -71,10 +74,11 @@ export async function createEventAction(formData: FormData): Promise<ActionResul
   const organization = await requireOrg();
   await requireEvents(organization.id, "event.manage");
 
-  const errors = eventFieldErrors(formData);
+  const timeZone = organization.timezone ?? DEFAULT_TIMEZONE;
+  const errors = eventFieldErrors(formData, timeZone);
   if (Object.keys(errors).length > 0) return invalid(errors);
 
-  const event = await eventService.createEvent(organization.id, readEventInput(formData));
+  const event = await eventService.createEvent(organization.id, readEventInput(formData, timeZone));
   await audit(organization.id, "event.created", event.id, { title: event.title });
   revalidatePath("/events");
   return ok("Event created", `/events/${event.id}`);
@@ -84,10 +88,11 @@ export async function updateEventAction(eventId: string, formData: FormData): Pr
   const organization = await requireOrg();
   await requireEvents(organization.id, "event.manage");
 
-  const errors = eventFieldErrors(formData);
+  const timeZone = organization.timezone ?? DEFAULT_TIMEZONE;
+  const errors = eventFieldErrors(formData, timeZone);
   if (Object.keys(errors).length > 0) return invalid(errors);
 
-  const updated = await eventService.updateEvent(organization.id, eventId, readEventInput(formData));
+  const updated = await eventService.updateEvent(organization.id, eventId, readEventInput(formData, timeZone));
   if (!updated) return { ok: false, formError: "This event no longer exists." };
   await audit(organization.id, "event.updated", eventId);
   revalidatePath(`/events/${eventId}`);

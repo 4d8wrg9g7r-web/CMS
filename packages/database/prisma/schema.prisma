@@ -68,6 +68,8 @@ model Organization {
   id           String   @id @default(cuid())
   name         String
   slug         String   @unique
+  // IANA timezone all org-facing times render in (null until staff sets it; UTC fallback).
+  timezone     String?
   // Public URL key for org-level public surfaces: /c/<id> (events calendar) and
   // /g/<id> (group finder). Same bootstrapping boundary as forms/events publicIds.
   publicSiteId String   @unique @default(cuid())

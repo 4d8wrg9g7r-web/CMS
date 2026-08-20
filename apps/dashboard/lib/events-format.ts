@@ -13,10 +13,12 @@ export function recurrenceLabel(recurrence: EventRecurrence, interval: number): 
   return interval > 1 ? `Every ${interval} ${unit}s` : `Every ${unit}`;
 }
 
-export function formatEventDate(date: Date, allDay: boolean): string {
+/** Renders in the org's timezone — never the server's (UX audit #1). */
+export function formatEventDate(date: Date, allDay: boolean, timeZone: string): string {
   return allDay
-    ? date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" })
-    : date.toLocaleString(undefined, {
+    ? date.toLocaleDateString("en-US", { timeZone, weekday: "short", month: "short", day: "numeric", year: "numeric" })
+    : date.toLocaleString("en-US", {
+        timeZone,
         weekday: "short",
         month: "short",
         day: "numeric",
