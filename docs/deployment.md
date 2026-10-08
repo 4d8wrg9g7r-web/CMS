@@ -40,12 +40,16 @@ Workflows, queued messages, and webhook deliveries drain opportunistically after
 requests, but a scheduler must hit `GET /api/cron/outbox` with
 `Authorization: Bearer $CRON_SECRET` as the durable backstop:
 
-- **Vercel Pro**: the `*/5 * * * *` cron in `vercel.json` just works — Vercel sends
+- **Vercel Pro**: the `*/15 * * * *` cron in `vercel.json` just works — Vercel sends
   the `CRON_SECRET` env var as the Bearer token automatically.
 - **Vercel Hobby**: crons only fire **once per day**. Use the included GitHub Actions
   workflow (`.github/workflows/outbox-cron.yml`) instead: add repo secrets
   `CRON_URL` (`https://<your-domain>/api/cron/outbox`) and `CRON_SECRET`, and it
-  pings every 5 minutes. (Until secrets are set it no-ops.)
+  pings every 15 minutes. (Until secrets are set it no-ops.)
+
+The backstop runs every 15 minutes rather than 5 so the Neon compute can scale to zero
+between ticks (Neon suspends after 5 idle minutes, so a 5-minute cron kept it awake 24/7).
+A workflow WAIT timer or retry can therefore run up to 15 minutes after it falls due.
 
 Sanity check after deploy:
 

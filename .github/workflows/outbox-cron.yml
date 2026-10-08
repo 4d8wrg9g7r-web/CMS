@@ -1,6 +1,6 @@
 # Vendor-neutral scheduler for the outbox drain (docs/domain/outbox.md). Vercel Cron
 # on the Hobby plan only fires daily; this workflow pings /api/cron/outbox every
-# 5 minutes instead. No-ops (and stays green) until the CRON_URL and CRON_SECRET
+# 15 minutes instead. No-ops (and stays green) until the CRON_URL and CRON_SECRET
 # repository secrets are configured — see docs/deployment.md.
 #
 # GitHub schedule timing is best-effort (can lag several minutes under load); the
@@ -10,7 +10,7 @@ name: Outbox cron
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch: {}
 
 jobs:
